@@ -188,19 +188,37 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         parties = [...jsonParties, ...hiveParties];
         parties = parties.toSet().toList(); // Remove duplicates
 
-        // Combine ofTypes
-        final jsonOfTypes = jsonData['ofTypes'] != null
-            ? List<String>.from(jsonData['ofTypes'])
-            : [];
-        final hiveOfTypes = hiveData['ofTypes'] != null
-            ? List<String>.from(hiveData['ofTypes'])
-            : [];
-        final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
-            ? List<String>.from(hiveData['textileOFTypes'])
-            : [];
-        ofTypes = [...jsonOfTypes, ...hiveOfTypes, ...hiveTextileOfTypes];
-        ofTypes = ofTypes.toSet().toList(); // Remove duplicates
-        ofTypes.sort();
+        // In the _loadDataFromSources method, find this section:
+final jsonOfTypes = jsonData['ofTypes'] != null
+    ? List<String>.from(jsonData['ofTypes'])
+    : [];
+final hiveOfTypes = hiveData['ofTypes'] != null
+    ? List<String>.from(hiveData['ofTypes'])
+    : [];
+final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
+    ? List<String>.from(hiveData['textileOFTypes'])
+    : [];
+
+// Combine lists while preserving order
+List<String> combinedOfTypes = [];
+combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
+
+// Add items from hiveOfTypes if not already present
+for (var item in hiveOfTypes) {
+  if (!combinedOfTypes.contains(item)) {
+    combinedOfTypes.add(item);
+  }
+}
+
+// Add items from hiveTextileOfTypes if not already present
+for (var item in hiveTextileOfTypes) {
+  if (!combinedOfTypes.contains(item)) {
+    combinedOfTypes.add(item);
+  }
+}
+
+ofTypes = combinedOfTypes;
+// Remove the ofTypes.sort() line to maintain the original order
 
         // Combine widths
         final jsonWidths = jsonData['widths'] != null
