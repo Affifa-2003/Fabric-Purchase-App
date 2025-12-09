@@ -29,7 +29,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   String? selectedAgent;
   final ImagePicker _imagePicker = ImagePicker();
 
-  // Data that will be loaded from Hive
+  // Data that will be loaded from JSON and Hive
   List<String> parties = [];
   List<String> ofTypes = [];
   List<String> widths = [];
@@ -61,8 +61,8 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         'Hive boxes are open: ${Hive.isBoxOpen('appData')} and ${Hive.isBoxOpen('orders')}',
       );
 
-      // Load data from Hive or use defaults
-      await _loadDataFromStorage();
+      // Load data from JSON and Hive
+      await _loadDataFromSources();
     } catch (e) {
       print('Error initializing Hive: $e');
       // Try to recover by reinitializing
@@ -83,7 +83,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       ordersBox = Hive.box('orders');
 
       // Load data again
-      await _loadDataFromStorage();
+      await _loadDataFromSources();
     } catch (e) {
       print('Error reinitializing Hive: $e');
       // As a last resort, use defaults
@@ -113,56 +113,85 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  Future<void> _loadDataFromStorage() async {
+  // Updated method to load data from both JSON and Hive
+  Future<void> _loadDataFromSources() async {
     try {
-      final box = Hive.box('appData');
-
-      // Initialize with defaults if box is empty
-      if (box.isEmpty) {
-        await _initializeBoxWithDefaults(box);
+      // Load data from JSON
+      Map<String, dynamic> jsonData = {};
+      try {
+        final String response = await rootBundle.loadString('assets/setup_data.json');
+        jsonData = json.decode(response);
+        print('Loaded data from JSON successfully');
+      } catch (e) {
+        print('Error loading JSON data: $e');
       }
 
-      // Debug: Check if box is open
-      print(
-        'Loading data from Hive. Box is open: ${Hive.isBoxOpen('appData')}',
-      );
+      // Load data from Hive
+      Map<String, dynamic> hiveData = {};
+      try {
+        final box = Hive.box('appData');
+        
+        // Initialize with defaults if box is empty
+        if (box.isEmpty) {
+          await _initializeBoxWithDefaults(box);
+        }
 
-      // Get all keys in the box for debugging
-      final keys = box.keys.toList();
-      print('Keys in appData box: $keys');
+        // Get all data from Hive
+        final keys = box.keys.toList();
+        for (var key in keys) {
+          hiveData[key] = box.get(key);
+        }
+        print('Loaded data from Hive successfully');
+      } catch (e) {
+        print('Error loading Hive data: $e');
+      }
 
+      // Combine JSON and Hive data, with Hive taking precedence
       setState(() {
-        // Load with type safety - ensure List<String>
-        final partiesData = box.get('parties');
-        parties = partiesData != null ? List<String>.from(partiesData) : [];
+        // Combine parties
+        final jsonParties = jsonData['parties'] != null ? List<String>.from(jsonData['parties']) : [];
+        final hiveParties = hiveData['parties'] != null ? List<String>.from(hiveData['parties']) : [];
+        parties = [...jsonParties, ...hiveParties];
+        parties = parties.toSet().toList(); // Remove duplicates
 
-        final ofTypesData = box.get('ofTypes');
-        ofTypes = ofTypesData != null ? List<String>.from(ofTypesData) : [];
+        // Combine ofTypes
+        final jsonOfTypes = jsonData['ofTypes'] != null ? List<String>.from(jsonData['ofTypes']) : [];
+        final hiveOfTypes = hiveData['ofTypes'] != null ? List<String>.from(hiveData['ofTypes']) : [];
+        ofTypes = [...jsonOfTypes, ...hiveOfTypes];
+        ofTypes = ofTypes.toSet().toList(); // Remove duplicates
 
-        final widthsData = box.get('widths');
-        widths = widthsData != null ? List<String>.from(widthsData) : [];
+        // Combine widths
+        final jsonWidths = jsonData['widths'] != null ? List<String>.from(jsonData['widths']) : [];
+        final hiveWidths = hiveData['widths'] != null ? List<String>.from(hiveData['widths']) : [];
+        widths = [...jsonWidths, ...hiveWidths];
+        widths = widths.toSet().toList(); // Remove duplicates
 
-        final sampleOptionsData = box.get('sampleOptions');
-        sampleOptions = sampleOptionsData != null
-            ? List<String>.from(sampleOptionsData)
-            : [];
+        // Combine sampleOptions
+        final jsonSampleOptions = jsonData['sampleOptions'] != null ? List<String>.from(jsonData['sampleOptions']) : [];
+        final hiveSampleOptions = hiveData['sampleOptions'] != null ? List<String>.from(hiveData['sampleOptions']) : [];
+        sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
+        sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
 
-        final agentsData = box.get('agents');
-        agents = agentsData != null ? List<String>.from(agentsData) : [];
+        // Combine agents
+        final jsonAgents = jsonData['agents'] != null ? List<String>.from(jsonData['agents']) : [];
+        final hiveAgents = hiveData['agents'] != null ? List<String>.from(hiveData['agents']) : [];
+        agents = [...jsonAgents, ...hiveAgents];
+        agents = agents.toSet().toList(); // Remove duplicates
 
-        final sampleMtrOptionsData = box.get('sampleMtrOptions');
-        sampleMtrOptions = sampleMtrOptionsData != null
-            ? List<String>.from(sampleMtrOptionsData)
-            : [];
+        // Combine sampleMtrOptions
+        final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null ? List<String>.from(jsonData['sampleMtrOptions']) : [];
+        final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null ? List<String>.from(hiveData['sampleMtrOptions']) : [];
+        sampleMtrOptions = [...jsonSampleMtrOptions, ...hiveSampleMtrOptions];
+        sampleMtrOptions = sampleMtrOptions.toSet().toList(); // Remove duplicates
 
         _isLoading = false;
       });
 
       // Debug: Print loaded data
-      print('Loaded parties: $parties');
-      print('Loaded ofTypes: $ofTypes');
+      print('Combined parties: $parties');
+      print('Combined ofTypes: $ofTypes');
     } catch (e) {
-      print('Error loading data: $e');
+      print('Error loading data from sources: $e');
       // Fallback to defaults
       _useDefaultData();
     }
