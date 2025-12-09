@@ -191,28 +191,14 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       }
 
       // Load data from Hive
-      List<String> hiveOFTypes = [];
-      List<String> hiveWidths = [];
-      List<String> hiveQualities = [];
-      List<String> hiveWeaves = [];
+      Map<String, dynamic> hiveData = {};
       try {
         final box = Hive.box('appData');
 
-        // Get O/F Types from Hive
-        if (box.containsKey('textileOFTypes')) {
-          hiveOFTypes = List<String>.from(box.get('textileOFTypes') ?? []);
-        }
-        // Get Widths from Hive
-        if (box.containsKey('textileWidths')) {
-          hiveWidths = List<String>.from(box.get('textileWidths') ?? []);
-        }
-        // Get qualities from Hive
-        if (box.containsKey('textileQualities')) {
-          hiveQualities = List<String>.from(box.get('textileQualities') ?? []);
-        }
-        // Get weaves from Hive
-        if (box.containsKey('textileWeaves')) {
-          hiveWeaves = List<String>.from(box.get('textileWeaves') ?? []);
+        // Get all data from Hive
+        final keys = box.keys.toList();
+        for (var key in keys) {
+          hiveData[key] = box.get(key);
         }
         print('Loaded master data from Hive successfully');
       } catch (e) {
@@ -221,19 +207,49 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
       // Combine JSON and Hive data
       setState(() {
-        // Combine O/F Types from order_data.json + Hive
-        final jsonOFTypes = jsonOrderData['ofTypes'] != null
-            ? List<String>.from(jsonOrderData['ofTypes'])
-            : [];
-        ofTypes = [...jsonOFTypes, ...hiveOFTypes];
-        ofTypes = ofTypes.toSet().toList(); // Remove duplicates
-        ofTypes.sort();
+        // Combine O/F Types from order_data.json + Hive (both app-level and textile-specific keys)
+final jsonOFTypes = jsonOrderData['ofTypes'] != null
+    ? List<String>.from(jsonOrderData['ofTypes'])
+    : [];
+final hiveAppOFTypes = hiveData['ofTypes'] != null
+    ? List<String>.from(hiveData['ofTypes'])
+    : [];
+final hiveTextileOFTypes = hiveData['textileOFTypes'] != null
+    ? List<String>.from(hiveData['textileOFTypes'])
+    : [];
 
-        // Combine Widths from order_data.json + Hive
+// Combine lists while preserving order
+List<String> combinedOFTypes = [];
+combinedOFTypes.addAll(jsonOFTypes as Iterable<String>);
+
+// Add items from hiveAppOFTypes if not already present
+for (var item in hiveAppOFTypes) {
+  if (!combinedOFTypes.contains(item)) {
+    combinedOFTypes.add(item);
+  }
+}
+
+// Add items from hiveTextileOFTypes if not already present
+for (var item in hiveTextileOFTypes) {
+  if (!combinedOFTypes.contains(item)) {
+    combinedOFTypes.add(item);
+  }
+}
+
+ofTypes = combinedOFTypes;
+// Remove the ofTypes.sort() line to maintain the original order
+
+        // Combine Widths from order_data.json + Hive (both app-level and textile-specific keys)
         final jsonWidths = jsonOrderData['widths'] != null
             ? List<String>.from(jsonOrderData['widths'])
             : [];
-        widthOptions = [...jsonWidths, ...hiveWidths];
+        final hiveAppWidths = hiveData['widths'] != null
+            ? List<String>.from(hiveData['widths'])
+            : [];
+        final hiveTextileWidths = hiveData['textileWidths'] != null
+            ? List<String>.from(hiveData['textileWidths'])
+            : [];
+        widthOptions = [...jsonWidths, ...hiveAppWidths, ...hiveTextileWidths];
         widthOptions = widthOptions.toSet().toList(); // Remove duplicates
         widthOptions.sort();
 
@@ -258,6 +274,9 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           }
         }
 
+        final hiveQualities = hiveData['textileQualities'] != null
+            ? List<String>.from(hiveData['textileQualities'])
+            : [];
         qualities = [
           ...jsonQualities,
           ...textileJsonQualities,
@@ -287,6 +306,9 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           }
         }
 
+        final hiveWeaves = hiveData['textileWeaves'] != null
+            ? List<String>.from(hiveData['textileWeaves'])
+            : [];
         weaves = [...jsonWeaves, ...textileJsonWeaves, ...hiveWeaves];
         weaves = weaves.toSet().toList(); // Remove duplicates
         weaves.sort();
@@ -358,10 +380,12 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       }
 
       final box = Hive.box('appData');
+      // Save under both textile-specific and app-level keys so other pages can read them
       await box.put('textileOFTypes', ofTypes);
+      await box.put('ofTypes', ofTypes);
       await box.flush();
 
-      print('O/F Types saved to Hive: $ofTypes');
+      print('O/F Types saved to Hive (textileOFTypes & ofTypes): $ofTypes');
     } catch (e) {
       print('Error saving O/F Types: $e');
     }
@@ -375,10 +399,12 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       }
 
       final box = Hive.box('appData');
+      // Save under both textile-specific and app-level keys so other pages can read them
       await box.put('textileWidths', widthOptions);
+      await box.put('widths', widthOptions);
       await box.flush();
 
-      print('Widths saved to Hive: $widthOptions');
+      print('Widths saved to Hive (textileWidths & widths): $widthOptions');
     } catch (e) {
       print('Error saving widths: $e');
     }
