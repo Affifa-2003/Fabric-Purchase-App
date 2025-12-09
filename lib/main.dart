@@ -33,6 +33,18 @@ void main() async {
       await Hive.openBox('orders');
       print('orders Hive box recreated after deletion');
     }
+    
+    // Open the designs box with a try-catch block
+    try {
+      await Hive.openBox('designs');
+      print('designs Hive box opened successfully');
+    } catch (e) {
+      print('Error opening designs Hive box: $e');
+      // Try to delete and recreate the box if there's an error
+      await Hive.deleteBoxFromDisk('designs');
+      await Hive.openBox('designs');
+      print('designs Hive box recreated after deletion');
+    }
   } catch (e) {
     print('Error initializing Hive: $e');
   }
