@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
+import 'dart:convert';
 
 class AgentsPage extends StatefulWidget {
   const AgentsPage({Key? key}) : super(key: key);
@@ -22,24 +24,83 @@ class _AgentsPageState extends State<AgentsPage> {
 
   Future<void> _loadAgents() async {
     try {
-      // Ensure the box is open
-      if (!Hive.isBoxOpen('appData')) {
-        await Hive.openBox('appData');
+      // Load data from JSON
+      List<String> jsonAgents = [];
+      try {
+        final String response = await rootBundle.loadString('assets/setup_data.json');
+        final Map<String, dynamic> jsonData = json.decode(response);
+        jsonAgents = jsonData['agents'] != null ? List<String>.from(jsonData['agents']) : [];
+        print('Loaded ${jsonAgents.length} agents from JSON');
+      } catch (e) {
+        print('Error loading JSON agents: $e');
       }
 
-      appDataBox = Hive.box('appData');
-      
-      setState(() {
+      // Load data from Hive
+      List<String> hiveAgents = [];
+      try {
+        // Ensure the box is open
+        if (!Hive.isBoxOpen('appData')) {
+          await Hive.openBox('appData');
+        }
+
+        appDataBox = Hive.box('appData');
+        
+        // Initialize with defaults if box is empty
+        if (appDataBox.isEmpty) {
+          await _initializeBoxWithDefaults(appDataBox);
+        }
+        
         final agentsData = appDataBox.get('agents');
-        agents = agentsData != null ? List<String>.from(agentsData) : [];
+        hiveAgents = agentsData != null ? List<String>.from(agentsData) : [];
+        print('Loaded ${hiveAgents.length} agents from Hive');
+      } catch (e) {
+        print('Error loading Hive agents: $e');
+      }
+
+      // Combine JSON and Hive data, removing duplicates
+      setState(() {
+        agents = [...jsonAgents, ...hiveAgents];
+        agents = agents.toSet().toList(); // Remove duplicates
         _isLoading = false;
       });
+      
+      print('Combined agents list: $agents');
     } catch (e) {
       print('Error loading agents: $e');
       setState(() {
         agents = [];
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _initializeBoxWithDefaults(Box box) async {
+    try {
+      print('Initializing Hive box with default agents');
+      
+      // Load default agents from JSON if available
+      List<String> defaultAgents = [];
+      try {
+        final String response = await rootBundle.loadString('assets/setup_data.json');
+        final Map<String, dynamic> jsonData = json.decode(response);
+        defaultAgents = jsonData['agents'] != null ? List<String>.from(jsonData['agents']) : [];
+      } catch (e) {
+        print('Error loading default agents from JSON: $e');
+        // Fallback to hardcoded defaults
+        defaultAgents = [
+          'Raju Sharma',
+          'Vijay Kumar',
+          'Anil Reddy',
+          'Sunil Patel',
+        ];
+      }
+      
+      // Set default agents
+      await box.put('agents', defaultAgents);
+      await box.flush();
+      print('Hive box initialized with default agents');
+    } catch (e) {
+      print('Error initializing box with defaults: $e');
     }
   }
 
@@ -344,44 +405,47 @@ class _AgentsPageState extends State<AgentsPage> {
                     ],
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: agents.length,
-                  itemBuilder: (context, index) {
-                    return Card(
-                      elevation: 0,
-                      color: const Color(0xFFFFFFFF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFFEBF5FF),
-                          child: Icon(
-                            Icons.person,
-                            color: const Color(0xFF2563EB),
+              : RefreshIndicator(
+                  onRefresh: _loadAgents,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: agents.length,
+                    itemBuilder: (context, index) {
+                      return Card(
+                        elevation: 0,
+                        color: const Color(0xFFFFFFFF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                        ),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFFEBF5FF),
+                            child: Icon(
+                              Icons.person,
+                              color: const Color(0xFF2563EB),
+                            ),
+                          ),
+                          title: Text(
+                            agents[index],
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 16,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(
+                              Icons.delete,
+                              color: Color(0xFFEF4444),
+                            ),
+                            onPressed: () {
+                              _showDeleteConfirmationDialog(index);
+                            },
                           ),
                         ),
-                        title: Text(
-                          agents[index],
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16,
-                          ),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.delete,
-                            color: Color(0xFFEF4444),
-                          ),
-                          onPressed: () {
-                            _showDeleteConfirmationDialog(index);
-                          },
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
     );
   }
