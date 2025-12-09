@@ -87,6 +87,8 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   final TextEditingController _widthController = TextEditingController();
   bool _showAddWidthDialog = false;
 
+  TextEditingController _partyDesignController = TextEditingController();
+
   // APC (Auto Party Code) state
   bool _isGeneratingAPC = false;
   final Map<String, int> _apcCounters =
@@ -95,6 +97,12 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   // Hive boxes
   late Box appDataBox;
   late Box designsBox;
+
+  // Design editing state
+  int? _editingDesignIndex;
+  TextEditingController _choicesController = TextEditingController();
+  TextEditingController _metersController = TextEditingController();
+  // TextEditingController _partyDesignController = TextEditingController();
 
   @override
   void initState() {
@@ -110,6 +118,10 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       text: defaultMeters.toString(),
     );
 
+    // Initialize choices, meters and party design controllers
+    _choicesController = TextEditingController(text: defaultChoices.toString());
+    _metersController = TextEditingController(text: defaultMeters.toString());
+    _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
     // Initialize current default values
     currentDefaultOFType = widget.textileType;
     currentDefaultWidth = widget.selectedWidth;
@@ -119,6 +131,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     _initializeHiveAndLoadData();
   }
 
+  // Update the _initializeHiveAndLoadData method to initialize with empty designs
   Future<void> _initializeHiveAndLoadData() async {
     try {
       // Get the boxes (they should already be open from main.dart)
@@ -137,6 +150,12 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
       // Load data from JSON and Hive
       await _loadDataFromSources();
+
+      // Initialize textileData with empty values
+      textileData = {'d': 0, 'ch': 0, 'mtr': 0};
+
+      // Load captured designs from Hive
+      await _loadCapturedDesigns();
     } catch (e) {
       print('Error initializing Hive: $e');
       // Try to recover by reinitializing
@@ -208,36 +227,36 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       // Combine JSON and Hive data
       setState(() {
         // Combine O/F Types from order_data.json + Hive (both app-level and textile-specific keys)
-final jsonOFTypes = jsonOrderData['ofTypes'] != null
-    ? List<String>.from(jsonOrderData['ofTypes'])
-    : [];
-final hiveAppOFTypes = hiveData['ofTypes'] != null
-    ? List<String>.from(hiveData['ofTypes'])
-    : [];
-final hiveTextileOFTypes = hiveData['textileOFTypes'] != null
-    ? List<String>.from(hiveData['textileOFTypes'])
-    : [];
+        final jsonOFTypes = jsonOrderData['ofTypes'] != null
+            ? List<String>.from(jsonOrderData['ofTypes'])
+            : [];
+        final hiveAppOFTypes = hiveData['ofTypes'] != null
+            ? List<String>.from(hiveData['ofTypes'])
+            : [];
+        final hiveTextileOFTypes = hiveData['textileOFTypes'] != null
+            ? List<String>.from(hiveData['textileOFTypes'])
+            : [];
 
-// Combine lists while preserving order
-List<String> combinedOFTypes = [];
-combinedOFTypes.addAll(jsonOFTypes as Iterable<String>);
+        // Combine lists while preserving order
+        List<String> combinedOFTypes = [];
+        combinedOFTypes.addAll(jsonOFTypes as Iterable<String>);
 
-// Add items from hiveAppOFTypes if not already present
-for (var item in hiveAppOFTypes) {
-  if (!combinedOFTypes.contains(item)) {
-    combinedOFTypes.add(item);
-  }
-}
+        // Add items from hiveAppOFTypes if not already present
+        for (var item in hiveAppOFTypes) {
+          if (!combinedOFTypes.contains(item)) {
+            combinedOFTypes.add(item);
+          }
+        }
 
-// Add items from hiveTextileOFTypes if not already present
-for (var item in hiveTextileOFTypes) {
-  if (!combinedOFTypes.contains(item)) {
-    combinedOFTypes.add(item);
-  }
-}
+        // Add items from hiveTextileOFTypes if not already present
+        for (var item in hiveTextileOFTypes) {
+          if (!combinedOFTypes.contains(item)) {
+            combinedOFTypes.add(item);
+          }
+        }
 
-ofTypes = combinedOFTypes;
-// Remove the ofTypes.sort() line to maintain the original order
+        ofTypes = combinedOFTypes;
+        // Remove the ofTypes.sort() line to maintain the original order
 
         // Combine Widths from order_data.json + Hive (both app-level and textile-specific keys)
         final jsonWidths = jsonOrderData['widths'] != null
@@ -317,6 +336,9 @@ ofTypes = combinedOFTypes;
         _isLoading = false;
       });
 
+      // Load captured designs from Hive
+      await _loadCapturedDesigns();
+
       // Debug: Print loaded data
       print('Combined O/F Types: $ofTypes');
       print('Combined Widths: $widthOptions');
@@ -329,11 +351,12 @@ ofTypes = combinedOFTypes;
     }
   }
 
+  // Update the _useDefaultData method to initialize with empty designs
   void _useDefaultData() {
     setState(() {
       qualities = ['PC', 'Cotton', 'CP', 'Linen'];
       weaves = ['Twill', 'Oxford', 'Dobby', 'Flannel', 'Satin'];
-      textileData = {'d': 25, 'ch': 50, 'mtr': 2500};
+      textileData = {'d': 0, 'ch': 0, 'mtr': 0}; // Start with zeros
       _isLoading = false;
     });
   }
@@ -443,6 +466,9 @@ ofTypes = combinedOFTypes;
       _isGeneratingAPC = false;
     });
 
+    // Patch into controller so the TextField updates
+    _partyDesignController.text = apc;
+
     // Show a success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -454,10 +480,173 @@ ofTypes = combinedOFTypes;
     );
   }
 
+  Future<void> _loadCapturedDesigns() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
+
+      final box = Hive.box('designs');
+      final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
+
+      if (box.containsKey(designsKey)) {
+        final savedDesigns = box.get(designsKey);
+        if (savedDesigns is List) {
+          setState(() {
+            capturedDesigns = List<Map<String, dynamic>>.from(
+              savedDesigns.map((d) => Map<String, dynamic>.from(d as Map)),
+            );
+          });
+          print('Loaded ${capturedDesigns.length} designs from Hive');
+        }
+      }
+
+      // Load summary values
+      await _loadSummaryValuesFromHive();
+
+      // Update summary values based on loaded designs
+      _updateSummaryValues();
+    } catch (e) {
+      print('Error loading designs: $e');
+    }
+  }
+
+  void _addOrUpdateDesign({
+  required int? choices,
+  required double? meters,
+  required String? designNo,
+  required String mode,
+}) {
+  // Get the meters value from the defaultMetersController if not provided
+  final metersValue = meters ?? double.tryParse(defaultMetersController.text) ?? 100;
+  
+  if (choices == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please select Choices'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    if (_editingDesignIndex != null) {
+      // Update existing design with all fields
+      capturedDesigns[_editingDesignIndex!] = {
+        'sNo': _editingDesignIndex! + 1,
+        'designNo': designNo ?? '-',
+        'choices': choices,
+        'meters': metersValue,
+        'mode': mode,
+        'timestamp': DateTime.now().toIso8601String(),
+        // Add all these fields to the design data
+        'ofType': selectedOFType,
+        'weave': selectedWeave,
+        'quality': selectedQuality,
+        'width': selectedWidth,
+      };
+      _editingDesignIndex = null;
+    } else {
+      // Add new design with all fields
+      capturedDesigns.add({
+        'sNo': capturedDesigns.length + 1,
+        'designNo': designNo ?? '-',
+        'choices': choices,
+        'meters': metersValue,
+        'mode': mode,
+        'timestamp': DateTime.now().toIso8601String(),
+        // Add all these fields to the design data
+        'ofType': selectedOFType,
+        'weave': selectedWeave,
+        'quality': selectedQuality,
+        'width': selectedWidth,
+      });
+    }
+  });
+
+  // Update summary values after adding/updating a design
+  _updateSummaryValues();
+
+  // Clear party design no field and controller
+  _clearPartyDesignNo();
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        _editingDesignIndex != null
+            ? 'Design updated successfully'
+            : 'Design added successfully',
+      ),
+    ),
+  );
+}
+  // Update the _clearPartyDesignNo method
+  void _clearPartyDesignNo() {
+    setState(() {
+      partyDesignNo = null;
+      _partyDesignController.clear();
+    });
+  }
+
+  void _selectDesignForEditing(Map<String, dynamic> design, int index) {
+  setState(() {
+    _editingDesignIndex = index;
+
+    // Populate all form fields with the selected design's data
+    partyDesignNo = design['designNo'].toString() != '-'
+        ? design['designNo'].toString()
+        : null;
+    _partyDesignController.text = design['designNo'].toString() != '-'
+        ? design['designNo'].toString()
+        : '';
+    selectedMode = design['mode'].toString();
+
+    // Update controllers with proper values
+    _choicesController.text = design['choices'].toString();
+    defaultMetersController.text = design['meters'].toStringAsFixed(0);
+    
+    // Update defaultMeters to match the design
+    defaultMeters = design['meters'] as double;
+
+    // Now populate all the additional fields from the design data
+    selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
+    selectedWeave = design['weave']?.toString();
+    selectedQuality = design['quality']?.toString();
+    selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
+
+    // Update default values if needed
+    defaultChoices = design['choices'] as int;
+  });
+}
+  void _clearEditingState() {
+  setState(() {
+    _editingDesignIndex = null;
+
+    // Clear all controllers
+    _choicesController.clear();
+    defaultMetersController.clear();
+    _partyDesignController.clear();
+
+    // Reset all field values
+    partyDesignNo = null;
+    selectedMode = 'Design';
+    selectedOFType = currentDefaultOFType;
+    selectedWeave = null;
+    selectedQuality = null;
+    selectedWidth = currentDefaultWidth;
+    defaultChoices = currentDefaultChoices;
+    defaultMeters = currentDefaultMeters;
+
+    // Update default meters controller
+    defaultMetersController.text = defaultMeters.toStringAsFixed(0);
+  });
+}
   @override
   void dispose() {
     _weaveTypeController.dispose();
     _qualityController.dispose();
+    _partyDesignController.dispose();
     defaultMetersController.dispose();
     super.dispose();
   }
@@ -535,9 +724,9 @@ ofTypes = combinedOFTypes;
           const SizedBox(height: 16),
           _buildCapturePhotoSection(), // Moved to after meters section
           const SizedBox(height: 16),
-          _buildCapturedDesignsSection(),
-          const SizedBox(height: 20),
           _buildActionButtons(),
+          const SizedBox(height: 20),
+          _buildCapturedDesignsSection(),
           const SizedBox(height: 20),
         ],
       ),
@@ -594,10 +783,11 @@ ofTypes = combinedOFTypes;
               ],
             ),
 
-            const SizedBox(height: 32),
-            _buildCapturedDesignsSection(),
+            
             const SizedBox(height: 24),
             _buildActionButtons(),
+            const SizedBox(height: 32),
+            _buildCapturedDesignsSection(),
             const SizedBox(height: 24),
           ],
         ),
@@ -2332,20 +2522,41 @@ ofTypes = combinedOFTypes;
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Party Design No: (Optional)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
-              ),
+            Row(
+              children: [
+                const Text(
+                  'Party Design No: (Optional)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                if (_editingDesignIndex != null)
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Editing',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF92400E)),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: TextEditingController(text: partyDesignNo),
+                    controller:
+                        _partyDesignController, // Use the controller instead of creating a new one
                     decoration: InputDecoration(
                       hintText: 'Leave empty for AI',
                       border: OutlineInputBorder(
@@ -2361,7 +2572,7 @@ ofTypes = combinedOFTypes;
                     ),
                     onChanged: (value) {
                       setState(() {
-                        partyDesignNo = value;
+                        partyDesignNo = value.isEmpty ? null : value;
                       });
                     },
                   ),
@@ -2398,7 +2609,7 @@ ofTypes = combinedOFTypes;
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Click "Start APC" to begin auto-numbering (APC-1, APC-2...)',
               style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
             ),
@@ -2674,78 +2885,173 @@ ofTypes = combinedOFTypes;
     );
   }
 
-  Widget _buildCapturedDesignsSection() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // First Row - Title only
-            const Text(
-              'All Captured Designs:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
-              ),
+  Widget _buildActionButtons() {
+  final isEditing = _editingDesignIndex != null;
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              // Capture current form values
+              int choices =
+                  int.tryParse(_choicesController.text) ?? defaultChoices;
+              double meters =
+                  double.tryParse(defaultMetersController.text) ?? defaultMeters;
+
+              // Add or update design
+              _addOrUpdateDesign(
+                choices: choices,
+                meters: meters,
+                designNo: _partyDesignController.text.isNotEmpty
+                    ? _partyDesignController.text
+                    : null,
+                mode: selectedMode,
+              );
+
+              // Save to Hive
+              await _saveCapturedDesignToHive();
+              // Also save summary values
+              await _saveSummaryValuesToHive();
+
+              // Clear editing state
+              _clearEditingState();
+            },
+            icon: const Icon(Icons.check),
+            label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isEditing
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
             ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OrderFormFinishPage(
+                    partyName: widget.partyName,
+                    totalDesigns: textileData['d'] ?? 0,
+                    totalChoices: textileData['ch'] ?? 0,
+                    totalMeters: textileData['mtr'] ?? 0,
+                  ),
+                ),
+              );
+            },
+            child: const Text('Finish Order →'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF2563EB),
+              side: const BorderSide(color: Color(0xFF2563EB)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+  Widget _buildCapturedDesignsSection() {
+  // Filter designs based on selected tab
+  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
+    design,
+  ) {
+    if (selectedFilter == 'All') return true;
+    if (selectedFilter == 'Design') return design['mode'] == 'Design';
+    if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
+    return true;
+  }).toList();
 
-            const SizedBox(height: 12),
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // First Row - Title only
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'All Captured Designs:',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              if (_editingDesignIndex != null)
+                TextButton(
+                  onPressed: _clearEditingState,
+                  child: const Text(
+                    'Cancel Editing',
+                    style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
+                  ),
+                ),
+            ],
+          ),
 
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.end, //  Move filters to right side
-              children: ['All', 'Design', 'Sample'].map((filter) {
-                bool isSelected = selectedFilter == filter;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedFilter = filter;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    margin: const EdgeInsets.only(left: 8),
-                    decoration: BoxDecoration(
+          const SizedBox(height: 12),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: ['All', 'Design', 'Sample'].map((filter) {
+              bool isSelected = selectedFilter == filter;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedFilter = filter;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  margin: const EdgeInsets.only(left: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFFEE2E2)
+                        : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
                       color: isSelected
-                          ? const Color(0xFFFEE2E2) // selected background
-                          : const Color(0xFFF3F4F6), // unselected background
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFFEF4444) // selected border
-                            : Colors.transparent,
-                      ),
-                    ),
-                    child: Text(
-                      filter,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isSelected
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF1F2937),
-                        fontWeight: FontWeight.bold,
-                      ),
+                          ? const Color(0xFFEF4444)
+                          : Colors.transparent,
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                  child: Text(
+                    filter,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isSelected
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF1F2937),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-            // Empty State Card
+          // Design list or empty state
+          if (filteredDesigns.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(32),
@@ -2759,111 +3065,209 @@ ofTypes = combinedOFTypes;
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
               ),
+            )
+          else
+            // MODIFIED PART: Use LayoutBuilder to make table full width
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth, // Take full available width
+                    ),
+                    child: DataTable(
+                      columnSpacing: 24, // Increase spacing between columns
+                      horizontalMargin: 12, // Add horizontal margin
+                      columns: const [
+                        DataColumn(
+                          label: Text(
+                            'S.No',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Design No',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Choices',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Meters',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                      rows: filteredDesigns.asMap().entries.map((entry) {
+                        final display = entry.value;
+                        final originalIndex = capturedDesigns.indexOf(display);
+                        return DataRow(
+                          color: MaterialStateProperty.resolveWith<Color?>((
+                            Set<MaterialState> states,
+                          ) {
+                            // Highlight the row that is being edited
+                            if (_editingDesignIndex != null &&
+                                originalIndex == _editingDesignIndex) {
+                              return const Color(0xFFE3F2FD);
+                            }
+                            return null;
+                          }),
+                          onSelectChanged: (selected) {
+                            if (selected ?? false) {
+                              _selectDesignForEditing(display, originalIndex);
+                            }
+                          },
+                          cells: [
+                            DataCell(
+                              Text(
+                                (display['sNo'] ?? (originalIndex + 1)).toString(),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                display['designNo']?.toString() ?? '-',
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                display['choices']?.toString() ?? '',
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                (display['meters'] is num)
+                                    ? (display['meters'] as num)
+                                          .toDouble()
+                                          .toStringAsFixed(0)
+                                    : display['meters']?.toString() ?? '',
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+        ],
       ),
-    );
-  }
-
-  // Save all textile data and designs to Hive
-  Future<void> _saveDataToHive() async {
+    ),
+  );
+}
+  Future<void> _saveCapturedDesignToHive() async {
     try {
-      // Ensure the designs box is open
       if (!Hive.isBoxOpen('designs')) {
         await Hive.openBox('designs');
       }
 
       final box = Hive.box('designs');
+      final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
 
-      // Create textile session data
-      final Map<String, dynamic> sessionData = {
-        'partyName': widget.partyName,
-        'textileType': selectedOFType,
-        'width': selectedWidth,
-        'defaultChoices': defaultChoices,
-        'defaultMeters': defaultMeters,
-        'sampleRequired': sampleRequired,
-        'sampleMtr': selectedSampleMtr,
-        'mode': selectedMode,
-        'quality': selectedQuality,
-        'weave': selectedWeave,
-        'partyDesignNo': partyDesignNo,
-        'timestamp': DateTime.now().toIso8601String(),
-        'designCount': capturedDesigns.length,
-      };
+      // Convert all designs to serializable format with all fields
+      final designsToSave = capturedDesigns.map((d) {
+        return {
+          'sNo': d['sNo'],
+          'designNo': d['designNo'].toString(),
+          'choices': d['choices'],
+          'meters': d['meters'],
+          'mode': d['mode'],
+          'timestamp': d['timestamp'],
+          // Include all the additional fields
+          'ofType': d['ofType'],
+          'weave': d['weave'],
+          'quality': d['quality'],
+          'width': d['width'],
+        };
+      }).toList();
 
-      // Generate a unique key for this session
-      final String key = 'session_${DateTime.now().millisecondsSinceEpoch}';
-
-      // Save the session data
-      await box.put(key, sessionData);
-
-      // Explicitly flush to disk
+      await box.put(designsKey, designsToSave);
       await box.flush();
 
-      print('Textile session data saved successfully with key: $key');
-      print('Session data: $sessionData');
+      print('Captured designs saved to Hive with key: $designsKey');
+      print('Designs: $designsToSave');
     } catch (e) {
-      print('Error saving textile data: $e');
+      print('Error saving captured designs: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error saving data: $e'),
+          content: Text('Error saving designs: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  Widget _buildActionButtons() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                // Save captured designs and data to Hive
-                await _saveDataToHive();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Design photos saved')),
-                );
-              },
-              icon: const Icon(Icons.check),
-              label: const Text('Save & Continue'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => OrderFormFinishPage(
-                      partyName: widget.partyName,
-                      totalDesigns: 47,
-                      totalChoices: 100,
-                      totalMeters: 4500,
-                    ),
-                  ),
-                );
-              },
-              child: const Text('Finish Order →'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF2563EB),
-                side: const BorderSide(color: Color(0xFF2563EB)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  // Method to calculate summary values from captured designs
+  Map<String, dynamic> _calculateSummaryValues() {
+    int totalDesigns = capturedDesigns.length;
+    int totalChoices = 0;
+    double totalMeters = 0.0;
+
+    for (var design in capturedDesigns) {
+      totalChoices += design['choices'] as int;
+      totalMeters += design['meters'] as double;
+    }
+
+    return {'d': totalDesigns, 'ch': totalChoices, 'mtr': totalMeters.round()};
+  }
+
+  // Method to update the textileData with calculated values
+  void _updateSummaryValues() {
+    setState(() {
+      textileData = _calculateSummaryValues();
+    });
+  }
+
+  // Method to save summary values to Hive
+  Future<void> _saveSummaryValuesToHive() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
+
+      final box = Hive.box('designs');
+      final summaryKey = 'summary_${widget.partyName}_${widget.textileType}';
+
+      await box.put(summaryKey, textileData);
+      await box.flush();
+
+      print('Summary values saved to Hive with key: $summaryKey');
+    } catch (e) {
+      print('Error saving summary values: $e');
+    }
+  }
+
+  // Method to load summary values from Hive
+  Future<void> _loadSummaryValuesFromHive() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
+
+      final box = Hive.box('designs');
+      final summaryKey = 'summary_${widget.partyName}_${widget.textileType}';
+
+      if (box.containsKey(summaryKey)) {
+        final savedSummary = box.get(summaryKey);
+        if (savedSummary is Map) {
+          setState(() {
+            textileData = Map<String, dynamic>.from(savedSummary);
+          });
+          print('Loaded summary values from Hive');
+        }
+      }
+    } catch (e) {
+      print('Error loading summary values: $e');
+    }
   }
 }
