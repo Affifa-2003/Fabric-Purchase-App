@@ -30,7 +30,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       // Load JSON from assets
       String jsonString = await rootBundle.loadString('party_details.json');
       Map<String, dynamic> allData = json.decode(jsonString);
-      
+
       // Find the specific party data
       setState(() {
         partyData = allData[widget.partyName] ?? {};
@@ -41,11 +41,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       // Fallback to default data if JSON loading fails
       setState(() {
         partyData = {
-          'summary': {
-            'd': 47,
-            'ch': 100,
-            'mtr': 4500,
-          },
+          'summary': {'d': 47, 'ch': 100, 'mtr': 4500},
           'textiles': [
             {
               'type': 'Regular',
@@ -83,7 +79,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        toolbarHeight: 90, 
+        toolbarHeight: 90,
         backgroundColor: primaryColor,
         title: Text(
           widget.partyName,
@@ -112,11 +108,17 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
             ),
             child: IconButton(
               padding: EdgeInsets.zero, // Remove default padding
-              icon: Icon(Icons.add, color: primaryColor, size: 24), // Adjusted icon size
+              icon: Icon(
+                Icons.add,
+                color: primaryColor,
+                size: 24,
+              ), // Adjusted icon size
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const NewOrderSetupPage()),
+                  MaterialPageRoute(
+                    builder: (context) => const NewOrderSetupPage(),
+                  ),
                 );
               },
             ),
@@ -129,7 +131,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
           letterSpacing: 0.5,
         ),
       ),
-      
+
       backgroundColor: const Color(0xFFF9FAFB),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -160,32 +162,43 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: Color(0xFFFFFFFF),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildSummaryItem('D', partyData['summary']?['d']?.toString() ?? '0', showRightDivider: true),
-          _buildSummaryItem('Ch', partyData['summary']?['ch']?.toString() ?? '0', showRightDivider: true),
-          _buildSummaryItem('Mtr', partyData['summary']?['mtr']?.toString() ?? '0', showRightDivider: false),
+          _buildSummaryItem(
+            'D',
+            partyData['summary']?['d']?.toString() ?? '0',
+            showRightDivider: true,
+          ),
+          _buildSummaryItem(
+            'Ch',
+            partyData['summary']?['ch']?.toString() ?? '0',
+            showRightDivider: true,
+          ),
+          _buildSummaryItem(
+            'Mtr',
+            partyData['summary']?['mtr']?.toString() ?? '0',
+            showRightDivider: false,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryItem(String label, String value, {bool showRightDivider = true}) {
+  Widget _buildSummaryItem(
+    String label,
+    String value, {
+    bool showRightDivider = true,
+  }) {
     return Row(
       children: [
         Column(
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF6B7280),
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
             ),
             const SizedBox(height: 4),
             Text(
@@ -200,133 +213,133 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
         ),
         if (showRightDivider) ...[
           const SizedBox(width: 16),
-          Container(
-            height: 40,
-            width: 1,
-            color: const Color(0xFFE5E7EB),
-          ),
+          Container(height: 40, width: 1, color: const Color(0xFFE5E7EB)),
           const SizedBox(width: 16),
         ],
       ],
     );
   }
 
- Widget _buildTextileCard(Map<String, dynamic> textile) {
-  Color indicatorColor = _parseColor(textile['color'] ?? '#2196F3');
-  
-  return Card(
-    margin: const EdgeInsets.only(bottom: 12),
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.2)),
-    ),
-    child: InkWell(  // Replace GestureDetector with InkWell for better feedback
-      onTap: () {
-        try {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TextileDetailsPage(
-                partyName: widget.partyName,
-                textileType: textile['type'] ?? '',
+  Widget _buildTextileCard(Map<String, dynamic> textile) {
+    Color indicatorColor = _parseColor(textile['color'] ?? '#2196F3');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: InkWell(
+        // Replace GestureDetector with InkWell for better feedback
+        onTap: () {
+          try {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TextileDetailsPage(
+                  partyName: widget.partyName,
+                  textileType: textile['type'] ?? '',
+                  selectedWidth: textile['width'] ?? '58"',
+                  defaultChoices: textile['choices'] ?? 2,
+                  defaultMeters:
+                      double.tryParse(textile['meters']?.toString() ?? '100') ??
+                      100,
+                  sampleRequired: textile['sampleRequired'] ?? 'Yes',
+                  selectedSampleMtr: textile['sampleMtr'],
+                ),
               ),
-            ),
-          );
-        } catch (e) {
-          print('Navigation error: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error navigating to details: $e')),
-          );
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Left side: Type and reference with dot
-                Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: indicatorColor,
-                        shape: BoxShape.circle,
+            );
+          } catch (e) {
+            print('Navigation error: $e');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error navigating to details: $e')),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Left side: Type and reference with dot
+                  Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: indicatorColor,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          textile['type'] ?? '',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F2937),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            textile['type'] ?? '',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1F2937),
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Ref: ${textile['ref'] ?? ''}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF6B7280),
+                          Text(
+                            'Ref: ${textile['ref'] ?? ''}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ],
+                  ),
+                  // Right side: Camera icon
+                  const Icon(Icons.camera_alt, color: Colors.black, size: 24),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Details row
+              Row(
+                children: [
+                  Text(
+                    'D: ${textile['d']?.toString() ?? '0'}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF1F2937),
                     ),
-                  ],
-                ),
-                // Right side: Camera icon
-                const Icon(
-                  Icons.camera_alt,
-                  color: Colors.black,
-                  size: 24,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Details row
-            Row(
-              children: [
-                Text(
-                  'D: ${textile['d']?.toString() ?? '0'}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF1F2937),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Ch: ${textile['ch']?.toString() ?? '0'}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF1F2937),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Ch: ${textile['ch']?.toString() ?? '0'}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF1F2937),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Mtr: ${textile['mtr']?.toString() ?? '0'}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF1F2937),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Mtr: ${textile['mtr']?.toString() ?? '0'}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF1F2937),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
-  
+    );
+  }
+
   Color _parseColor(String hexColor) {
     hexColor = hexColor.replaceAll("#", "");
     if (hexColor.length == 6) {

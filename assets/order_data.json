@@ -5,14 +5,45 @@
     "Kumar Mills",
     "Shree Textiles"
   ],
-  "ofTypes": ["Regular", "Mix", "Plain"],
-  "widths": ["44\"", "54\"", "58\"", "60\""],
-  "sampleOptions": ["Yes", "No", "Sample Only"],
+  "ofTypes": [
+    "Regular",
+    "Mix",
+    "Plain"
+  ],
+  "widths": [
+    "44\"",
+    "54\"",
+    "58\"",
+    "60\""
+  ],
+  "sampleOptions": [
+    "Yes",
+    "No",
+    "Sample Only"
+  ],
   "agents": [
     "Raju Sharma",
     "Vijay Kumar",
     "Anil Reddy",
     "Sunil Patel"
   ],
-  "sampleMtrOptions": ["2.5", "5.0", "7.5", "10.0"]
+  "sampleMtrOptions": [
+    "2.5",
+    "5.0",
+    "7.5",
+    "10.0"
+  ],
+  "weaveTypes": [
+    "Twill",
+    "Oxford",
+    "Dobby",
+    "Flannel",
+    "Satin"
+  ],
+  "qualities": [
+    "PC",
+    "Cotton",
+    "CP",
+    "Linen"
+  ]
 }

@@ -10,7 +10,26 @@ import 'package:purchase_app/textile_details.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
 
 class NewOrderSetupPage extends StatefulWidget {
-  const NewOrderSetupPage({Key? key}) : super(key: key);
+  final bool isEditMode;
+  final String? partyName;
+  final String? ofType;
+  final String? selectedWidth;
+  final int? defaultChoices;
+  final double? defaultMeters;
+  final String? sampleRequired;
+  final String? selectedSampleMtr;
+
+  const NewOrderSetupPage({
+    Key? key,
+    this.isEditMode = false,
+    this.partyName,
+    this.ofType,
+    this.selectedWidth,
+    this.defaultChoices,
+    this.defaultMeters,
+    this.sampleRequired,
+    this.selectedSampleMtr,
+  }) : super(key: key);
 
   @override
   _NewOrderSetupPageState createState() => _NewOrderSetupPageState();
@@ -44,6 +63,17 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   @override
   void initState() {
     super.initState();
+    // If in edit mode, set the values from parameters
+    if (widget.isEditMode && widget.partyName != null) {
+      selectedParty = widget.partyName;
+      ofType = widget.ofType ?? 'Regular';
+      selectedWidth = widget.selectedWidth ?? '58"';
+      defaultChoices = widget.defaultChoices ?? 2;
+      defaultMetersController.text =
+          widget.defaultMeters?.toStringAsFixed(0) ?? '100';
+      sampleRequired = widget.sampleRequired ?? 'Yes';
+      selectedSampleMtr = widget.selectedSampleMtr ?? '2.5';
+    }
     _initializeHiveAndLoadData();
 
     // Add a delay to verify data after loading
@@ -119,7 +149,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       // Load data from JSON
       Map<String, dynamic> jsonData = {};
       try {
-        final String response = await rootBundle.loadString('assets/setup_data.json');
+        final String response = await rootBundle.loadString('order_data.json');
         jsonData = json.decode(response);
         print('Loaded data from JSON successfully');
       } catch (e) {
@@ -130,7 +160,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       Map<String, dynamic> hiveData = {};
       try {
         final box = Hive.box('appData');
-        
+
         // Initialize with defaults if box is empty
         if (box.isEmpty) {
           await _initializeBoxWithDefaults(box);
@@ -149,40 +179,74 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       // Combine JSON and Hive data, with Hive taking precedence
       setState(() {
         // Combine parties
-        final jsonParties = jsonData['parties'] != null ? List<String>.from(jsonData['parties']) : [];
-        final hiveParties = hiveData['parties'] != null ? List<String>.from(hiveData['parties']) : [];
+        final jsonParties = jsonData['parties'] != null
+            ? List<String>.from(jsonData['parties'])
+            : [];
+        final hiveParties = hiveData['parties'] != null
+            ? List<String>.from(hiveData['parties'])
+            : [];
         parties = [...jsonParties, ...hiveParties];
         parties = parties.toSet().toList(); // Remove duplicates
 
         // Combine ofTypes
-        final jsonOfTypes = jsonData['ofTypes'] != null ? List<String>.from(jsonData['ofTypes']) : [];
-        final hiveOfTypes = hiveData['ofTypes'] != null ? List<String>.from(hiveData['ofTypes']) : [];
-        ofTypes = [...jsonOfTypes, ...hiveOfTypes];
+        final jsonOfTypes = jsonData['ofTypes'] != null
+            ? List<String>.from(jsonData['ofTypes'])
+            : [];
+        final hiveOfTypes = hiveData['ofTypes'] != null
+            ? List<String>.from(hiveData['ofTypes'])
+            : [];
+        final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
+            ? List<String>.from(hiveData['textileOFTypes'])
+            : [];
+        ofTypes = [...jsonOfTypes, ...hiveOfTypes, ...hiveTextileOfTypes];
         ofTypes = ofTypes.toSet().toList(); // Remove duplicates
+        ofTypes.sort();
 
         // Combine widths
-        final jsonWidths = jsonData['widths'] != null ? List<String>.from(jsonData['widths']) : [];
-        final hiveWidths = hiveData['widths'] != null ? List<String>.from(hiveData['widths']) : [];
-        widths = [...jsonWidths, ...hiveWidths];
+        final jsonWidths = jsonData['widths'] != null
+            ? List<String>.from(jsonData['widths'])
+            : [];
+        final hiveWidths = hiveData['widths'] != null
+            ? List<String>.from(hiveData['widths'])
+            : [];
+        final hiveTextileWidths = hiveData['textileWidths'] != null
+            ? List<String>.from(hiveData['textileWidths'])
+            : [];
+        widths = [...jsonWidths, ...hiveWidths, ...hiveTextileWidths];
         widths = widths.toSet().toList(); // Remove duplicates
+        widths.sort();
 
         // Combine sampleOptions
-        final jsonSampleOptions = jsonData['sampleOptions'] != null ? List<String>.from(jsonData['sampleOptions']) : [];
-        final hiveSampleOptions = hiveData['sampleOptions'] != null ? List<String>.from(hiveData['sampleOptions']) : [];
+        final jsonSampleOptions = jsonData['sampleOptions'] != null
+            ? List<String>.from(jsonData['sampleOptions'])
+            : [];
+        final hiveSampleOptions = hiveData['sampleOptions'] != null
+            ? List<String>.from(hiveData['sampleOptions'])
+            : [];
         sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
         sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
 
         // Combine agents
-        final jsonAgents = jsonData['agents'] != null ? List<String>.from(jsonData['agents']) : [];
-        final hiveAgents = hiveData['agents'] != null ? List<String>.from(hiveData['agents']) : [];
+        final jsonAgents = jsonData['agents'] != null
+            ? List<String>.from(jsonData['agents'])
+            : [];
+        final hiveAgents = hiveData['agents'] != null
+            ? List<String>.from(hiveData['agents'])
+            : [];
         agents = [...jsonAgents, ...hiveAgents];
         agents = agents.toSet().toList(); // Remove duplicates
 
         // Combine sampleMtrOptions
-        final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null ? List<String>.from(jsonData['sampleMtrOptions']) : [];
-        final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null ? List<String>.from(hiveData['sampleMtrOptions']) : [];
+        final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
+            ? List<String>.from(jsonData['sampleMtrOptions'])
+            : [];
+        final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
+            ? List<String>.from(hiveData['sampleMtrOptions'])
+            : [];
         sampleMtrOptions = [...jsonSampleMtrOptions, ...hiveSampleMtrOptions];
-        sampleMtrOptions = sampleMtrOptions.toSet().toList(); // Remove duplicates
+        sampleMtrOptions = sampleMtrOptions
+            .toSet()
+            .toList(); // Remove duplicates
 
         _isLoading = false;
       });
@@ -307,61 +371,62 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
- // In the _saveOrderToHive method in NewOrderSetupPage
-Future<void> _saveOrderToHive() async {
-  try {
-    // Ensure the orders box is open
-    if (!Hive.isBoxOpen('orders')) {
-      await Hive.openBox('orders');
+  // In the _saveOrderToHive method in NewOrderSetupPage
+  Future<void> _saveOrderToHive() async {
+    try {
+      // Ensure the orders box is open
+      if (!Hive.isBoxOpen('orders')) {
+        await Hive.openBox('orders');
+      }
+
+      final box = Hive.box('orders');
+
+      // Create order data map
+      final Map<String, dynamic> orderData = {
+        'party': selectedParty,
+        'type': ofType,
+        'width': selectedWidth,
+        'defaultChoices': defaultChoices,
+        'defaultMeters': defaultMetersController.text,
+        'sampleRequired': sampleRequired,
+        'sampleMtr': _showSampleMtrField ? selectedSampleMtr : null,
+        'agent': selectedAgent,
+        'status': 'pending', // Default status
+        'date': _formatDate(DateTime.now()), // Use simple date format
+        'orders': 0, // Initial order count
+      };
+
+      // Generate a unique key for the order
+      final String key = 'order_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Save the order
+      await box.put(key, orderData);
+
+      // Explicitly flush to disk
+      await box.flush();
+
+      print('Order saved successfully with key: $key');
+
+      // Notify that orders have been updated
+      OrderService().notifyOrderUpdated();
+    } catch (e) {
+      print('Error saving order: $e');
+      // Show error to user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving order: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-
-    final box = Hive.box('orders');
-    
-    // Create order data map
-    final Map<String, dynamic> orderData = {
-      'party': selectedParty,
-      'type': ofType,
-      'width': selectedWidth,
-      'defaultChoices': defaultChoices,
-      'defaultMeters': defaultMetersController.text,
-      'sampleRequired': sampleRequired,
-      'sampleMtr': _showSampleMtrField ? selectedSampleMtr : null,
-      'agent': selectedAgent,
-      'status': 'pending', // Default status
-      'date': _formatDate(DateTime.now()), // Use simple date format
-      'orders': 0, // Initial order count
-    };
-
-    // Generate a unique key for the order
-    final String key = 'order_${DateTime.now().millisecondsSinceEpoch}';
-    
-    // Save the order
-    await box.put(key, orderData);
-    
-    // Explicitly flush to disk
-    await box.flush();
-
-    print('Order saved successfully with key: $key');
-    
-    // Notify that orders have been updated
-    OrderService().notifyOrderUpdated();
-  } catch (e) {
-    print('Error saving order: $e');
-    // Show error to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error saving order: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 
-// Add this helper function to format the date
-String _formatDate(DateTime date) {
-  final DateFormat formatter = DateFormat('dd MMM yyyy');
-  return formatter.format(date);
-}
+  // Add this helper function to format the date
+  String _formatDate(DateTime date) {
+    final DateFormat formatter = DateFormat('dd MMM yyyy');
+    return formatter.format(date);
+  }
+
   // Method to add a new party and update state
   void _addNewParty(String partyName, String? agent) {
     setState(() {
@@ -394,7 +459,9 @@ String _formatDate(DateTime date) {
         appBar: AppBar(
           backgroundColor: const Color(0xFF2563EB),
           toolbarHeight: 90,
-          title: const Text('New Order - Setup'),
+          title: Text(
+            widget.isEditMode ? 'Edit Order - Setup' : 'New Order - Setup',
+          ),
           titleTextStyle: const TextStyle(
             color: Color(0xFFFFFFFF),
             fontSize: 20,
@@ -411,7 +478,9 @@ String _formatDate(DateTime date) {
       appBar: AppBar(
         backgroundColor: const Color(0xFF2563EB),
         toolbarHeight: 90,
-        title: const Text('New Order - Setup'),
+        title: Text(
+          widget.isEditMode ? 'Edit Order - Setup' : 'New Order - Setup',
+        ),
         titleTextStyle: const TextStyle(
           color: Color(0xFFFFFFFF),
           fontSize: 20,
@@ -695,7 +764,9 @@ String _formatDate(DateTime date) {
                                 ),
                                 onEditingComplete: () {
                                   // Trim trailing spaces when editing is complete
-                                  newPartyController.text = newPartyController.text.trim();
+                                  newPartyController.text = newPartyController
+                                      .text
+                                      .trim();
                                   setState(() {});
                                 },
                               ),
@@ -794,10 +865,12 @@ String _formatDate(DateTime date) {
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: () async {
-                                  final XFile? pickedFile = await _imagePicker.pickImage(
-                                    source: ImageSource.camera,
-                                    preferredCameraDevice: CameraDevice.rear,
-                                  );
+                                  final XFile? pickedFile = await _imagePicker
+                                      .pickImage(
+                                        source: ImageSource.camera,
+                                        preferredCameraDevice:
+                                            CameraDevice.rear,
+                                      );
                                   if (pickedFile != null) {
                                     setState(() {
                                       visitingCardImage = File(pickedFile.path);
@@ -882,7 +955,8 @@ String _formatDate(DateTime date) {
                             child: TextButton(
                               onPressed: () async {
                                 // Trim any trailing spaces before saving
-                                String partyName = newPartyController.text.trim();
+                                String partyName = newPartyController.text
+                                    .trim();
                                 if (partyName.isNotEmpty) {
                                   // Add the new party using the dedicated method
                                   _addNewParty(partyName, dialogSelectedAgent);
@@ -1080,7 +1154,8 @@ String _formatDate(DateTime date) {
                             ),
                             onEditingComplete: () {
                               // Trim trailing spaces when editing is complete
-                              newTypeController.text = newTypeController.text.trim();
+                              newTypeController.text = newTypeController.text
+                                  .trim();
                               setState(() {});
                             },
                           ),
@@ -1357,7 +1432,8 @@ String _formatDate(DateTime date) {
                             keyboardType: TextInputType.number,
                             onEditingComplete: () {
                               // Trim trailing spaces when editing is complete
-                              newWidthController.text = newWidthController.text.trim();
+                              newWidthController.text = newWidthController.text
+                                  .trim();
                               setState(() {});
                             },
                           ),
@@ -1592,7 +1668,8 @@ String _formatDate(DateTime date) {
               ),
               onEditingComplete: () {
                 // Trim trailing spaces when editing is complete
-                defaultMetersController.text = defaultMetersController.text.trim();
+                defaultMetersController.text = defaultMetersController.text
+                    .trim();
                 setState(() {});
               },
             ),
@@ -1758,21 +1835,59 @@ String _formatDate(DateTime date) {
       child: ElevatedButton(
         onPressed: () async {
           if (selectedParty != null) {
-            // Save order to Hive
-            await _saveOrderToHive();
+            if (widget.isEditMode) {
+              // In edit mode, just return the updated values back to textile_details
+              Navigator.pop(context, {
+                'ofType': ofType,
+                'selectedWidth': selectedWidth,
+                'defaultChoices': defaultChoices,
+                'defaultMeters':
+                    double.tryParse(defaultMetersController.text) ?? 100,
+                'sampleRequired': sampleRequired,
+                'selectedSampleMtr': selectedSampleMtr,
+              });
+            } else {
+              // In new mode, save order and navigate to textile_details
+              // Save order to Hive
+              await _saveOrderToHive();
 
-            // Notify that orders have been updated
-            OrderService().notifyOrderUpdated();
+              // Notify that orders have been updated
+              OrderService().notifyOrderUpdated();
 
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TextileDetailsPage(
-                  partyName: selectedParty!,
-                  textileType: ofType,
+              // Navigate to TextileDetailsPage with all selected values
+              final result = await Navigator.push<Map<String, dynamic>>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TextileDetailsPage(
+                    partyName: selectedParty!,
+                    textileType: ofType,
+                    selectedWidth: selectedWidth,
+                    defaultChoices: defaultChoices,
+                    defaultMeters:
+                        double.tryParse(defaultMetersController.text) ?? 100,
+                    sampleRequired: sampleRequired,
+                    selectedSampleMtr: selectedSampleMtr,
+                  ),
                 ),
-              ),
-            );
+              );
+
+              // If user clicked "Edit Defaults", update the values here
+              if (result != null && result['isEditMode'] != true) {
+                setState(() {
+                  ofType = result['ofType'] ?? ofType;
+                  selectedWidth = result['selectedWidth'] ?? selectedWidth;
+                  defaultChoices = result['defaultChoices'] ?? defaultChoices;
+                  double metersValue =
+                      result['defaultMeters'] ??
+                      double.tryParse(defaultMetersController.text) ??
+                      100;
+                  sampleRequired = result['sampleRequired'] ?? sampleRequired;
+                  selectedSampleMtr =
+                      result['selectedSampleMtr'] ?? selectedSampleMtr;
+                  defaultMetersController.text = metersValue.toStringAsFixed(0);
+                });
+              }
+            }
           } else {
             // Show error message if party is not selected
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1796,16 +1911,16 @@ String _formatDate(DateTime date) {
                 color: const Color(0xFF529FF3),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(
-                Icons.play_arrow,
+              child: Icon(
+                widget.isEditMode ? Icons.edit : Icons.play_arrow,
                 color: Colors.white,
                 size: 28,
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Start Capturing',
-              style: TextStyle(
+            Text(
+              widget.isEditMode ? 'Update' : 'Start Capturing',
+              style: const TextStyle(
                 color: Color(0xFFFFFFFF),
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
