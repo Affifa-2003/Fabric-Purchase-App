@@ -1,0 +1,134 @@
+{
+  "Manish Textiles": {
+    "summary": {
+      "d": 47,
+      "ch": 100,
+      "mtr": 4500
+    },
+    "textiles": [
+      {
+        "type": "Regular",
+        "ref": "REG-001",
+        "d": 25,
+        "ch": 50,
+        "mtr": 2500,
+        "color": "#FF5722"
+      },
+      {
+        "type": "Mix",
+        "ref": "MIX-001",
+        "d": 15,
+        "ch": 35,
+        "mtr": 1500,
+        "color": "#4CAF50"
+      },
+      {
+        "type": "Plain",
+        "ref": "PLN-001",
+        "d": 7,
+        "ch": 15,
+        "mtr": 500,
+        "color": "#2196F3"
+      }
+    ]
+  },
+  "Raj Fabrics": {
+    "summary": {
+      "d": 32,
+      "ch": 75,
+      "mtr": 3200
+    },
+    "textiles": [
+      {
+        "type": "Regular",
+        "ref": "REG-002",
+        "d": 18,
+        "ch": 40,
+        "mtr": 1800,
+        "color": "#FF5722"
+      },
+      {
+        "type": "Mix",
+        "ref": "MIX-002",
+        "d": 10,
+        "ch": 25,
+        "mtr": 1000,
+        "color": "#4CAF50"
+      },
+      {
+        "type": "Plain",
+        "ref": "PLN-002",
+        "d": 4,
+        "ch": 10,
+        "mtr": 400,
+        "color": "#2196F3"
+      }
+    ]
+  },
+  "Kumar Mills": {
+    "summary": {
+      "d": 28,
+      "ch": 65,
+      "mtr": 2800
+    },
+    "textiles": [
+      {
+        "type": "Regular",
+        "ref": "REG-003",
+        "d": 15,
+        "ch": 35,
+        "mtr": 1500,
+        "color": "#FF5722"
+      },
+      {
+        "type": "Mix",
+        "ref": "MIX-003",
+        "d": 9,
+        "ch": 20,
+        "mtr": 900,
+        "color": "#4CAF50"
+      },
+      {
+        "type": "Plain",
+        "ref": "PLN-003",
+        "d": 4,
+        "ch": 10,
+        "mtr": 400,
+        "color": "#2196F3"
+      }
+    ]
+  },
+  "Shree Textiles": {
+    "summary": {
+      "d": 20,
+      "ch": 45,
+      "mtr": 2000
+    },
+    "textiles": [
+      {
+        "type": "Regular",
+        "ref": "REG-004",
+        "d": 12,
+        "ch": 25,
+        "mtr": 1200,
+        "color": "#FF5722"
+      },
+      {
+        "type": "Mix",
+        "ref": "MIX-004",
+        "d": 6,
+        "ch": 15,
+        "mtr": 600,
+        "color": "#4CAF50"
+      },
+      {
+        "type": "Plain",
+        "ref": "PLN-004",
+        "d": 2,
+        "ch": 5,
+        "mtr": 200,
+        "color": "#2196F3"
+      }
+    ]
+  }
+}

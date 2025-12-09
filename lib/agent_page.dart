@@ -1,0 +1,432 @@
+import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:purchase_app/utils/input_formatters.dart';
+
+class AgentsPage extends StatefulWidget {
+  const AgentsPage({Key? key}) : super(key: key);
+
+  @override
+  _AgentsPageState createState() => _AgentsPageState();
+}
+
+class _AgentsPageState extends State<AgentsPage> {
+  List<String> agents = [];
+  bool _isLoading = true;
+  late Box appDataBox;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAgents();
+  }
+
+  Future<void> _loadAgents() async {
+    try {
+      // Ensure the box is open
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      appDataBox = Hive.box('appData');
+      
+      setState(() {
+        final agentsData = appDataBox.get('agents');
+        agents = agentsData != null ? List<String>.from(agentsData) : [];
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading agents: $e');
+      setState(() {
+        agents = [];
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveAgentsToStorage() async {
+    try {
+      // Ensure the box is open
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      final box = Hive.box('appData');
+      
+      // Convert all agents to List<String> to ensure type safety
+      final List<String> agentsToSave = agents
+          .map((e) => e.toString())
+          .toList();
+
+      // Save data with explicit await to ensure it's written to disk
+      await box.put('agents', agentsToSave);
+      
+      // Explicitly flush to disk
+      await box.flush();
+
+      // Verify data was saved
+      print('Saved agents: ${box.get('agents')}');
+      print('Agents data saved successfully');
+    } catch (e) {
+      print('Error saving agents data: $e');
+      // Show error to user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving agents: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showAddNewAgentDialog() {
+    TextEditingController newAgentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color(0xFFFFFFFF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header with title and close button
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16.0),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFFFFF),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Add Agent',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                      child: const Icon(Icons.close, color: Color(0xFF767676)),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Horizontal divider
+              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Agent Name Field in a card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text(
+                                'Agent Name: *',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: newAgentController,
+                            inputFormatters: [
+                              NoLeadingOrMultipleSpacesFormatter(),
+                            ],
+                            decoration: const InputDecoration(
+                              hintText: 'e.g. John Smith',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            onEditingComplete: () {
+                              // Trim trailing spaces when editing is complete
+                              newAgentController.text = newAgentController.text.trim();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Information text with icon in a box
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEBF8FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF3182CE)),
+                      ),
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline,
+                            color: Color(0xFF3182CE),
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'This will be added to master and available for future orders.',
+                              style: TextStyle(color: Color(0xFF3182CE)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Horizontal divider
+              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+              
+              // Buttons
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: TextButton(
+                          onPressed: () async {
+                            // Trim any trailing spaces before saving
+                            String agentName = newAgentController.text.trim();
+                            if (agentName.isNotEmpty) {
+                              setState(() {
+                                agents.add(agentName);
+                              });
+
+                              // Save to Hive
+                              await _saveAgentsToStorage();
+
+                              Navigator.pop(context);
+
+                              // Show success message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Agent added successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text(
+                            'Save to Master',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF2563EB),
+        toolbarHeight: 90,
+        title: const Text('Agents'),
+        titleTextStyle: const TextStyle(
+          color: Color(0xFFFFFFFF),
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+        iconTheme: const IconThemeData(color: Color(0xFFFFFFFF)),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            width: 36, // Set fixed width for smaller circle
+            height: 36, // Set fixed height for smaller circle
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              padding: EdgeInsets.zero, // Remove default padding
+              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
+              onPressed: _showAddNewAgentDialog,
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : agents.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.person_off,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No agents found',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add agents using the + button',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: agents.length,
+                  itemBuilder: (context, index) {
+                    return Card(
+                      elevation: 0,
+                      color: const Color(0xFFFFFFFF),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFFEBF5FF),
+                          child: Icon(
+                            Icons.person,
+                            color: const Color(0xFF2563EB),
+                          ),
+                        ),
+                        title: Text(
+                          agents[index],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Color(0xFFEF4444),
+                          ),
+                          onPressed: () {
+                            _showDeleteConfirmationDialog(index);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: Text('Are you sure you want to delete "${agents[index]}"?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                setState(() {
+                  agents.removeAt(index);
+                });
+                
+                // Save to Hive
+                await _saveAgentsToStorage();
+                
+                Navigator.of(context).pop(); // Close dialog
+                
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Agent deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

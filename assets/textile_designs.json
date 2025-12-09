@@ -1,0 +1,418 @@
+{
+  "Manish Textiles": {
+    "Regular": {
+      "d": 25,
+      "ch": 50,
+      "mtr": 2500,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "D001",
+          "d": 10,
+          "ch": 20,
+          "mtr": 500,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "D002",
+          "d": 8,
+          "ch": 15,
+          "mtr": 400,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "D003",
+          "d": 7,
+          "ch": 15,
+          "mtr": 300,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Mix": {
+      "d": 15,
+      "ch": 35,
+      "mtr": 1500,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "M001",
+          "d": 5,
+          "ch": 10,
+          "mtr": 300,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "M002",
+          "d": 6,
+          "ch": 12,
+          "mtr": 400,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "M003",
+          "d": 4,
+          "ch": 13,
+          "mtr": 300,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Plain": {
+      "d": 7,
+      "ch": 15,
+      "mtr": 500,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "P001",
+          "d": 2,
+          "ch": 5,
+          "mtr": 100,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "P002",
+          "d": 3,
+          "ch": 5,
+          "mtr": 150,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "P003",
+          "d": 2,
+          "ch": 5,
+          "mtr": 100,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    }
+  },
+  "Raj Fabrics": {
+    "Regular": {
+      "d": 18,
+      "ch": 40,
+      "mtr": 1800,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "R001",
+          "d": 8,
+          "ch": 15,
+          "mtr": 400,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "R002",
+          "d": 6,
+          "ch": 12,
+          "mtr": 300,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "R003",
+          "d": 4,
+          "ch": 13,
+          "mtr": 300,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Mix": {
+      "d": 10,
+      "ch": 25,
+      "mtr": 1000,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "RM001",
+          "d": 4,
+          "ch": 8,
+          "mtr": 200,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "RM002",
+          "d": 3,
+          "ch": 9,
+          "mtr": 250,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "RM003",
+          "d": 3,
+          "ch": 8,
+          "mtr": 200,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Plain": {
+      "d": 4,
+      "ch": 10,
+      "mtr": 400,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "RP001",
+          "d": 1,
+          "ch": 3,
+          "mtr": 50,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "RP002",
+          "d": 2,
+          "ch": 3,
+          "mtr": 100,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "RP003",
+          "d": 1,
+          "ch": 4,
+          "mtr": 50,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    }
+  },
+  "Kumar Mills": {
+    "Regular": {
+      "d": 15,
+      "ch": 35,
+      "mtr": 1500,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "K001",
+          "d": 6,
+          "ch": 12,
+          "mtr": 300,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "K002",
+          "d": 5,
+          "ch": 10,
+          "mtr": 250,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "K003",
+          "d": 4,
+          "ch": 13,
+          "mtr": 200,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Mix": {
+      "d": 9,
+      "ch": 20,
+      "mtr": 900,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "KM001",
+          "d": 3,
+          "ch": 6,
+          "mtr": 150,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "KM002",
+          "d": 3,
+          "ch": 7,
+          "mtr": 200,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "KM003",
+          "d": 3,
+          "ch": 7,
+          "mtr": 200,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Plain": {
+      "d": 4,
+      "ch": 10,
+      "mtr": 400,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "KP001",
+          "d": 1,
+          "ch": 3,
+          "mtr": 50,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "KP002",
+          "d": 2,
+          "ch": 3,
+          "mtr": 100,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "KP003",
+          "d": 1,
+          "ch": 4,
+          "mtr": 50,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    }
+  },
+  "Shree Textiles": {
+    "Regular": {
+      "d": 12,
+      "ch": 25,
+      "mtr": 1200,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "S001",
+          "d": 5,
+          "ch": 10,
+          "mtr": 250,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "S002",
+          "d": 4,
+          "ch": 8,
+          "mtr": 200,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "S003",
+          "d": 3,
+          "ch": 7,
+          "mtr": 150,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Mix": {
+      "d": 6,
+      "ch": 15,
+      "mtr": 600,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "SM001",
+          "d": 2,
+          "ch": 5,
+          "mtr": 100,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "SM002",
+          "d": 2,
+          "ch": 5,
+          "mtr": 100,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "SM003",
+          "d": 2,
+          "ch": 5,
+          "mtr": 100,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    },
+    "Plain": {
+      "d": 2,
+      "ch": 5,
+      "mtr": 200,
+      "designs": [
+        {
+          "design": "Design 1",
+          "ref": "SP001",
+          "d": 1,
+          "ch": 2,
+          "mtr": 50,
+          "quality": "PC",
+          "weave": "Twill"
+        },
+        {
+          "design": "Design 2",
+          "ref": "SP002",
+          "d": 1,
+          "ch": 2,
+          "mtr": 50,
+          "quality": "Cotton",
+          "weave": "Plain"
+        },
+        {
+          "design": "Design 3",
+          "ref": "SP003",
+          "d": 0,
+          "ch": 1,
+          "mtr": 25,
+          "quality": "Linen",
+          "weave": "Satin"
+        }
+      ]
+    }
+  }
+}

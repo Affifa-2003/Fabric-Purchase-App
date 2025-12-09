@@ -1,0 +1,26 @@
+[
+  {
+    "party": "Manish Textiles",
+    "status": "pending",
+    "orders": 3,
+    "date": "26 Nov 2025"
+  },
+  {
+    "party": "Raj Fabrics",
+    "status": "mixed",
+    "orders": 2,
+    "date": "25 Nov 2025"
+  },
+  {
+    "party": "Kumar Mills",
+    "status": "pending",
+    "orders": 1,
+    "date": "24 Nov 2025"
+  },
+  {
+    "party": "Shree Textiles",
+    "status": "complete",
+    "orders": 4,
+    "date": "23 Nov 2025"
+  }
+]
