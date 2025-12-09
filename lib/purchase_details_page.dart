@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/textile_details.dart';
 
@@ -18,6 +19,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   bool _isLoading = true;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final Color primaryColor = const Color(0xFF2563EB);
+  List<Map<String, dynamic>> capturedDesigns = [];
 
   @override
   void initState() {
@@ -34,6 +36,12 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       // Find the specific party data
       setState(() {
         partyData = allData[widget.partyName] ?? {};
+      });
+
+      // Load captured designs from Hive
+      await _loadCapturedDesigns();
+
+      setState(() {
         _isLoading = false;
       });
     } catch (e) {
@@ -49,7 +57,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
               'd': 25,
               'ch': 50,
               'mtr': 2500,
-              'color': '#FF5722', // Orange-red color
+              'color': '#FF5722',
             },
             {
               'type': 'Mix',
@@ -57,7 +65,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
               'd': 15,
               'ch': 35,
               'mtr': 1500,
-              'color': '#4CAF50', // Green color
+              'color': '#4CAF50',
             },
             {
               'type': 'Plain',
@@ -65,12 +73,44 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
               'd': 7,
               'ch': 15,
               'mtr': 500,
-              'color': '#2196F3', // Blue color
+              'color': '#2196F3',
             },
           ],
         };
         _isLoading = false;
       });
+    }
+  }
+
+  // Load all captured designs from Hive
+  Future<void> _loadCapturedDesigns() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
+
+      final box = Hive.box('designs');
+      List<Map<String, dynamic>> allDesigns = [];
+
+      // Load all designs for all textile types of this party
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          final designs = box.get(key);
+          if (designs is List) {
+            allDesigns.addAll(
+              designs.map((d) => Map<String, dynamic>.from(d as Map)),
+            );
+          }
+        }
+      }
+
+      setState(() {
+        capturedDesigns = allDesigns;
+      });
+
+      print('Loaded ${capturedDesigns.length} captured designs from Hive');
+    } catch (e) {
+      print('Error loading captured designs: $e');
     }
   }
 
@@ -140,15 +180,67 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                 // Summary section
                 _buildSummarySection(),
                 const SizedBox(height: 16),
-                // Textiles list
+                // Textiles list and captured designs
                 Expanded(
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: partyData['textiles']?.length ?? 0,
-                    itemBuilder: (context, index) {
-                      final textile = partyData['textiles'][index];
-                      return _buildTextileCard(textile);
-                    },
+                    children: [
+                      // Display JSON textiles
+                      ...List.generate(partyData['textiles']?.length ?? 0, (
+                        index,
+                      ) {
+                        final textile = partyData['textiles'][index];
+                        return _buildTextileCard(textile);
+                      }),
+                      // Display captured designs
+                      if (capturedDesigns.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Captured Designs:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columnSpacing: 16,
+                            columns: const [
+                              DataColumn(label: Text('S.No')),
+                              DataColumn(label: Text('Design No')),
+                              DataColumn(label: Text('Choices')),
+                              DataColumn(label: Text('Meters')),
+                              DataColumn(label: Text('Mode')),
+                            ],
+                            rows: capturedDesigns
+                                .map(
+                                  (design) => DataRow(
+                                    cells: [
+                                      DataCell(Text(design['sNo'].toString())),
+                                      DataCell(
+                                        Text(design['designNo'].toString()),
+                                      ),
+                                      DataCell(
+                                        Text(design['choices'].toString()),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          design['meters'].toStringAsFixed(0),
+                                        ),
+                                      ),
+                                      DataCell(Text(design['mode'].toString())),
+                                    ],
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ],
                   ),
                 ),
               ],
