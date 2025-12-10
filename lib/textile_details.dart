@@ -438,60 +438,66 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     }
   }
 
-String _generateAPC() {
-  // Generate APC using existing saved designs for the specific party and O/F type
-  int maxExisting = 0;
+  String _generateAPC() {
+    // Generate APC using existing saved designs for the specific party and selected O/F type
+    int maxExisting = 0;
 
-  // First, check the current session's capturedDesigns for the same party and O/F type
-  for (var design in capturedDesigns) {
+    // Check Hive for all previously saved designs for the party and selected O/F type
     try {
-      final designNo = design['designNo']?.toString() ?? '';
-      if (designNo.startsWith('APC-')) {
-        final parts = designNo.split('-');
-        if (parts.length >= 2) {
-          final numPart = int.tryParse(parts.last) ?? 0;
-          if (numPart > maxExisting) maxExisting = numPart;
-        }
-      }
-    } catch (e) {
-      // ignore parse errors
-    }
-  }
+      if (Hive.isBoxOpen('designs')) {
+        final box = Hive.box('designs');
 
-  // Then, check Hive for previously saved designs for the same party and O/F type
-  try {
-    if (Hive.isBoxOpen('designs')) {
-      final box = Hive.box('designs');
-      
-      // Only check designs for the current party and O/F type
-      final key = 'designs_${widget.partyName}_${widget.textileType}';
-      if (box.containsKey(key)) {
-        final list = box.get(key);
-        if (list is List) {
-          for (var d in list) {
-            try {
-              final designNo = d['designNo']?.toString() ?? '';
-              if (designNo.startsWith('APC-')) {
-                final parts = designNo.split('-');
-                if (parts.length >= 2) {
-                  final numPart = int.tryParse(parts.last) ?? 0;
-                  if (numPart > maxExisting) maxExisting = numPart;
+        // Check all designs for the current party
+        for (var key in box.keys) {
+          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+            final list = box.get(key);
+            if (list is List) {
+              for (var d in list) {
+                try {
+                  if (d['ofType'] == selectedOFType) {
+                    final designNo = d['designNo']?.toString() ?? '';
+                    if (designNo.startsWith('APC-')) {
+                      final parts = designNo.split('-');
+                      if (parts.length >= 2) {
+                        final numPart = int.tryParse(parts.last) ?? 0;
+                        if (numPart > maxExisting) maxExisting = numPart;
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // ignore parse errors
                 }
               }
-            } catch (e) {
-              // ignore parse errors
             }
           }
         }
       }
+    } catch (e) {
+      print('Error scanning existing APCs: $e');
     }
-  } catch (e) {
-    print('Error scanning existing APCs: $e');
+
+    // Also check current session's capturedDesigns for the selected O/F type
+    for (var design in capturedDesigns) {
+      try {
+        if (design['ofType'] == selectedOFType) {
+          final designNo = design['designNo']?.toString() ?? '';
+          if (designNo.startsWith('APC-')) {
+            final parts = designNo.split('-');
+            if (parts.length >= 2) {
+              final numPart = int.tryParse(parts.last) ?? 0;
+              if (numPart > maxExisting) maxExisting = numPart;
+            }
+          }
+        }
+      } catch (e) {
+        // ignore parse errors
+      }
+    }
+
+    final newCount = maxExisting + 1;
+    return 'APC-$newCount';
   }
 
-  final newCount = maxExisting + 1;
-  return 'APC-$newCount';
-}
   Future<void> _handleStartAPC() async {
     setState(() {
       _isGeneratingAPC = true;
@@ -544,12 +550,19 @@ String _generateAPC() {
     }
 
     // Filter designs by the current textileType (O/F Type)
+    List<Map<String, dynamic>> filteredDesigns = allDesigns
+        .where((design) => design['ofType'] == widget.textileType)
+        .toList();
+
+    // Reset S.No to start from 1 for each textile type
+    for (int i = 0; i < filteredDesigns.length; i++) {
+      filteredDesigns[i]['sNo'] = i + 1;
+    }
+
     setState(() {
-      capturedDesigns = allDesigns
-          .where((design) => design['ofType'] == widget.textileType)
-          .toList();
+      capturedDesigns = filteredDesigns;
     });
-    
+
     // Update summary values based on filtered designs
     _updateSummaryValues();
 
@@ -598,12 +611,8 @@ String _generateAPC() {
   }
 
   // Generate the next reference number for the selected O/F type
-  int typeCount =
-      1 + capturedDesigns.where((d) => d['ofType'] == selectedOFType).length;
-  String refPrefix = selectedOFType.toUpperCase().substring(
-    0,
-    3,
-  ); // REG, MIX, PLA
+  int typeCount = capturedDesigns.length + 1; // Use current length + 1
+  String refPrefix = selectedOFType.toUpperCase().substring(0, 3);
   String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
 
   // Convert captured photos to base64 strings for storage
@@ -615,9 +624,9 @@ String _generateAPC() {
 
   setState(() {
     if (_editingDesignIndex != null) {
-      // Update existing design with all fields
+      // Update existing design with all fields, but keep the original S.No
       capturedDesigns[_editingDesignIndex!] = {
-        'sNo': _editingDesignIndex! + 1,
+        'sNo': capturedDesigns[_editingDesignIndex!]['sNo'], // Keep original S.No
         'designNo': designNo ?? '-',
         'choices': choices,
         'meters': metersValue,
@@ -628,13 +637,13 @@ String _generateAPC() {
         'quality': selectedQuality,
         'width': selectedWidth,
         'ref': ref,
-        'photos': photoBase64List, // Add photos to design data
+        'photos': photoBase64List,
       };
       _editingDesignIndex = null;
     } else {
-      // Add new design with all fields
+      // Add new design with all fields and set S.No to current length + 1
       capturedDesigns.add({
-        'sNo': capturedDesigns.length + 1,
+        'sNo': capturedDesigns.length + 1, // Set S.No to current length + 1
         'designNo': designNo ?? '-',
         'choices': choices,
         'meters': metersValue,
@@ -645,19 +654,19 @@ String _generateAPC() {
         'quality': selectedQuality,
         'width': selectedWidth,
         'ref': ref,
-        'photos': photoBase64List, // Add photos to design data
+        'photos': photoBase64List,
       });
     }
   });
 
   _updateSummaryValues();
   _clearPartyDesignNo();
-  
+
   // Clear captured photos after saving
   setState(() {
     capturedPhotos = [];
   });
-  
+
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
@@ -677,74 +686,76 @@ String _generateAPC() {
   }
 
   void _selectDesignForEditing(Map<String, dynamic> design, int index) async {
-  setState(() {
-    _editingDesignIndex = index;
-
-    // Populate all form fields with the selected design's data
-    partyDesignNo = design['designNo'].toString() != '-'
-        ? design['designNo'].toString()
-        : null;
-    _partyDesignController.text = design['designNo'].toString() != '-'
-        ? design['designNo'].toString()
-        : '';
-    selectedMode = design['mode'].toString();
-
-    // Update controllers with proper values
-    _choicesController.text = design['choices'].toString();
-    defaultMetersController.text = design['meters'].toStringAsFixed(0);
-
-    // Update defaultMeters to match the design
-    defaultMeters = design['meters'] as double;
-
-    // Now populate all the additional fields from the design data
-    selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
-    selectedWeave = design['weave']?.toString();
-    selectedQuality = design['quality']?.toString();
-    selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
-
-    // Update default values if needed
-    defaultChoices = design['choices'] as int;
-  });
-
-  // Load photos if available
-  if (design['photos'] != null && design['photos'] is List) {
-    List<String> photoBase64List = List<String>.from(design['photos']);
-    List<XFile> photos = [];
-    for (String base64 in photoBase64List) {
-      XFile photo = await _base64ToXFile(base64);
-      photos.add(photo);
-    }
     setState(() {
-      capturedPhotos = photos;
+      _editingDesignIndex = index;
+
+      // Populate all form fields with the selected design's data
+      partyDesignNo = design['designNo'].toString() != '-'
+          ? design['designNo'].toString()
+          : null;
+      _partyDesignController.text = design['designNo'].toString() != '-'
+          ? design['designNo'].toString()
+          : '';
+      selectedMode = design['mode'].toString();
+
+      // Update controllers with proper values
+      _choicesController.text = design['choices'].toString();
+      defaultMetersController.text = design['meters'].toStringAsFixed(0);
+
+      // Update defaultMeters to match the design
+      defaultMeters = design['meters'] as double;
+
+      // Now populate all the additional fields from the design data
+      selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
+      selectedWeave = design['weave']?.toString();
+      selectedQuality = design['quality']?.toString();
+      selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
+
+      // Update default values if needed
+      defaultChoices = design['choices'] as int;
+    });
+
+    // Load photos if available
+    if (design['photos'] != null && design['photos'] is List) {
+      List<String> photoBase64List = List<String>.from(design['photos']);
+      List<XFile> photos = [];
+      for (String base64 in photoBase64List) {
+        XFile photo = await _base64ToXFile(base64);
+        photos.add(photo);
+      }
+      setState(() {
+        capturedPhotos = photos;
+      });
+    }
+  }
+
+  void _clearEditingState() {
+    setState(() {
+      _editingDesignIndex = null;
+
+      // Clear all controllers
+      _choicesController.clear();
+      defaultMetersController.clear();
+      _partyDesignController.clear();
+
+      // Reset all field values
+      partyDesignNo = null;
+      selectedMode = 'Design';
+      selectedOFType = currentDefaultOFType;
+      selectedWeave = null;
+      selectedQuality = null;
+      selectedWidth = currentDefaultWidth;
+      defaultChoices = currentDefaultChoices;
+      defaultMeters = currentDefaultMeters;
+
+      // Update default meters controller
+      defaultMetersController.text = defaultMeters.toStringAsFixed(0);
+
+      // Clear captured photos
+      capturedPhotos = [];
     });
   }
-}
-  void _clearEditingState() {
-  setState(() {
-    _editingDesignIndex = null;
 
-    // Clear all controllers
-    _choicesController.clear();
-    defaultMetersController.clear();
-    _partyDesignController.clear();
-
-    // Reset all field values
-    partyDesignNo = null;
-    selectedMode = 'Design';
-    selectedOFType = currentDefaultOFType;
-    selectedWeave = null;
-    selectedQuality = null;
-    selectedWidth = currentDefaultWidth;
-    defaultChoices = currentDefaultChoices;
-    defaultMeters = currentDefaultMeters;
-
-    // Update default meters controller
-    defaultMetersController.text = defaultMeters.toStringAsFixed(0);
-    
-    // Clear captured photos
-    capturedPhotos = [];
-  });
-}
   @override
   void dispose() {
     _weaveTypeController.dispose();
@@ -754,165 +765,176 @@ String _generateAPC() {
     super.dispose();
   }
 
-    @override
-  Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+  @override
+Widget build(BuildContext context) {
+  final isTablet = MediaQuery.of(context).size.width > 600;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
-        toolbarHeight: 90,
-        backgroundColor: primaryColor,
-        title: Text(
-          widget.partyName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        titleTextStyle: const TextStyle(
+  return Scaffold(
+    key: _scaffoldKey,
+    appBar: AppBar(
+      toolbarHeight: 90,
+      backgroundColor: primaryColor,
+      title: Text(
+        widget.partyName,
+        style: const TextStyle(
           color: Colors.white,
-          fontSize: 16,
+          fontSize: 20,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
       ),
-      backgroundColor: const Color(0xFFF9FAFB),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                (isTablet ? _buildTabletView() : _buildMobileView()),
-                if (_showAddWeaveDialog) _buildAddWeaveDialog(),
-                if (_showAddQualityDialog) _buildAddQualityDialog(),
-                if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
-                if (_showAddWidthDialog) _buildAddWidthDialog(),
-                if (_previewPhotoIndex != null) _buildFullScreenPreview(),
-              ],
-            ),
-    );
-  }
+      iconTheme: const IconThemeData(color: Colors.white),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          Navigator.pop(context);
+        },
+      ),
+      titleTextStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.5,
+      ),
+    ),
+    backgroundColor: const Color(0xFFF9FAFB),
+    body: _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
+            children: [
+              // Sticky summary card at the top
+              Container(
+                color: const Color(0xFFF9FAFB), // Same as background color
+                child: _buildSummaryCard(),
+              ),
+              
+              // Scrollable content below
+              Expanded(
+                child: Stack(
+                  children: [
+                    (isTablet ? _buildTabletView() : _buildMobileView()),
+                    if (_showAddWeaveDialog) _buildAddWeaveDialog(),
+                    if (_showAddQualityDialog) _buildAddQualityDialog(),
+                    if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
+                    if (_showAddWidthDialog) _buildAddWidthDialog(),
+                    if (_previewPhotoIndex != null) _buildFullScreenPreview(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+  );
+}
 
   Future<String> _xFileToBase64(XFile file) async {
-  List<int> imageBytes = await file.readAsBytes();
-  return base64Encode(imageBytes);
-}
+    List<int> imageBytes = await file.readAsBytes();
+    return base64Encode(imageBytes);
+  }
 
-// Convert base64 string back to XFile
-Future<XFile> _base64ToXFile(String base64String) async {
-  List<int> bytes = base64Decode(base64String);
-  final tempDir = Directory.systemTemp;
-  final tempFile = File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg');
-  await tempFile.writeAsBytes(bytes);
-  return XFile(tempFile.path);
-}
-
+  // Convert base64 string back to XFile
+  Future<XFile> _base64ToXFile(String base64String) async {
+    List<int> bytes = base64Decode(base64String);
+    final tempDir = Directory.systemTemp;
+    final tempFile = File(
+      '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+    await tempFile.writeAsBytes(bytes);
+    return XFile(tempFile.path);
+  }
 
   Widget _buildMobileView() {
-    return SingleChildScrollView(
+  return SingleChildScrollView(
+    child: Column(
+      children: [
+        // Removed _buildSummaryCard() from here
+        const SizedBox(height: 16),
+        _buildTextileDetailsCard(),
+        const SizedBox(height: 16),
+        _buildCapturePhotoSection(),
+        const SizedBox(height: 16),
+        _buildModeSelectionSection(),
+        const SizedBox(height: 16),
+        _buildPartyDesignNoSection(),
+        const SizedBox(height: 16),
+        _buildOFTypeSection(),
+        const SizedBox(height: 16),
+        _buildWeaveTypeSection(),
+        const SizedBox(height: 16),
+        _buildQualitySection(),
+        const SizedBox(height: 16),
+        _buildWidthOverrideSection(),
+        const SizedBox(height: 16),
+        _buildChoicesOverrideSection(),
+        const SizedBox(height: 16),
+        _buildMetersOverrideSection(),
+        const SizedBox(height: 16),
+        _buildActionButtons(),
+        const SizedBox(height: 20),
+        _buildCapturedDesignsSection(),
+        const SizedBox(height: 20),
+      ],
+    ),
+  );
+}
+
+  Widget _buildTabletView() {
+  return SingleChildScrollView(
+    child: Padding(
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          _buildSummaryCard(),
+          // Removed _buildSummaryCard() from here
           const SizedBox(height: 16),
           _buildTextileDetailsCard(),
           const SizedBox(height: 16),
-          _buildCapturePhotoSection(), // Moved to after meters section
-          const SizedBox(height: 16),
-          _buildModeSelectionSection(),
-          const SizedBox(height: 16),
-          _buildPartyDesignNoSection(),
-          const SizedBox(height: 16),
-          _buildOFTypeSection(), // New O/F Type section
-          const SizedBox(height: 16),
-          _buildWeaveTypeSection(), // New Weave Type section
-          const SizedBox(height: 16),
-          _buildQualitySection(),
-          const SizedBox(height: 16),
-          _buildWidthOverrideSection(),
-          const SizedBox(height: 16),
-          _buildChoicesOverrideSection(),
-          const SizedBox(height: 16),
-          _buildMetersOverrideSection(),
-          const SizedBox(height: 16),
+
+          // Two column layout
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left column - Photo capture
+              Expanded(
+                flex: 1,
+                child: _buildCapturePhotoSection(),
+              ),
+              const SizedBox(width: 24),
+
+              // Right column - Form fields
+              Expanded(
+                flex: 1,
+                child: Column(
+                  children: [
+                    _buildModeSelectionSection(),
+                    const SizedBox(height: 16),
+                    _buildPartyDesignNoSection(),
+                    const SizedBox(height: 16),
+                    _buildOFTypeSection(),
+                    const SizedBox(height: 16),
+                    _buildWeaveTypeSection(),
+                    const SizedBox(height: 16),
+                    _buildQualitySection(),
+                    const SizedBox(height: 16),
+                    _buildWidthOverrideSection(),
+                    const SizedBox(height: 16),
+                    _buildChoicesOverrideSection(),
+                    const SizedBox(height: 16),
+                    _buildMetersOverrideSection(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
           _buildActionButtons(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
           _buildCapturedDesignsSection(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
         ],
       ),
-    );
-  }
-
-  Widget _buildTabletView() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            // Summary at top
-            _buildSummaryCard(),
-            const SizedBox(height: 16),
-            _buildTextileDetailsCard(),
-            const SizedBox(height: 16),
-
-            // Two column layout
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Left column - Photo capture
-                Expanded(
-                  flex: 1,
-                  child:
-                      _buildCapturePhotoSection(), // Now includes Will Capture info
-                ),
-                const SizedBox(width: 24),
-
-                // Right column - Form fields
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      _buildModeSelectionSection(),
-                      const SizedBox(height: 16),
-                      _buildPartyDesignNoSection(),
-                      const SizedBox(height: 16),
-                      _buildOFTypeSection(), // New O/F Type section
-                      const SizedBox(height: 16),
-                      _buildWeaveTypeSection(), // New Weave Type section
-                      const SizedBox(height: 16),
-                      _buildQualitySection(),
-                      const SizedBox(height: 16),
-                      _buildWidthOverrideSection(),
-                      const SizedBox(height: 16),
-                      _buildChoicesOverrideSection(),
-                      const SizedBox(height: 16),
-                      _buildMetersOverrideSection(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-            _buildActionButtons(),
-            const SizedBox(height: 32),
-            _buildCapturedDesignsSection(),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
+    ),
+  );
+}
   // New summary card with vertical lines
   Widget _buildSummaryCard() {
     return Card(
@@ -945,7 +967,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
             // Colors column
             Expanded(
               child: _buildSummaryItem(
-                'Colors',
+                'Choices',
                 textileData['ch']?.toString() ?? '0',
               ),
             ),
@@ -2387,7 +2409,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
     );
   }
 
-    Widget _buildCapturePhotoSection() {
+  Widget _buildCapturePhotoSection() {
     return Card(
       elevation: 0,
       color: const Color(0xFFFFFFFF),
@@ -2409,15 +2431,15 @@ Future<XFile> _base64ToXFile(String base64String) async {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Photo capture area
             if (capturedPhotos.isEmpty)
               _buildEmptyCaptureArea()
             else
               _buildPhotoGrid(),
-            
+
             const SizedBox(height: 16),
-            
+
             // Capture button
             InkWell(
               onTap: () async {
@@ -2437,10 +2459,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF4F46E5),
-                      const Color(0xFF2563EB),
-                    ],
+                    colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -2456,11 +2475,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+                    Icon(Icons.camera_alt, color: Colors.white, size: 24),
                     SizedBox(width: 8),
                     Text(
                       'Capture New Photo',
@@ -2479,6 +2494,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
       ),
     );
   }
+
   Widget _buildWillCaptureItem(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -2944,7 +2960,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
     );
   }
 
-    Widget _buildEmptyCaptureArea() {
+  Widget _buildEmptyCaptureArea() {
     return InkWell(
       onTap: () async {
         final XFile? pickedFile = await _imagePicker.pickImage(
@@ -2979,10 +2995,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
               height: 60,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF4F46E5),
-                    const Color(0xFF2563EB),
-                  ],
+                  colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -3013,19 +3026,17 @@ Future<XFile> _base64ToXFile(String base64String) async {
             const SizedBox(height: 4),
             const Text(
               'Ready to capture',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF9CA3AF),
-              ),
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
             ),
           ],
         ),
       ),
     );
   }
+
   Widget _buildPhotoGrid() {
     final isTablet = MediaQuery.of(context).size.width > 600;
-    
+
     if (isTablet) {
       // Tablet view - Grid layout
       return Container(
@@ -3091,6 +3102,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
       );
     }
   }
+
   Widget _buildFullScreenPreview() {
     if (_previewPhotoIndex == null || capturedPhotos.isEmpty) {
       return const SizedBox.shrink();
@@ -3111,7 +3123,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
             height: double.infinity,
           ),
         ),
-        
+
         // Photo preview
         Center(
           child: InteractiveViewer(
@@ -3124,7 +3136,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
             ),
           ),
         ),
-        
+
         // Top bar with close button
         Positioned(
           top: 40,
@@ -3146,30 +3158,26 @@ Future<XFile> _base64ToXFile(String base64String) async {
                     color: Colors.black.withOpacity(0.5),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 24),
                 ),
               ),
-              
+
               // Photo counter
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   '${_previewPhotoIndex! + 1} / ${capturedPhotos.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ),
-              
+
               // Delete button
               GestureDetector(
                 onTap: () {
@@ -3199,7 +3207,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
             ],
           ),
         ),
-        
+
         // Bottom navigation buttons
         if (capturedPhotos.length > 1)
           Positioned(
@@ -3232,7 +3240,7 @@ Future<XFile> _base64ToXFile(String base64String) async {
                   )
                 else
                   const SizedBox(width: 40),
-                
+
                 // Next button
                 if (_previewPhotoIndex! < capturedPhotos.length - 1)
                   GestureDetector(
@@ -3338,297 +3346,307 @@ Future<XFile> _base64ToXFile(String base64String) async {
   }
 
   Widget _buildCapturedDesignsSection() {
-  // Filter designs based on selected tab
-  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((design) {
-    if (selectedFilter == 'All') return true;
-    if (selectedFilter == 'Design') return design['mode'] == 'Design';
-    if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
-    return true;
-  }).toList();
+    // Filter designs based on selected tab
+    List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
+      design,
+    ) {
+      if (selectedFilter == 'All') return true;
+      if (selectedFilter == 'Design') return design['mode'] == 'Design';
+      if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
+      return true;
+    }).toList();
 
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // First Row - Title only
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Captured Designs (${widget.textileType}):', // Show the current O/F Type
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-              if (_editingDesignIndex != null)
-                TextButton(
-                  onPressed: _clearEditingState,
-                  child: const Text(
-                    'Cancel Editing',
-                    style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // First Row - Title only
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Captured Designs (${widget.textileType}):', // Show the current O/F Type
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
                   ),
                 ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: ['All', 'Design', 'Sample'].map((filter) {
-              bool isSelected = selectedFilter == filter;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedFilter = filter;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                if (_editingDesignIndex != null)
+                  TextButton(
+                    onPressed: _clearEditingState,
+                    child: const Text(
+                      'Cancel Editing',
+                      style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
+                    ),
                   ),
-                  margin: const EdgeInsets.only(left: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFFFEE2E2)
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: ['All', 'Design', 'Sample'].map((filter) {
+                bool isSelected = selectedFilter == filter;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      selectedFilter = filter;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    margin: const EdgeInsets.only(left: 8),
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFFEF4444)
-                          : Colors.transparent,
+                          ? const Color(0xFFFEE2E2)
+                          : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFEF4444)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      filter,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isSelected
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF1F2937),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    filter,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isSelected
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF1F2937),
-                      fontWeight: FontWeight.bold,
-                    ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Design list or empty state
+            if (filteredDesigns.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                ),
+                child: Text(
+                  'No ${widget.textileType} designs captured yet. Start capturing photos!',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF9CA3AF),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Design list or empty state
-          if (filteredDesigns.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
-              ),
-              child: Text(
-                'No ${widget.textileType} designs captured yet. Start capturing photos!',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
-              ),
-            )
-          else
-            // MODIFIED PART: Use LayoutBuilder to make table full width
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: constraints.maxWidth, // Take full available width
-                    ),
-                    child: DataTable(
-                      columnSpacing: 24, // Increase spacing between columns
-                      horizontalMargin: 12, // Add horizontal margin
-                      columns: const [
-                        DataColumn(
-                          label: Text(
-                            'S.No',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+              )
+            else
+              // MODIFIED PART: Use LayoutBuilder to make table full width
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth:
+                            constraints.maxWidth, // Take full available width
+                      ),
+                      child: DataTable(
+                        columnSpacing: 24, // Increase spacing between columns
+                        horizontalMargin: 12, // Add horizontal margin
+                        columns: const [
+                          DataColumn(
+                            label: Text(
+                              'S.No',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Design No',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          DataColumn(
+                            label: Text(
+                              'Design No',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Choices',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          DataColumn(
+                            label: Text(
+                              'Choices',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Meters',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          DataColumn(
+                            label: Text(
+                              'Meters',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
-                      ],
-                      rows: filteredDesigns.asMap().entries.map((entry) {
-                        final display = entry.value;
-                        final originalIndex = capturedDesigns.indexOf(display);
-                        return DataRow(
-                          color: MaterialStateProperty.resolveWith<Color?>(
-                            (Set<MaterialState> states) {
+                        ],
+                        rows: filteredDesigns.asMap().entries.map((entry) {
+                          final display = entry.value;
+                          final originalIndex = capturedDesigns.indexOf(
+                            display,
+                          );
+                          return DataRow(
+                            color: MaterialStateProperty.resolveWith<Color?>((
+                              Set<MaterialState> states,
+                            ) {
                               // Highlight the row that is being edited
                               if (_editingDesignIndex != null &&
                                   originalIndex == _editingDesignIndex) {
                                 return const Color(0xFFE3F2FD);
                               }
                               return null;
+                            }),
+                            onSelectChanged: (selected) {
+                              if (selected ?? false) {
+                                _selectDesignForEditing(display, originalIndex);
+                              }
                             },
-                          ),
-                          onSelectChanged: (selected) {
-                            if (selected ?? false) {
-                              _selectDesignForEditing(display, originalIndex);
-                            }
-                          },
-                          cells: [
-                            DataCell(
-                              Text(
-                                (display['sNo'] ?? (originalIndex + 1))
-                                    .toString(),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                display['designNo']?.toString() ?? '-',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
+                            cells: [
+                              DataCell(
+                                Text(
+                                  (display['sNo'] ?? (originalIndex + 1))
+                                      .toString(),
                                 ),
                               ),
-                            ),
-                            DataCell(
-                              Text(
-                                display['choices']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
+                              DataCell(
+                                Text(
+                                  display['designNo']?.toString() ?? '-',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                            DataCell(
-                              Text(
-                                (display['meters'] is num)
-                                    ? (display['meters'] as num)
-                                          .toDouble()
-                                          .toStringAsFixed(0)
-                                    : display['meters']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
+                              DataCell(
+                                Text(
+                                  display['choices']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
+                              DataCell(
+                                Text(
+                                  (display['meters'] is num)
+                                      ? (display['meters'] as num)
+                                            .toDouble()
+                                            .toStringAsFixed(0)
+                                      : display['meters']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    ),
-  );
-}
-  Future<void> _saveCapturedDesignToHive() async {
-  try {
-    if (!Hive.isBoxOpen('designs')) {
-      await Hive.openBox('designs');
-    }
-
-    final box = Hive.box('designs');
-    final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
-
-    // Convert all designs to serializable format with all fields
-    final designsToSave = capturedDesigns.map((d) {
-      return {
-        'sNo': d['sNo'],
-        'designNo': d['designNo']?.toString() ?? '-', // Ensure designNo is saved
-        'choices': d['choices'],
-        'meters': d['meters'],
-        'mode': d['mode'],
-        'timestamp': d['timestamp'],
-        'ofType': d['ofType'],
-        'weave': d['weave'],
-        'quality': d['quality'],
-        'width': d['width'],
-        'ref': d['ref'],
-        'photos': d['photos'] ?? [], // Ensure photos are included
-      };
-    }).toList();
-
-    await box.put(designsKey, designsToSave);
-    await box.flush();
-
-    print('Captured designs saved to Hive with key: $designsKey');
-    print('Designs: $designsToSave');
-
-    // Update orders count in the orders box for this party
-    try {
-      if (!Hive.isBoxOpen('orders')) {
-        await Hive.openBox('orders');
-      }
-      final ordersBox = Hive.box('orders');
-
-      // Calculate total designs across all textile types for this party
-      int totalDesignsForParty = 0;
-      for (var key in box.keys) {
-        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-          final list = box.get(key);
-          if (list is List) totalDesignsForParty += list.length;
-        }
-      }
-
-      final orderEntry = {
-        'party': widget.partyName,
-        'orders': totalDesignsForParty,
-        'date': DateTime.now().toIso8601String(),
-        'status': 'pending',
-      };
-
-      await ordersBox.put(widget.partyName, orderEntry);
-      await ordersBox.flush();
-
-      // notify listeners so purchase_list_page reloads
-      try {
-        OrderService().notifyOrderUpdated();
-      } catch (e) {
-        print('OrderService notify error: $e');
-      }
-    } catch (e) {
-      print('Error updating orders box: $e');
-    }
-  } catch (e) {
-    print('Error saving captured designs: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error saving designs: $e'),
-        backgroundColor: Colors.red,
+                  );
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
-}
-  
+
+  Future<void> _saveCapturedDesignToHive() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
+
+      final box = Hive.box('designs');
+      final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
+
+      // Convert all designs to serializable format with all fields
+      final designsToSave = capturedDesigns.map((d) {
+        return {
+          'sNo': d['sNo'],
+          'designNo':
+              d['designNo']?.toString() ?? '-', // Ensure designNo is saved
+          'choices': d['choices'],
+          'meters': d['meters'],
+          'mode': d['mode'],
+          'timestamp': d['timestamp'],
+          'ofType': d['ofType'],
+          'weave': d['weave'],
+          'quality': d['quality'],
+          'width': d['width'],
+          'ref': d['ref'],
+          'photos': d['photos'] ?? [], // Ensure photos are included
+        };
+      }).toList();
+
+      await box.put(designsKey, designsToSave);
+      await box.flush();
+
+      print('Captured designs saved to Hive with key: $designsKey');
+      print('Designs: $designsToSave');
+
+      // Update orders count in the orders box for this party
+      try {
+        if (!Hive.isBoxOpen('orders')) {
+          await Hive.openBox('orders');
+        }
+        final ordersBox = Hive.box('orders');
+
+        // Calculate total designs across all textile types for this party
+        int totalDesignsForParty = 0;
+        for (var key in box.keys) {
+          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+            final list = box.get(key);
+            if (list is List) totalDesignsForParty += list.length;
+          }
+        }
+
+        final orderEntry = {
+          'party': widget.partyName,
+          'orders': totalDesignsForParty,
+          'date': DateTime.now().toIso8601String(),
+          'status': 'pending',
+        };
+
+        await ordersBox.put(widget.partyName, orderEntry);
+        await ordersBox.flush();
+
+        // notify listeners so purchase_list_page reloads
+        try {
+          OrderService().notifyOrderUpdated();
+        } catch (e) {
+          print('OrderService notify error: $e');
+        }
+      } catch (e) {
+        print('Error updating orders box: $e');
+      }
+    } catch (e) {
+      print('Error saving captured designs: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving designs: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   // Method to calculate summary values from captured designs
   Map<String, dynamic> _calculateSummaryValues() {
     // Count each saved row as one design so the summary shows raw saved items
@@ -3703,4 +3721,3 @@ Future<XFile> _base64ToXFile(String base64String) async {
     }
   }
 }
-
