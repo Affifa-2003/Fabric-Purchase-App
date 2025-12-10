@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'utils/input_formatters.dart';
 
 class OrderFormFinishPage extends StatefulWidget {
   final String partyName;
@@ -26,14 +29,46 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
   String orderFormFromNo = '';
   String orderFormToNo = '';
   final TextEditingController _commentsController = TextEditingController();
+  final TextEditingController _fromNoController = TextEditingController();
+  final TextEditingController _toNoController = TextEditingController();
   
   // Add image picker
   final ImagePicker _imagePicker = ImagePicker();
   File? _orderFormPhoto;
+  
+  // Hive boxes
+  late Box appDataBox;
+  late Box orderFormsBox;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeHive();
+  }
+
+  Future<void> _initializeHive() async {
+    try {
+      // Get the boxes (they should already be open from main.dart)
+      appDataBox = Hive.box('appData');
+      
+      // Check if orderForms box is open, if not open it
+      if (!Hive.isBoxOpen('orderForms')) {
+        orderFormsBox = await Hive.openBox('orderForms');
+      } else {
+        orderFormsBox = Hive.box('orderForms');
+      }
+      
+      print('Hive boxes are open: ${Hive.isBoxOpen('appData')} and ${Hive.isBoxOpen('orderForms')}');
+    } catch (e) {
+      print('Error initializing Hive: $e');
+    }
+  }
 
   @override
   void dispose() {
     _commentsController.dispose();
+    _fromNoController.dispose();
+    _toNoController.dispose();
     super.dispose();
   }
 
@@ -161,21 +196,54 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                           fit: BoxFit.cover,
                         ),
                       )
-                    : const Column(
+                    : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.camera_alt,
-                            size: 32,
-                            color: Color(0xFFC5CAD1),
+                          // Modern camera icon with gradient background (same as textile_details.dart)
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF4F46E5),
+                                  const Color(0xFF2563EB),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF2563EB,
+                                  ).withOpacity(0.3),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 40,
+                            ),
                           ),
-                          SizedBox(height: 8),
-                          Text(
+                          const SizedBox(height: 16),
+                          const Text(
                             'Tap to Capture',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2563EB),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Ready to capture',
+                            style: TextStyle(
+                              fontSize: 12,
                               color: Color(0xFF9CA3AF),
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -214,6 +282,11 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _fromNoController,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                      NoLeadingOrMultipleSpacesFormatter(),
+                    ],
                     onChanged: (value) {
                       setState(() {
                         orderFormFromNo = value;
@@ -237,6 +310,11 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
+                    controller: _toNoController,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                      NoLeadingOrMultipleSpacesFormatter(),
+                    ],
                     onChanged: (value) {
                       setState(() {
                         orderFormToNo = value;
@@ -356,6 +434,9 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
             const SizedBox(height: 12),
             TextField(
               controller: _commentsController,
+              inputFormatters: [
+                NoLeadingOrMultipleSpacesFormatter(),
+              ],
               maxLines: 4,
               decoration: InputDecoration(
                 hintText:
@@ -404,6 +485,9 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
             return;
           }
 
+          // Save data to Hive
+          _saveOrderFormToHive();
+
           // Show success dialog
           _showSuccessDialog();
         },
@@ -417,6 +501,47 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveOrderFormToHive() async {
+    try {
+      // Get the order form photo path if it exists
+      String? photoPath;
+      if (_orderFormPhoto != null) {
+        photoPath = _orderFormPhoto!.path;
+      }
+
+      // Create a map with all the order form data
+      final orderFormData = {
+        'partyName': widget.partyName,
+        'orderFormFromNo': orderFormFromNo,
+        'orderFormToNo': orderFormToNo,
+        'comments': _commentsController.text,
+        'photoPath': photoPath,
+        'totalDesigns': widget.totalDesigns,
+        'totalChoices': widget.totalChoices,
+        'totalMeters': widget.totalMeters,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      // Generate a unique key for this order form
+      final orderFormKey = 'orderForm_${widget.partyName}_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Save the order form data to Hive
+      await orderFormsBox.put(orderFormKey, orderFormData);
+      await orderFormsBox.flush();
+
+      print('Order form saved to Hive with key: $orderFormKey');
+      print('Order form data: $orderFormData');
+    } catch (e) {
+      print('Error saving order form to Hive: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving order form: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showSuccessDialog() {
