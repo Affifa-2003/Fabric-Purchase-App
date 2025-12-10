@@ -94,87 +94,118 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  // In PartyDetailsPage, modify the _loadCapturedDesigns method to also update the orders box
-
-Future<void> _loadCapturedDesigns() async {
-  try {
-    if (!Hive.isBoxOpen('designs')) {
-      await Hive.openBox('designs');
+  // Helper function to get the next reference number for a type
+  String _getNextReference(String type) {
+    // Define the base references for original parties
+    final Map<String, int> baseReferences = {
+      'regular': 4,  // Last used was 004 for Shree
+      'mix': 4,      // Last used was 004 for Shree
+      'plain': 4,    // Last used was 004 for Shree
+    };
+    
+    // Get the prefix for the type
+    String prefix;
+    switch (type.toLowerCase()) {
+      case 'regular':
+        prefix = 'REG';
+        break;
+      case 'mix':
+        prefix = 'MIX';
+        break;
+      case 'plain':
+        prefix = 'PLAIN';
+        break;
+      default:
+        prefix = type.substring(0, 3).toUpperCase();
     }
+    
+    // Get the next number (base + 1)
+    int nextNumber = (baseReferences[type.toLowerCase()] ?? 0) + 1;
+    
+    // Format as 3-digit number with leading zeros
+    return '$prefix-${nextNumber.toString().padLeft(3, '0')}';
+  }
 
-    final box = Hive.box('designs');
-    List<Map<String, dynamic>> allDesigns = [];
+  Future<void> _loadCapturedDesigns() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
 
-    // Load all designs for all textile types of this party
-    for (var key in box.keys) {
-      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-        final designs = box.get(key);
-        if (designs is List) {
-          allDesigns.addAll(
-            designs.map((d) => Map<String, dynamic>.from(d as Map)),
-          );
+      final box = Hive.box('designs');
+      List<Map<String, dynamic>> allDesigns = [];
+
+      // Load all designs for all textile types of this party
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          final designs = box.get(key);
+          if (designs is List) {
+            allDesigns.addAll(
+              designs.map((d) => Map<String, dynamic>.from(d as Map)),
+            );
+          }
         }
       }
-    }
 
-    setState(() {
-      capturedDesigns = allDesigns;
-      // Group by O/F type
-      groupedDesigns = {};
-      for (var design in capturedDesigns) {
-        final type = design['ofType'] ?? 'Unknown';
-        if (!groupedDesigns.containsKey(type)) {
-          groupedDesigns[type] = [];
+      setState(() {
+        capturedDesigns = allDesigns;
+        // Group by O/F type
+        groupedDesigns = {};
+        for (var design in capturedDesigns) {
+          final type = design['ofType'] ?? 'Unknown';
+          if (!groupedDesigns.containsKey(type)) {
+            groupedDesigns[type] = [];
+          }
+          groupedDesigns[type]!.add(design);
         }
-        groupedDesigns[type]!.add(design);
-      }
-    });
-    
-    // Update the orders box with the correct count
-    await _updateOrdersCount();
-    
-    print('Loaded ${capturedDesigns.length} captured designs from Hive');
-  } catch (e) {
-    print('Error loading captured designs: $e');
+      });
+      
+      // Update the orders box with the correct count
+      await _updateOrdersCount();
+      
+      print('Loaded ${capturedDesigns.length} captured designs from Hive');
+    } catch (e) {
+      print('Error loading captured designs: $e');
+    }
   }
-}
 
-// Add this new method to update the orders count
-Future<void> _updateOrdersCount() async {
-  try {
-    if (!Hive.isBoxOpen('orders')) {
-      await Hive.openBox('orders');
-    }
-    
-    final ordersBox = Hive.box('orders');
-    
-    // Find the order for this party
-    final existingOrder = ordersBox.values.firstWhere(
-      (order) => order['party'] == widget.partyName,
-      orElse: () => null,
-    );
-    
-    if (existingOrder != null) {
-      // Update the orders count
-      existingOrder['orders'] = capturedDesigns.length;
-      
-      // Update status based on orders count
-      if (capturedDesigns.length > 0) {
-        existingOrder['status'] = 'mixed';
-      } else {
-        existingOrder['status'] = 'pending';
+  // Add this new method to update the orders count
+  Future<void> _updateOrdersCount() async {
+    try {
+      if (!Hive.isBoxOpen('orders')) {
+        await Hive.openBox('orders');
       }
       
-      // Save the updated order
-      await ordersBox.put(existingOrder['party'], existingOrder);
+      final ordersBox = Hive.box('orders');
       
-      // Notify listeners that orders have been updated
-     OrderService().notifyOrderUpdated();
+      // Find the order for this party
+      final existingOrder = ordersBox.values.firstWhere(
+        (order) => order['party'] == widget.partyName,
+        orElse: () => null,
+      );
+      
+      if (existingOrder != null) {
+        // Update the orders count
+        existingOrder['orders'] = capturedDesigns.length;
+        
+        // Update status based on orders count
+        if (capturedDesigns.length > 0) {
+          existingOrder['status'] = 'mixed';
+        } else {
+          existingOrder['status'] = 'pending';
+        }
+        
+        // Save the updated order
+        await ordersBox.put(existingOrder['party'], existingOrder);
+        
+        // Notify listeners that orders have been updated
+        OrderService().notifyOrderUpdated();
+      }
+    } catch (e) {
+      print('Error updating orders count: $e');
     }
-  } catch (e) {
-    print('Error updating orders count: $e');
   }
-}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -641,7 +672,7 @@ Future<void> _updateOrdersCount() async {
                                                 ),
                                               ),
                                               Text(
-                                                'Ref: ${type.toUpperCase().substring(0, (type.length >= 3 ? 3 : type.length))}-${designs.length.toString().padLeft(3, '0')}',
+                                                'Ref: ${_getNextReference(type)}',
                                                 style: const TextStyle(
                                                   fontSize: 14,
                                                   color: Color(0xFF6B7280),
