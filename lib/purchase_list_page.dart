@@ -31,7 +31,7 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
     searchController.addListener(() {
       filterList();
     });
-    
+
     // Listen for order updates
     _orderUpdateSubscription = OrderService().orderUpdateStream.listen((_) {
       loadPurchaseList();
@@ -67,14 +67,16 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
   Future<void> loadPurchaseList() async {
     try {
       // Load initial data from JSON
-      final String response = await rootBundle.loadString('assets/purchase_list.json');
+      final String response = await rootBundle.loadString(
+        'assets/purchase_list.json',
+      );
       final List<dynamic> jsonData = json.decode(response);
-      
+
       // Load data from Hive
       List<dynamic> hiveData = [];
       if (Hive.isBoxOpen('orders')) {
         hiveData = ordersBox.values.toList();
-        
+
         // Convert ISO date strings to simple format for Hive data
         for (var item in hiveData) {
           if (item['date'] is String && item['date'].contains('T')) {
@@ -87,14 +89,28 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
           }
         }
       }
-      
-      // Combine JSON data and Hive data
+
+      // Combine JSON data and Hive data (Hive data overrides JSON if same party exists)
+      Map<String, dynamic> mergedMap = {};
+
+      // Add all JSON data first
+      for (var item in jsonData) {
+        mergedMap[item['party']] = item;
+      }
+
+      // Override with Hive data if same party exists
+      for (var item in hiveData) {
+        mergedMap[item['party']] = item;
+      }
+
       setState(() {
-        purchaseList = [...jsonData, ...hiveData];
+        purchaseList = mergedMap.values.toList();
         filteredList = List.from(purchaseList);
       });
-      
-      print('Loaded ${jsonData.length} items from JSON and ${hiveData.length} items from Hive');
+
+      print(
+        'Loaded ${jsonData.length} items from JSON and ${hiveData.length} items from Hive, merged into ${purchaseList.length} unique parties',
+      );
     } catch (e) {
       print('Error loading purchase list: $e');
     }
@@ -347,47 +363,58 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
   }
 
   Widget _buildSummary() {
-    int total = purchaseList.fold(
-      0,
-      (sum, item) => sum + (item['orders'] as int),
-    );
-    int pending = purchaseList
-        .where((item) => item['status'] == 'pending')
-        .fold(0, (sum, item) => sum + (item['orders'] as int));
-    int complete = purchaseList
-        .where((item) => item['status'] == 'complete')
-        .fold(0, (sum, item) => sum + (item['orders'] as int));
+  // Use the full purchaseList for overall totals so the bottom summary
+  // always shows totals across all parties, independent of current filter.
+  final listForSummary = purchaseList;
 
-    return Card(
-      margin: EdgeInsets.zero, // Remove all margins
-      elevation: 0,
-      color: const Color(0xFFFFFFFF), // White card background
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(0), // Remove border radius
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildSummaryItem('Total', total, Colors.black), // Black for Total
-            _buildSummaryItem(
-              'Pending',
-              pending,
-              Colors.red,
-            ), // Red for Pending
-            _buildSummaryItem(
-              'Complete',
-              complete,
-              Colors.green,
-            ), // Green for Complete
-          ],
-        ),
-      ),
-    );
-  }
+  // Count the total number of parties
+  int total = listForSummary.length;
+  
+  // Count the number of parties with 'pending' status
+  int pending = listForSummary
+      .where(
+        (item) =>
+            (item['status'] ?? '').toString().toLowerCase() == 'pending',
+      )
+      .length;
+      
+  // Count the number of parties with 'complete' status
+  int complete = listForSummary
+      .where(
+        (item) =>
+            (item['status'] ?? '').toString().toLowerCase() == 'complete',
+      )
+      .length;
 
+  return Card(
+    margin: EdgeInsets.zero, // Remove all margins
+    elevation: 0,
+    color: const Color(0xFFFFFFFF), // White card background
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(0), // Remove border radius
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildSummaryItem('Total', total, Colors.black), // Black for Total
+          _buildSummaryItem(
+            'Pending',
+            pending,
+            Colors.red,
+          ), // Red for Pending
+          _buildSummaryItem(
+            'Complete',
+            complete,
+            Colors.green,
+          ), // Green for Complete
+        ],
+      ),
+    ),
+  );
+}
   Widget _buildSummaryItem(String label, int count, Color numberColor) {
     return Column(
       children: [
