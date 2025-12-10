@@ -524,60 +524,61 @@ String _generateAPC() {
   }
 
   Future<void> _loadCapturedDesigns() async {
-    try {
-      if (!Hive.isBoxOpen('designs')) {
-        await Hive.openBox('designs');
-      }
-
-      final box = Hive.box('designs');
-      final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
-
-      if (box.containsKey(designsKey)) {
-        final savedDesigns = box.get(designsKey);
-        if (savedDesigns is List) {
-          setState(() {
-            capturedDesigns = List<Map<String, dynamic>>.from(
-              savedDesigns.map((d) => Map<String, dynamic>.from(d as Map)),
-            );
-          });
-          print('Loaded ${capturedDesigns.length} designs from Hive');
-        }
-      }
-
-      // Load summary values
-      await _loadSummaryValuesFromHive();
-
-      // Update summary values based on loaded designs
-      _updateSummaryValues();
-
-      // If an initial design was provided (navigated from purchase details), select it for editing
-      if (widget.initialDesign != null) {
-        try {
-          final init = widget.initialDesign!;
-          // Find matching design by ref or designNo
-          int foundIndex = -1;
-          for (int i = 0; i < capturedDesigns.length; i++) {
-            final d = capturedDesigns[i];
-            if ((init['ref'] != null && d['ref'] == init['ref']) ||
-                (init['designNo'] != null &&
-                    d['designNo'] == init['designNo'])) {
-              foundIndex = i;
-              break;
-            }
-          }
-          if (foundIndex != -1) {
-            // Use existing helper to set editing state
-            _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
-          }
-        } catch (e) {
-          print('Error applying initial design: $e');
-        }
-      }
-    } catch (e) {
-      print('Error loading designs: $e');
+  try {
+    if (!Hive.isBoxOpen('designs')) {
+      await Hive.openBox('designs');
     }
-  }
 
+    final box = Hive.box('designs');
+    List<Map<String, dynamic>> allDesigns = [];
+
+    // Load all designs for all textile types of this party
+    for (var key in box.keys) {
+      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+        final designs = box.get(key);
+        if (designs is List) {
+          allDesigns.addAll(
+            designs.map((d) => Map<String, dynamic>.from(d as Map)),
+          );
+        }
+      }
+    }
+
+    // Filter designs by the current textileType (O/F Type)
+    setState(() {
+      capturedDesigns = allDesigns
+          .where((design) => design['ofType'] == widget.textileType)
+          .toList();
+    });
+    
+    // Update summary values based on filtered designs
+    _updateSummaryValues();
+
+    // If an initial design was provided, select it for editing
+    if (widget.initialDesign != null) {
+      try {
+        final init = widget.initialDesign!;
+        // Find matching design by ref or designNo
+        int foundIndex = -1;
+        for (int i = 0; i < capturedDesigns.length; i++) {
+          final d = capturedDesigns[i];
+          if ((init['ref'] != null && d['ref'] == init['ref']) ||
+              (init['designNo'] != null && d['designNo'] == init['designNo'])) {
+            foundIndex = i;
+            break;
+          }
+        }
+        if (foundIndex != -1) {
+          _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
+        }
+      } catch (e) {
+        print('Error applying initial design: $e');
+      }
+    }
+  } catch (e) {
+    print('Error loading designs: $e');
+  }
+}
   void _addOrUpdateDesign({
   required int? choices,
   required double? meters,
@@ -3338,224 +3339,218 @@ Future<XFile> _base64ToXFile(String base64String) async {
   }
 
   Widget _buildCapturedDesignsSection() {
-    // Filter designs based on selected tab
-    List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
-      design,
-    ) {
-      if (selectedFilter == 'All') return true;
-      if (selectedFilter == 'Design') return design['mode'] == 'Design';
-      if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
-      return true;
-    }).toList();
+  // Filter designs based on selected tab
+  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((design) {
+    if (selectedFilter == 'All') return true;
+    if (selectedFilter == 'Design') return design['mode'] == 'Design';
+    if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
+    return true;
+  }).toList();
 
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // First Row - Title only
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'All Captured Designs:',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // First Row - Title only
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Captured Designs (${widget.textileType}):', // Show the current O/F Type
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              if (_editingDesignIndex != null)
+                TextButton(
+                  onPressed: _clearEditingState,
+                  child: const Text(
+                    'Cancel Editing',
+                    style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
                   ),
                 ),
-                if (_editingDesignIndex != null)
-                  TextButton(
-                    onPressed: _clearEditingState,
-                    child: const Text(
-                      'Cancel Editing',
-                      style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
-                    ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: ['All', 'Design', 'Sample'].map((filter) {
+              bool isSelected = selectedFilter == filter;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedFilter = filter;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: ['All', 'Design', 'Sample'].map((filter) {
-                bool isSelected = selectedFilter == filter;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedFilter = filter;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    margin: const EdgeInsets.only(left: 8),
-                    decoration: BoxDecoration(
+                  margin: const EdgeInsets.only(left: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFFEE2E2)
+                        : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
                       color: isSelected
-                          ? const Color(0xFFFEE2E2)
-                          : const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFFEF4444)
-                            : Colors.transparent,
-                      ),
-                    ),
-                    child: Text(
-                      filter,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isSelected
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF1F2937),
-                        fontWeight: FontWeight.bold,
-                      ),
+                          ? const Color(0xFFEF4444)
+                          : Colors.transparent,
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Design list or empty state
-            if (filteredDesigns.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  child: Text(
+                    filter,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isSelected
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF1F2937),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                child: const Text(
-                  'No designs captured yet. Start capturing photos!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
-                ),
-              )
-            else
-              // MODIFIED PART: Use LayoutBuilder to make table full width
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth:
-                            constraints.maxWidth, // Take full available width
-                      ),
-                      child: DataTable(
-                        columnSpacing: 24, // Increase spacing between columns
-                        horizontalMargin: 12, // Add horizontal margin
-                        columns: const [
-                          DataColumn(
-                            label: Text(
-                              'S.No',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Design list or empty state
+          if (filteredDesigns.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+              ),
+              child: Text(
+                'No ${widget.textileType} designs captured yet. Start capturing photos!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+              ),
+            )
+          else
+            // MODIFIED PART: Use LayoutBuilder to make table full width
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth, // Take full available width
+                    ),
+                    child: DataTable(
+                      columnSpacing: 24, // Increase spacing between columns
+                      horizontalMargin: 12, // Add horizontal margin
+                      columns: const [
+                        DataColumn(
+                          label: Text(
+                            'S.No',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          DataColumn(
-                            label: Text(
-                              'Design No',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Design No',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          DataColumn(
-                            label: Text(
-                              'Choices',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Choices',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          DataColumn(
-                            label: Text(
-                              'Meters',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Meters',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        ],
-                        rows: filteredDesigns.asMap().entries.map((entry) {
-                          final display = entry.value;
-                          final originalIndex = capturedDesigns.indexOf(
-                            display,
-                          );
-                          return DataRow(
-                            color: MaterialStateProperty.resolveWith<Color?>((
-                              Set<MaterialState> states,
-                            ) {
+                        ),
+                      ],
+                      rows: filteredDesigns.asMap().entries.map((entry) {
+                        final display = entry.value;
+                        final originalIndex = capturedDesigns.indexOf(display);
+                        return DataRow(
+                          color: MaterialStateProperty.resolveWith<Color?>(
+                            (Set<MaterialState> states) {
                               // Highlight the row that is being edited
                               if (_editingDesignIndex != null &&
                                   originalIndex == _editingDesignIndex) {
                                 return const Color(0xFFE3F2FD);
                               }
                               return null;
-                            }),
-                            onSelectChanged: (selected) {
-                              if (selected ?? false) {
-                                _selectDesignForEditing(display, originalIndex);
-                              }
                             },
-                            cells: [
-                              DataCell(
-                                Text(
-                                  (display['sNo'] ?? (originalIndex + 1))
-                                      .toString(),
+                          ),
+                          onSelectChanged: (selected) {
+                            if (selected ?? false) {
+                              _selectDesignForEditing(display, originalIndex);
+                            }
+                          },
+                          cells: [
+                            DataCell(
+                              Text(
+                                (display['sNo'] ?? (originalIndex + 1))
+                                    .toString(),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                display['designNo']?.toString() ?? '-',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              DataCell(
-                                Text(
-                                  display['designNo']?.toString() ?? '-',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                            ),
+                            DataCell(
+                              Text(
+                                display['choices']?.toString() ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              DataCell(
-                                Text(
-                                  display['choices']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                            ),
+                            DataCell(
+                              Text(
+                                (display['meters'] is num)
+                                    ? (display['meters'] as num)
+                                          .toDouble()
+                                          .toStringAsFixed(0)
+                                    : display['meters']?.toString() ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              DataCell(
-                                Text(
-                                  (display['meters'] is num)
-                                      ? (display['meters'] as num)
-                                            .toDouble()
-                                            .toStringAsFixed(0)
-                                      : display['meters']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
                     ),
-                  );
-                },
-              ),
-          ],
-        ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
-    );
-  }
-
+    ),
+  );
+}
   Future<void> _saveCapturedDesignToHive() async {
   try {
     if (!Hive.isBoxOpen('designs')) {
@@ -3617,7 +3612,6 @@ Future<XFile> _base64ToXFile(String base64String) async {
 
       // notify listeners so purchase_list_page reloads
       try {
-        // Avoid import cycle by using runtime invocation
         OrderService().notifyOrderUpdated();
       } catch (e) {
         print('OrderService notify error: $e');
@@ -3635,7 +3629,6 @@ Future<XFile> _base64ToXFile(String base64String) async {
     );
   }
 }
-  
   
   // Method to calculate summary values from captured designs
   Map<String, dynamic> _calculateSummaryValues() {
