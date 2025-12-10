@@ -9,7 +9,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'order_form_finish_page.dart';
 import 'new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
-// removed unused import 'utils/input_formatters.dart'
 
 class TextileDetailsPage extends StatefulWidget {
   final String partyName;
@@ -48,7 +47,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     text: '100',
   );
   // Form state
-  XFile? capturedPhoto;
+  List<XFile> capturedPhotos = []; // Changed to list for multiple photos
   String selectedMode = 'Design';
   String? selectedQuality;
   String? selectedWeave;
@@ -104,6 +103,9 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   TextEditingController _choicesController = TextEditingController();
   // _metersController removed (not used). Use defaultMetersController instead.
   // TextEditingController _partyDesignController = TextEditingController();
+
+  // Full screen photo preview state
+  int? _previewPhotoIndex;
 
   @override
   void initState() {
@@ -436,43 +438,60 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     }
   }
 
-  // Generate APC based on party name and O/F type
-  String _generateAPC() {
-    // Generate APC using existing saved designs to avoid duplicate APC numbers
-    int maxExisting = 0;
+  // Replace the existing _generateAPC method with this updated version
+String _generateAPC() {
+  // Generate APC using existing saved designs to avoid duplicate APC numbers
+  int maxExisting = 0;
+
+  // First, check the current session's capturedDesigns
+  for (var design in capturedDesigns) {
     try {
-      if (Hive.isBoxOpen('designs')) {
-        final box = Hive.box('designs');
-        for (var key in box.keys) {
-          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-            final list = box.get(key);
-            if (list is List) {
-              for (var d in list) {
-                try {
-                  final designNo = d['designNo']?.toString() ?? '';
-                  if (designNo.startsWith('APC-')) {
-                    final parts = designNo.split('-');
-                    if (parts.length >= 2) {
-                      final numPart = int.tryParse(parts.last) ?? 0;
-                      if (numPart > maxExisting) maxExisting = numPart;
-                    }
+      final designNo = design['designNo']?.toString() ?? '';
+      if (designNo.startsWith('APC-')) {
+        final parts = designNo.split('-');
+        if (parts.length >= 2) {
+          final numPart = int.tryParse(parts.last) ?? 0;
+          if (numPart > maxExisting) maxExisting = numPart;
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  }
+
+  // Then, check Hive for previously saved designs
+  try {
+    if (Hive.isBoxOpen('designs')) {
+      final box = Hive.box('designs');
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          final list = box.get(key);
+          if (list is List) {
+            for (var d in list) {
+              try {
+                final designNo = d['designNo']?.toString() ?? '';
+                if (designNo.startsWith('APC-')) {
+                  final parts = designNo.split('-');
+                  if (parts.length >= 2) {
+                    final numPart = int.tryParse(parts.last) ?? 0;
+                    if (numPart > maxExisting) maxExisting = numPart;
                   }
-                } catch (e) {
-                  // ignore parse errors
                 }
+              } catch (e) {
+                // ignore parse errors
               }
             }
           }
         }
       }
-    } catch (e) {
-      print('Error scanning existing APCs: $e');
     }
-
-    final newCount = maxExisting + 1;
-    return 'APC-$newCount';
+  } catch (e) {
+    print('Error scanning existing APCs: $e');
   }
 
+  final newCount = maxExisting + 1;
+  return 'APC-$newCount';
+}
   // Handle Start APC button click
   Future<void> _handleStartAPC() async {
     setState(() {
@@ -560,81 +579,95 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   void _addOrUpdateDesign({
-    required int? choices,
-    required double? meters,
-    required String? designNo,
-    required String mode,
-  }) {
-    // Get the meters value from the defaultMetersController if not provided
-    final metersValue =
-        meters ?? double.tryParse(defaultMetersController.text) ?? 100;
-    if (choices == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select Choices'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // Generate the next reference number for the selected O/F type
-    int typeCount =
-        1 + capturedDesigns.where((d) => d['ofType'] == selectedOFType).length;
-    String refPrefix = selectedOFType.toUpperCase().substring(
-      0,
-      3,
-    ); // REG, MIX, PLA
-    String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
-
-    setState(() {
-      if (_editingDesignIndex != null) {
-        // Update existing design with all fields
-        capturedDesigns[_editingDesignIndex!] = {
-          'sNo': _editingDesignIndex! + 1,
-          'designNo': designNo ?? '-',
-          'choices': choices,
-          'meters': metersValue,
-          'mode': mode,
-          'timestamp': DateTime.now().toIso8601String(),
-          'ofType': selectedOFType,
-          'weave': selectedWeave,
-          'quality': selectedQuality,
-          'width': selectedWidth,
-          'ref': ref,
-        };
-        _editingDesignIndex = null;
-      } else {
-        // Add new design with all fields
-        capturedDesigns.add({
-          'sNo': capturedDesigns.length + 1,
-          'designNo': designNo ?? '-',
-          'choices': choices,
-          'meters': metersValue,
-          'mode': mode,
-          'timestamp': DateTime.now().toIso8601String(),
-          'ofType': selectedOFType,
-          'weave': selectedWeave,
-          'quality': selectedQuality,
-          'width': selectedWidth,
-          'ref': ref,
-        });
-      }
-    });
-
-    _updateSummaryValues();
-    _clearPartyDesignNo();
+  required int? choices,
+  required double? meters,
+  required String? designNo,
+  required String mode,
+}) async {
+  // Get the meters value from the defaultMetersController if not provided
+  final metersValue =
+      meters ?? double.tryParse(defaultMetersController.text) ?? 100;
+  if (choices == null) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _editingDesignIndex != null
-              ? 'Design updated successfully'
-              : 'Design added successfully',
-        ),
+      const SnackBar(
+        content: Text('Please select Choices'),
+        backgroundColor: Colors.red,
       ),
     );
+    return;
   }
 
+  // Generate the next reference number for the selected O/F type
+  int typeCount =
+      1 + capturedDesigns.where((d) => d['ofType'] == selectedOFType).length;
+  String refPrefix = selectedOFType.toUpperCase().substring(
+    0,
+    3,
+  ); // REG, MIX, PLA
+  String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
+
+  // Convert captured photos to base64 strings for storage
+  List<String> photoBase64List = [];
+  for (XFile photo in capturedPhotos) {
+    String base64 = await _xFileToBase64(photo);
+    photoBase64List.add(base64);
+  }
+
+  setState(() {
+    if (_editingDesignIndex != null) {
+      // Update existing design with all fields
+      capturedDesigns[_editingDesignIndex!] = {
+        'sNo': _editingDesignIndex! + 1,
+        'designNo': designNo ?? '-',
+        'choices': choices,
+        'meters': metersValue,
+        'mode': mode,
+        'timestamp': DateTime.now().toIso8601String(),
+        'ofType': selectedOFType,
+        'weave': selectedWeave,
+        'quality': selectedQuality,
+        'width': selectedWidth,
+        'ref': ref,
+        'photos': photoBase64List, // Add photos to design data
+      };
+      _editingDesignIndex = null;
+    } else {
+      // Add new design with all fields
+      capturedDesigns.add({
+        'sNo': capturedDesigns.length + 1,
+        'designNo': designNo ?? '-',
+        'choices': choices,
+        'meters': metersValue,
+        'mode': mode,
+        'timestamp': DateTime.now().toIso8601String(),
+        'ofType': selectedOFType,
+        'weave': selectedWeave,
+        'quality': selectedQuality,
+        'width': selectedWidth,
+        'ref': ref,
+        'photos': photoBase64List, // Add photos to design data
+      });
+    }
+  });
+
+  _updateSummaryValues();
+  _clearPartyDesignNo();
+  
+  // Clear captured photos after saving
+  setState(() {
+    capturedPhotos = [];
+  });
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        _editingDesignIndex != null
+            ? 'Design updated successfully'
+            : 'Design added successfully',
+      ),
+    ),
+  );
+}
   // Update the _clearPartyDesignNo method
   void _clearPartyDesignNo() {
     setState(() {
@@ -643,61 +676,75 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     });
   }
 
-  void _selectDesignForEditing(Map<String, dynamic> design, int index) {
+  void _selectDesignForEditing(Map<String, dynamic> design, int index) async {
+  setState(() {
+    _editingDesignIndex = index;
+
+    // Populate all form fields with the selected design's data
+    partyDesignNo = design['designNo'].toString() != '-'
+        ? design['designNo'].toString()
+        : null;
+    _partyDesignController.text = design['designNo'].toString() != '-'
+        ? design['designNo'].toString()
+        : '';
+    selectedMode = design['mode'].toString();
+
+    // Update controllers with proper values
+    _choicesController.text = design['choices'].toString();
+    defaultMetersController.text = design['meters'].toStringAsFixed(0);
+
+    // Update defaultMeters to match the design
+    defaultMeters = design['meters'] as double;
+
+    // Now populate all the additional fields from the design data
+    selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
+    selectedWeave = design['weave']?.toString();
+    selectedQuality = design['quality']?.toString();
+    selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
+
+    // Update default values if needed
+    defaultChoices = design['choices'] as int;
+  });
+
+  // Load photos if available
+  if (design['photos'] != null && design['photos'] is List) {
+    List<String> photoBase64List = List<String>.from(design['photos']);
+    List<XFile> photos = [];
+    for (String base64 in photoBase64List) {
+      XFile photo = await _base64ToXFile(base64);
+      photos.add(photo);
+    }
     setState(() {
-      _editingDesignIndex = index;
-
-      // Populate all form fields with the selected design's data
-      partyDesignNo = design['designNo'].toString() != '-'
-          ? design['designNo'].toString()
-          : null;
-      _partyDesignController.text = design['designNo'].toString() != '-'
-          ? design['designNo'].toString()
-          : '';
-      selectedMode = design['mode'].toString();
-
-      // Update controllers with proper values
-      _choicesController.text = design['choices'].toString();
-      defaultMetersController.text = design['meters'].toStringAsFixed(0);
-
-      // Update defaultMeters to match the design
-      defaultMeters = design['meters'] as double;
-
-      // Now populate all the additional fields from the design data
-      selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
-      selectedWeave = design['weave']?.toString();
-      selectedQuality = design['quality']?.toString();
-      selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
-
-      // Update default values if needed
-      defaultChoices = design['choices'] as int;
+      capturedPhotos = photos;
     });
   }
-
+}
   void _clearEditingState() {
-    setState(() {
-      _editingDesignIndex = null;
+  setState(() {
+    _editingDesignIndex = null;
 
-      // Clear all controllers
-      _choicesController.clear();
-      defaultMetersController.clear();
-      _partyDesignController.clear();
+    // Clear all controllers
+    _choicesController.clear();
+    defaultMetersController.clear();
+    _partyDesignController.clear();
 
-      // Reset all field values
-      partyDesignNo = null;
-      selectedMode = 'Design';
-      selectedOFType = currentDefaultOFType;
-      selectedWeave = null;
-      selectedQuality = null;
-      selectedWidth = currentDefaultWidth;
-      defaultChoices = currentDefaultChoices;
-      defaultMeters = currentDefaultMeters;
+    // Reset all field values
+    partyDesignNo = null;
+    selectedMode = 'Design';
+    selectedOFType = currentDefaultOFType;
+    selectedWeave = null;
+    selectedQuality = null;
+    selectedWidth = currentDefaultWidth;
+    defaultChoices = currentDefaultChoices;
+    defaultMeters = currentDefaultMeters;
 
-      // Update default meters controller
-      defaultMetersController.text = defaultMeters.toStringAsFixed(0);
-    });
-  }
-
+    // Update default meters controller
+    defaultMetersController.text = defaultMeters.toStringAsFixed(0);
+    
+    // Clear captured photos
+    capturedPhotos = [];
+  });
+}
   @override
   void dispose() {
     _weaveTypeController.dispose();
@@ -707,7 +754,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     super.dispose();
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
 
@@ -749,10 +796,26 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                 if (_showAddQualityDialog) _buildAddQualityDialog(),
                 if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
                 if (_showAddWidthDialog) _buildAddWidthDialog(),
+                if (_previewPhotoIndex != null) _buildFullScreenPreview(),
               ],
             ),
     );
   }
+
+  Future<String> _xFileToBase64(XFile file) async {
+  List<int> imageBytes = await file.readAsBytes();
+  return base64Encode(imageBytes);
+}
+
+// Convert base64 string back to XFile
+Future<XFile> _base64ToXFile(String base64String) async {
+  List<int> bytes = base64Decode(base64String);
+  final tempDir = Directory.systemTemp;
+  final tempFile = File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg');
+  await tempFile.writeAsBytes(bytes);
+  return XFile(tempFile.path);
+}
+
 
   Widget _buildMobileView() {
     return SingleChildScrollView(
@@ -2324,7 +2387,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     );
   }
 
-  Widget _buildCapturePhotoSection() {
+    Widget _buildCapturePhotoSection() {
     return Card(
       elevation: 0,
       color: const Color(0xFFFFFFFF),
@@ -2346,6 +2409,16 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
               ),
             ),
             const SizedBox(height: 16),
+            
+            // Photo capture area
+            if (capturedPhotos.isEmpty)
+              _buildEmptyCaptureArea()
+            else
+              _buildPhotoGrid(),
+            
+            const SizedBox(height: 16),
+            
+            // Capture button
             InkWell(
               onTap: () async {
                 final XFile? pickedFile = await _imagePicker.pickImage(
@@ -2354,125 +2427,58 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                 );
                 if (pickedFile != null) {
                   setState(() {
-                    capturedPhoto = pickedFile;
+                    capturedPhotos.add(pickedFile);
                   });
                 }
               },
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 width: double.infinity,
-                height: 200,
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.grey.withOpacity(0.3),
-                    style: BorderStyle.solid,
-                    width: 2,
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF4F46E5),
+                      const Color(0xFF2563EB),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(8),
-                  color: const Color(0xFFF9FAFB),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-                child: capturedPhoto != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.file(
-                          File(capturedPhoto!.path),
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Modern camera icon with gradient background
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  const Color(0xFF4F46E5),
-                                  const Color(0xFF2563EB),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF2563EB,
-                                  ).withOpacity(0.3),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 40,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Tap to Capture',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Ready to capture',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF9CA3AF),
-                            ),
-                          ),
-                        ],
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Capture New Photo',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
+                    ),
+                  ],
+                ),
               ),
             ),
-
-            // // Will Capture section - now included for both mobile and tablet views
-            // const SizedBox(height: 16),
-            // Container(
-            //   padding: const EdgeInsets.all(12),
-            //   decoration: BoxDecoration(
-            //     color: const Color(0xFFF5F5F5),
-            //     borderRadius: BorderRadius.circular(8),
-            //     border: Border.all(color: Colors.grey.withOpacity(0.3)),
-            //   ),
-            //   child: Column(
-            //     crossAxisAlignment: CrossAxisAlignment.start,
-            //     children: [
-            //       const Text(
-            //         'Will Capture:',
-            //         style: TextStyle(
-            //           fontSize: 14,
-            //           fontWeight: FontWeight.bold,
-            //           color: Color(0xFF1F2937),
-            //         ),
-            //       ),
-            //       const SizedBox(height: 12),
-            //       _buildWillCaptureItem('Type:', selectedOFType),
-            //       _buildWillCaptureItem('Weave:', selectedWeave ?? '-'),
-            //       _buildWillCaptureItem('Quality:', selectedQuality ?? '-'),
-            //       _buildWillCaptureItem('Width:', selectedWidth),
-            //       _buildWillCaptureItem('Choices:', defaultChoices.toString()),
-            //       _buildWillCaptureItem(
-            //         'Meters:',
-            //         defaultMeters.toStringAsFixed(0),
-            //       ),
-            //     ],
-            //   ),
-            // ),
           ],
         ),
       ),
     );
   }
-
   Widget _buildWillCaptureItem(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -2938,6 +2944,325 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     );
   }
 
+    Widget _buildEmptyCaptureArea() {
+    return InkWell(
+      onTap: () async {
+        final XFile? pickedFile = await _imagePicker.pickImage(
+          source: ImageSource.camera,
+          preferredCameraDevice: CameraDevice.rear,
+        );
+        if (pickedFile != null) {
+          setState(() {
+            capturedPhotos.add(pickedFile);
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.grey.withOpacity(0.3),
+            style: BorderStyle.solid,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFFF9FAFB),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Modern camera icon with gradient background
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF4F46E5),
+                    const Color(0xFF2563EB),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Tap to Capture',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2563EB),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Ready to capture',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget _buildPhotoGrid() {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    
+    if (isTablet) {
+      // Tablet view - Grid layout
+      return Container(
+        height: 300,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: GridView.builder(
+          padding: const EdgeInsets.all(8),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: capturedPhotos.length,
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _previewPhotoIndex = index;
+                });
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(capturedPhotos[index].path),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      // Mobile view - Horizontal list
+      return SizedBox(
+        height: 120,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: capturedPhotos.length,
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _previewPhotoIndex = index;
+                });
+              },
+              child: Container(
+                width: 100,
+                margin: const EdgeInsets.only(right: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(capturedPhotos[index].path),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+  }
+  Widget _buildFullScreenPreview() {
+    if (_previewPhotoIndex == null || capturedPhotos.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Stack(
+      children: [
+        // Full screen black background
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _previewPhotoIndex = null;
+            });
+          },
+          child: Container(
+            color: Colors.black,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+        ),
+        
+        // Photo preview
+        Center(
+          child: InteractiveViewer(
+            panEnabled: true,
+            minScale: 0.5,
+            maxScale: 3,
+            child: Image.file(
+              File(capturedPhotos[_previewPhotoIndex!].path),
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+        
+        // Top bar with close button
+        Positioned(
+          top: 40,
+          left: 20,
+          right: 20,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Close button
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _previewPhotoIndex = null;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+              
+              // Photo counter
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${_previewPhotoIndex! + 1} / ${capturedPhotos.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              
+              // Delete button
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    capturedPhotos.removeAt(_previewPhotoIndex!);
+                    if (_previewPhotoIndex! >= capturedPhotos.length) {
+                      _previewPhotoIndex = capturedPhotos.length - 1;
+                    }
+                    if (capturedPhotos.isEmpty) {
+                      _previewPhotoIndex = null;
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Bottom navigation buttons
+        if (capturedPhotos.length > 1)
+          Positioned(
+            bottom: 40,
+            left: 20,
+            right: 20,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Previous button
+                if (_previewPhotoIndex! > 0)
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _previewPhotoIndex = _previewPhotoIndex! - 1;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 40),
+                
+                // Next button
+                if (_previewPhotoIndex! < capturedPhotos.length - 1)
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _previewPhotoIndex = _previewPhotoIndex! + 1;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 40),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildActionButtons() {
     final isEditing = _editingDesignIndex != null;
     return Padding(
@@ -3232,84 +3557,86 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   Future<void> _saveCapturedDesignToHive() async {
+  try {
+    if (!Hive.isBoxOpen('designs')) {
+      await Hive.openBox('designs');
+    }
+
+    final box = Hive.box('designs');
+    final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
+
+    // Convert all designs to serializable format with all fields
+    final designsToSave = capturedDesigns.map((d) {
+      return {
+        'sNo': d['sNo'],
+        'designNo': d['designNo']?.toString() ?? '-', // Ensure designNo is saved
+        'choices': d['choices'],
+        'meters': d['meters'],
+        'mode': d['mode'],
+        'timestamp': d['timestamp'],
+        'ofType': d['ofType'],
+        'weave': d['weave'],
+        'quality': d['quality'],
+        'width': d['width'],
+        'ref': d['ref'],
+        'photos': d['photos'] ?? [], // Ensure photos are included
+      };
+    }).toList();
+
+    await box.put(designsKey, designsToSave);
+    await box.flush();
+
+    print('Captured designs saved to Hive with key: $designsKey');
+    print('Designs: $designsToSave');
+
+    // Update orders count in the orders box for this party
     try {
-      if (!Hive.isBoxOpen('designs')) {
-        await Hive.openBox('designs');
+      if (!Hive.isBoxOpen('orders')) {
+        await Hive.openBox('orders');
+      }
+      final ordersBox = Hive.box('orders');
+
+      // Calculate total designs across all textile types for this party
+      int totalDesignsForParty = 0;
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          final list = box.get(key);
+          if (list is List) totalDesignsForParty += list.length;
+        }
       }
 
-      final box = Hive.box('designs');
-      final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
+      final orderEntry = {
+        'party': widget.partyName,
+        'orders': totalDesignsForParty,
+        'date': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      };
 
-      // Convert all designs to serializable format with all fields
-      final designsToSave = capturedDesigns.map((d) {
-        return {
-          'sNo': d['sNo'],
-          'designNo': d['designNo'].toString(),
-          'choices': d['choices'],
-          'meters': d['meters'],
-          'mode': d['mode'],
-          'timestamp': d['timestamp'],
-          'ofType': d['ofType'],
-          'weave': d['weave'],
-          'quality': d['quality'],
-          'width': d['width'],
-          'ref': d['ref'],
-        };
-      }).toList();
+      await ordersBox.put(widget.partyName, orderEntry);
+      await ordersBox.flush();
 
-      await box.put(designsKey, designsToSave);
-      await box.flush();
-
-      print('Captured designs saved to Hive with key: $designsKey');
-      print('Designs: $designsToSave');
-
-      // Update orders count in the orders box for this party
+      // notify listeners so purchase_list_page reloads
       try {
-        if (!Hive.isBoxOpen('orders')) {
-          await Hive.openBox('orders');
-        }
-        final ordersBox = Hive.box('orders');
-
-        // Calculate total designs across all textile types for this party
-        int totalDesignsForParty = 0;
-        for (var key in box.keys) {
-          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-            final list = box.get(key);
-            if (list is List) totalDesignsForParty += list.length;
-          }
-        }
-
-        final orderEntry = {
-          'party': widget.partyName,
-          'orders': totalDesignsForParty,
-          'date': DateTime.now().toIso8601String(),
-          'status': 'pending',
-        };
-
-        await ordersBox.put(widget.partyName, orderEntry);
-        await ordersBox.flush();
-
-        // notify listeners so purchase_list_page reloads
-        try {
-          // Avoid import cycle by using runtime invocation
-          OrderService().notifyOrderUpdated();
-        } catch (e) {
-          print('OrderService notify error: $e');
-        }
+        // Avoid import cycle by using runtime invocation
+        OrderService().notifyOrderUpdated();
       } catch (e) {
-        print('Error updating orders box: $e');
+        print('OrderService notify error: $e');
       }
     } catch (e) {
-      print('Error saving captured designs: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving designs: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error updating orders box: $e');
     }
+  } catch (e) {
+    print('Error saving captured designs: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error saving designs: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
-
+}
+  
+  
   // Method to calculate summary values from captured designs
   Map<String, dynamic> _calculateSummaryValues() {
     // Count each saved row as one design so the summary shows raw saved items
@@ -3384,3 +3711,4 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     }
   }
 }
+
