@@ -94,46 +94,87 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  // Load all captured designs from Hive
-  Future<void> _loadCapturedDesigns() async {
-    try {
-      if (!Hive.isBoxOpen('designs')) {
-        await Hive.openBox('designs');
-      }
+  // In PartyDetailsPage, modify the _loadCapturedDesigns method to also update the orders box
 
-      final box = Hive.box('designs');
-      List<Map<String, dynamic>> allDesigns = [];
-
-      // Load all designs for all textile types of this party
-      for (var key in box.keys) {
-        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-          final designs = box.get(key);
-          if (designs is List) {
-            allDesigns.addAll(
-              designs.map((d) => Map<String, dynamic>.from(d as Map)),
-            );
-          }
-        }
-      }
-
-      setState(() {
-        capturedDesigns = allDesigns;
-        // Group by O/F type
-        groupedDesigns = {};
-        for (var design in capturedDesigns) {
-          final type = design['ofType'] ?? 'Unknown';
-          if (!groupedDesigns.containsKey(type)) {
-            groupedDesigns[type] = [];
-          }
-          groupedDesigns[type]!.add(design);
-        }
-      });
-      print('Loaded ${capturedDesigns.length} captured designs from Hive');
-    } catch (e) {
-      print('Error loading captured designs: $e');
+Future<void> _loadCapturedDesigns() async {
+  try {
+    if (!Hive.isBoxOpen('designs')) {
+      await Hive.openBox('designs');
     }
-  }
 
+    final box = Hive.box('designs');
+    List<Map<String, dynamic>> allDesigns = [];
+
+    // Load all designs for all textile types of this party
+    for (var key in box.keys) {
+      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+        final designs = box.get(key);
+        if (designs is List) {
+          allDesigns.addAll(
+            designs.map((d) => Map<String, dynamic>.from(d as Map)),
+          );
+        }
+      }
+    }
+
+    setState(() {
+      capturedDesigns = allDesigns;
+      // Group by O/F type
+      groupedDesigns = {};
+      for (var design in capturedDesigns) {
+        final type = design['ofType'] ?? 'Unknown';
+        if (!groupedDesigns.containsKey(type)) {
+          groupedDesigns[type] = [];
+        }
+        groupedDesigns[type]!.add(design);
+      }
+    });
+    
+    // Update the orders box with the correct count
+    await _updateOrdersCount();
+    
+    print('Loaded ${capturedDesigns.length} captured designs from Hive');
+  } catch (e) {
+    print('Error loading captured designs: $e');
+  }
+}
+
+// Add this new method to update the orders count
+Future<void> _updateOrdersCount() async {
+  try {
+    if (!Hive.isBoxOpen('orders')) {
+      await Hive.openBox('orders');
+    }
+    
+    final ordersBox = Hive.box('orders');
+    
+    // Find the order for this party
+    final existingOrder = ordersBox.values.firstWhere(
+      (order) => order['party'] == widget.partyName,
+      orElse: () => null,
+    );
+    
+    if (existingOrder != null) {
+      // Update the orders count
+      existingOrder['orders'] = capturedDesigns.length;
+      
+      // Update status based on orders count
+      if (capturedDesigns.length > 0) {
+        existingOrder['status'] = 'mixed';
+      } else {
+        existingOrder['status'] = 'pending';
+      }
+      
+      // Save the updated order
+      await ordersBox.put(existingOrder['party'], existingOrder);
+      
+      // Notify listeners that orders have been updated
+     OrderService().notifyOrderUpdated();
+    }
+  } catch (e) {
+    print('Error updating orders count: $e');
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
