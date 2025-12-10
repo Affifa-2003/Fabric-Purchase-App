@@ -438,12 +438,11 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     }
   }
 
-  // Replace the existing _generateAPC method with this updated version
 String _generateAPC() {
-  // Generate APC using existing saved designs to avoid duplicate APC numbers
+  // Generate APC using existing saved designs for the specific party and O/F type
   int maxExisting = 0;
 
-  // First, check the current session's capturedDesigns
+  // First, check the current session's capturedDesigns for the same party and O/F type
   for (var design in capturedDesigns) {
     try {
       final designNo = design['designNo']?.toString() ?? '';
@@ -459,27 +458,28 @@ String _generateAPC() {
     }
   }
 
-  // Then, check Hive for previously saved designs
+  // Then, check Hive for previously saved designs for the same party and O/F type
   try {
     if (Hive.isBoxOpen('designs')) {
       final box = Hive.box('designs');
-      for (var key in box.keys) {
-        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-          final list = box.get(key);
-          if (list is List) {
-            for (var d in list) {
-              try {
-                final designNo = d['designNo']?.toString() ?? '';
-                if (designNo.startsWith('APC-')) {
-                  final parts = designNo.split('-');
-                  if (parts.length >= 2) {
-                    final numPart = int.tryParse(parts.last) ?? 0;
-                    if (numPart > maxExisting) maxExisting = numPart;
-                  }
+      
+      // Only check designs for the current party and O/F type
+      final key = 'designs_${widget.partyName}_${widget.textileType}';
+      if (box.containsKey(key)) {
+        final list = box.get(key);
+        if (list is List) {
+          for (var d in list) {
+            try {
+              final designNo = d['designNo']?.toString() ?? '';
+              if (designNo.startsWith('APC-')) {
+                final parts = designNo.split('-');
+                if (parts.length >= 2) {
+                  final numPart = int.tryParse(parts.last) ?? 0;
+                  if (numPart > maxExisting) maxExisting = numPart;
                 }
-              } catch (e) {
-                // ignore parse errors
               }
+            } catch (e) {
+              // ignore parse errors
             }
           }
         }
@@ -492,7 +492,6 @@ String _generateAPC() {
   final newCount = maxExisting + 1;
   return 'APC-$newCount';
 }
-  // Handle Start APC button click
   Future<void> _handleStartAPC() async {
     setState(() {
       _isGeneratingAPC = true;
