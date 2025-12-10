@@ -169,43 +169,58 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  // Add this new method to update the orders count
-  Future<void> _updateOrdersCount() async {
-    try {
-      if (!Hive.isBoxOpen('orders')) {
-        await Hive.openBox('orders');
-      }
-      
-      final ordersBox = Hive.box('orders');
-      
-      // Find the order for this party
-      final existingOrder = ordersBox.values.firstWhere(
-        (order) => order['party'] == widget.partyName,
-        orElse: () => null,
-      );
-      
-      if (existingOrder != null) {
-        // Update the orders count
-        existingOrder['orders'] = capturedDesigns.length;
-        
-        // Update status based on orders count
-        if (capturedDesigns.length > 0) {
-          existingOrder['status'] = 'mixed';
-        } else {
-          existingOrder['status'] = 'pending';
-        }
-        
-        // Save the updated order
-        await ordersBox.put(existingOrder['party'], existingOrder);
-        
-        // Notify listeners that orders have been updated
-        OrderService().notifyOrderUpdated();
-      }
-    } catch (e) {
-      print('Error updating orders count: $e');
-    }
-  }
+  // In party_details_page.dart, update _updateOrdersCount() method
 
+Future<void> _updateOrdersCount() async {
+  try {
+    if (!Hive.isBoxOpen('orders')) {
+      await Hive.openBox('orders');
+    }
+    
+    final ordersBox = Hive.box('orders');
+    
+    // Find the order for this party
+    final existingOrder = ordersBox.values.firstWhere(
+      (order) => order['party'] == widget.partyName,
+      orElse: () => null,
+    );
+    
+    if (existingOrder != null) {
+      // Create a set to track unique textile types
+      Set<String> uniqueTextileTypes = {};
+      
+      // Find all unique textile types for this party
+      for (var design in capturedDesigns) {
+        // Check if the design has meaningful data
+        if (design['ofType'] != null && 
+            design['ofType'].toString().isNotEmpty &&
+            design['width'] != null && 
+            design['width'].toString().isNotEmpty) {
+          // Add the textile type to our set
+          uniqueTextileTypes.add(design['ofType']);
+        }
+      }
+      
+      // The order count is the number of unique textile types
+      existingOrder['orders'] = uniqueTextileTypes.length;
+      
+      // Update status based on orders count
+      if (uniqueTextileTypes.length > 0) {
+        existingOrder['status'] = 'mixed';
+      } else {
+        existingOrder['status'] = 'pending';
+      }
+      
+      // Save the updated order
+      await ordersBox.put(existingOrder['party'], existingOrder);
+      
+      // Notify listeners that orders have been updated
+      OrderService().notifyOrderUpdated();
+    }
+  } catch (e) {
+    print('Error updating orders count: $e');
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -372,7 +387,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                       Row(
                                         children: [
                                           Text(
-                                            'Designs: ${textile['d'] ?? 0}',
+                                            'D: ${textile['d'] ?? 0}',
                                             style: const TextStyle(
                                               fontSize: 14,
                                               color: Color(0xFF1F2937),
@@ -380,7 +395,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                           ),
                                           const SizedBox(width: 16),
                                           Text(
-                                            'Choices: ${textile['ch'] ?? 0}',
+                                            'Ch: ${textile['ch'] ?? 0}',
                                             style: const TextStyle(
                                               fontSize: 14,
                                               color: Color(0xFF1F2937),
@@ -388,7 +403,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                           ),
                                           const SizedBox(width: 16),
                                           Text(
-                                            'Meters: ${textile['mtr'] ?? 0}',
+                                            'Mtr: ${textile['mtr'] ?? 0}',
                                             style: const TextStyle(
                                               fontSize: 14,
                                               color: Color(0xFF1F2937),
@@ -567,7 +582,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                             child: Row(
                                               children: [
                                                 Text(
-                                                  'Designs: $totalDesigns',
+                                                  'D: $totalDesigns',
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     color: Color(0xFF1F2937),
@@ -575,7 +590,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                                 ),
                                                 const SizedBox(width: 16),
                                                 Text(
-                                                  'Choices: $totalChoices',
+                                                  'Ch: $totalChoices',
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     color: Color(0xFF1F2937),
@@ -583,7 +598,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                                 ),
                                                 const SizedBox(width: 16),
                                                 Text(
-                                                  'Meters: ${totalMeters.toStringAsFixed(0)}',
+                                                  'Mtr: ${totalMeters.toStringAsFixed(0)}',
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     color: Color(0xFF1F2937),
@@ -713,7 +728,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                         child: Row(
                                           children: [
                                             Text(
-                                              'Designs: $totalDesigns',
+                                              'D: $totalDesigns',
                                               style: const TextStyle(
                                                 fontSize: 14,
                                                 color: Color(0xFF1F2937),
@@ -721,7 +736,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                             ),
                                             const SizedBox(width: 16),
                                             Text(
-                                              'Choices: $totalChoices',
+                                              'Ch: $totalChoices',
                                               style: const TextStyle(
                                                 fontSize: 14,
                                                 color: Color(0xFF1F2937),
@@ -729,7 +744,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                             ),
                                             const SizedBox(width: 16),
                                             Text(
-                                              'Meters: ${totalMeters.toStringAsFixed(0)}',
+                                              'Mtr: ${totalMeters.toStringAsFixed(0)}',
                                               style: const TextStyle(
                                                 fontSize: 14,
                                                 color: Color(0xFF1F2937),
