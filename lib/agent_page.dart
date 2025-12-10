@@ -81,7 +81,7 @@ class _AgentsPageState extends State<AgentsPage> {
       // Load default agents from JSON if available
       List<String> defaultAgents = [];
       try {
-        final String response = await rootBundle.loadString('assets/setup_data.json');
+        final String response = await rootBundle.loadString('order_data.json');
         final Map<String, dynamic> jsonData = json.decode(response);
         defaultAgents = jsonData['agents'] != null ? List<String>.from(jsonData['agents']) : [];
       } catch (e) {
