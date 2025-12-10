@@ -10,8 +10,8 @@ class OrderService {
   Stream<void> get orderUpdateStream => _orderUpdateController.stream;
 
   void notifyOrderUpdated() {
-    _orderUpdateController.sink.add(null);
-  }
+  _orderUpdateController.add(null);
+}
 
   void dispose() {
     _orderUpdateController.close();
