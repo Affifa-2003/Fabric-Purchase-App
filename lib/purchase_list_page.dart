@@ -77,120 +77,127 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
     return !originalParties.contains(partyName);
   }
 
+ 
   Future<void> loadPurchaseList() async {
-  try {
-    // Load initial data from JSON
-    final String response = await rootBundle.loadString(
-      'assets/purchase_list.json',
-    );
-    final List<dynamic> jsonData = json.decode(response);
+    try {
+      // Load initial data from JSON
+      final String response = await rootBundle.loadString(
+        'assets/purchase_list.json',
+      );
+      final List<dynamic> jsonData = json.decode(response);
 
-    // Load data from Hive
-    List<dynamic> hiveData = [];
-    if (Hive.isBoxOpen('orders')) {
-      hiveData = ordersBox.values.toList();
+      // Load data from Hive
+      List<dynamic> hiveData = [];
+      if (Hive.isBoxOpen('orders')) {
+        hiveData = ordersBox.values.toList();
 
-      // Convert ISO date strings to simple format for Hive data
-      for (var item in hiveData) {
-        // Ensure status is set to pending for new parties
-        if (item['status'] == null) {
-          item['status'] = 'pending';
-        }
-        
-        if (item['date'] is String && item['date'].contains('T')) {
-          try {
-            final DateTime parsedDate = DateTime.parse(item['date']);
-            item['date'] = _formatDate(parsedDate);
-          } catch (e) {
-            print('Error parsing date: ${item['date']} - $e');
+        // Convert ISO date strings to simple format for Hive data
+        for (var item in hiveData) {
+          // Ensure status is set to pending for new parties
+          if (item['status'] == null) {
+            item['status'] = 'pending';
           }
-        }
-        
-        // Calculate the number of orders based on designs/textiles for this party
-        String partyName = item['party'];
-        int orderCount = 0;
-        
-        // Check if designs box is open
-        if (Hive.isBoxOpen('designs')) {
-          final designsBox = Hive.box('designs');
           
-          // Count designs for this party
-          for (var key in designsBox.keys) {
-            if (key is String && key.startsWith('designs_${partyName}_')) {
-              final designs = designsBox.get(key);
-              if (designs is List) {
-                // Only count designs that have actual data (not empty placeholders)
-                for (var design in designs) {
-                  // Check if the design has meaningful data
-                  if (design['ofType'] != null && 
-                      design['ofType'].toString().isNotEmpty &&
-                      design['width'] != null && 
-                      design['width'].toString().isNotEmpty) {
-                    orderCount += 1;
+          if (item['date'] is String && item['date'].contains('T')) {
+            try {
+              final DateTime parsedDate = DateTime.parse(item['date']);
+              item['date'] = _formatDate(parsedDate);
+            } catch (e) {
+              print('Error parsing date: ${item['date']} - $e');
+            }
+          }
+          
+          // Calculate the number of orders based on unique textile types for this party
+          String partyName = item['party'];
+          Set<String> uniqueTextileTypes = {};
+          
+          // Check if designs box is open
+          if (Hive.isBoxOpen('designs')) {
+            final designsBox = Hive.box('designs');
+            
+            // Collect unique textile types for this party
+            for (var key in designsBox.keys) {
+              if (key is String && key.startsWith('designs_${partyName}_')) {
+                final designs = designsBox.get(key);
+                if (designs is List) {
+                  // Only consider designs that have actual data (not empty placeholders)
+                  for (var design in designs) {
+                    // Check if the design has meaningful data
+                    if (design['ofType'] != null && 
+                        design['ofType'].toString().isNotEmpty &&
+                        design['width'] != null && 
+                        design['width'].toString().isNotEmpty) {
+                      // Add the textile type to our set
+                      uniqueTextileTypes.add(design['ofType']);
+                    }
                   }
                 }
               }
             }
           }
+          
+          // The order count is the number of unique textile types
+          int orderCount = uniqueTextileTypes.length;
+          
+          // Update the orders count
+          item['orders'] = orderCount;
+          
+          // Update status based on orders count and party type
+          if (orderCount > 0 && !_isNewParty(partyName)) {
+            // For original parties, set status to mixed if there are orders
+            item['status'] = 'mixed';
+          } else {
+            // For new parties or parties with no orders, set status to pending
+            item['status'] = 'pending';
+          }
+        }
+      }
+
+      // Combine JSON data and Hive data (Hive data overrides JSON if same party exists)
+      Map<String, dynamic> mergedMap = {};
+
+      // Add all JSON data first
+      for (var item in jsonData) {
+        mergedMap[item['party']] = item;
+      }
+
+      // Override with Hive data if same party exists
+      for (var item in hiveData) {
+        mergedMap[item['party']] = item;
+      }
+
+      // Ensure all items have a status and that new parties are pending
+      for (var key in mergedMap.keys) {
+        var item = mergedMap[key];
+        // If status is not set, default to pending
+        if (item['status'] == null) {
+          item['status'] = 'pending';
         }
         
-        // Update the orders count
-        item['orders'] = orderCount;
-        
-        // Update status based on orders count and party type
-        if (orderCount > 0 && !_isNewParty(partyName)) {
-          // For original parties, set status to mixed if there are orders
-          item['status'] = 'mixed';
-        } else {
-          // For new parties or parties with no orders, set status to pending
+        // If this is a new party, ensure status is pending regardless of orders count
+        if (_isNewParty(item['party'])) {
+          item['status'] = 'pending';
+        }
+        // If orders count is 0, ensure status is pending
+        else if (item['orders'] == 0 || item['orders'] == null) {
           item['status'] = 'pending';
         }
       }
+
+      setState(() {
+        purchaseList = mergedMap.values.toList();
+        filteredList = List.from(purchaseList);
+      });
+
+      print(
+        'Loaded ${jsonData.length} items from JSON and ${hiveData.length} items from Hive, merged into ${purchaseList.length} unique parties',
+      );
+    } catch (e) {
+      print('Error loading purchase list: $e');
     }
-
-    // Combine JSON data and Hive data (Hive data overrides JSON if same party exists)
-    Map<String, dynamic> mergedMap = {};
-
-    // Add all JSON data first
-    for (var item in jsonData) {
-      mergedMap[item['party']] = item;
-    }
-
-    // Override with Hive data if same party exists
-    for (var item in hiveData) {
-      mergedMap[item['party']] = item;
-    }
-
-    // Ensure all items have a status and that new parties are pending
-    for (var key in mergedMap.keys) {
-      var item = mergedMap[key];
-      // If status is not set, default to pending
-      if (item['status'] == null) {
-        item['status'] = 'pending';
-      }
-      
-      // If this is a new party, ensure status is pending regardless of orders count
-      if (_isNewParty(item['party'])) {
-        item['status'] = 'pending';
-      }
-      // If orders count is 0, ensure status is pending
-      else if (item['orders'] == 0 || item['orders'] == null) {
-        item['status'] = 'pending';
-      }
-    }
-
-    setState(() {
-      purchaseList = mergedMap.values.toList();
-      filteredList = List.from(purchaseList);
-    });
-
-    print(
-      'Loaded ${jsonData.length} items from JSON and ${hiveData.length} items from Hive, merged into ${purchaseList.length} unique parties',
-    );
-  } catch (e) {
-    print('Error loading purchase list: $e');
   }
-}
+
+  
   void filterList() {
     String query = searchController.text.toLowerCase();
     setState(() {
