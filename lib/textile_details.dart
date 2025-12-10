@@ -195,7 +195,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       // Load data from order_data.json
       Map<String, dynamic> jsonOrderData = {};
       try {
-        final String response = await rootBundle.loadString('order_data.json');
+        final String response = await rootBundle.loadString('assets/order_data.json');
         jsonOrderData = json.decode(response);
         print('Loaded order data from JSON successfully');
       } catch (e) {

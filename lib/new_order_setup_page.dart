@@ -149,7 +149,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       // Load data from JSON
       Map<String, dynamic> jsonData = {};
       try {
-        final String response = await rootBundle.loadString('order_data.json');
+        final String response = await rootBundle.loadString('assets/order_data.json');
         jsonData = json.decode(response);
         print('Loaded data from JSON successfully');
       } catch (e) {

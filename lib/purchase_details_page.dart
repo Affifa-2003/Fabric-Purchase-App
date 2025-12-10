@@ -56,7 +56,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
 
       if (isOriginalParty) {
         // Load data from JSON for original parties
-        String jsonString = await rootBundle.loadString('party_details.json');
+        String jsonString = await rootBundle.loadString('assets/party_details.json');
         Map<String, dynamic> allData = json.decode(jsonString);
 
         setState(() {

@@ -82,7 +82,7 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
     try {
       // Load initial data from JSON
       final String response = await rootBundle.loadString(
-        'purchase_list.json',
+        'assets/purchase_list.json',
       );
       final List<dynamic> jsonData = json.decode(response);
 
