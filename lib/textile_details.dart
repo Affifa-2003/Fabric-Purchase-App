@@ -4,12 +4,12 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
 
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'order_form_finish_page.dart';
 import 'new_order_setup_page.dart';
-import 'utils/input_formatters.dart';
+import 'package:purchase_app/service/order_service.dart';
+// removed unused import 'utils/input_formatters.dart'
 
 class TextileDetailsPage extends StatefulWidget {
   final String partyName;
@@ -19,6 +19,7 @@ class TextileDetailsPage extends StatefulWidget {
   final double defaultMeters;
   final String sampleRequired;
   final String? selectedSampleMtr;
+  final Map<String, dynamic>? initialDesign;
 
   const TextileDetailsPage({
     Key? key,
@@ -29,6 +30,7 @@ class TextileDetailsPage extends StatefulWidget {
     required this.defaultMeters,
     required this.sampleRequired,
     this.selectedSampleMtr,
+    this.initialDesign,
   }) : super(key: key);
 
   @override
@@ -91,8 +93,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   // APC (Auto Party Code) state
   bool _isGeneratingAPC = false;
-  final Map<String, int> _apcCounters =
-      {}; // Track APC counters for each party+type combination
+  // APC counters removed; APC is generated from existing saved designs
 
   // Hive boxes
   late Box appDataBox;
@@ -101,7 +102,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   // Design editing state
   int? _editingDesignIndex;
   TextEditingController _choicesController = TextEditingController();
-  TextEditingController _metersController = TextEditingController();
+  // _metersController removed (not used). Use defaultMetersController instead.
   // TextEditingController _partyDesignController = TextEditingController();
 
   @override
@@ -120,7 +121,9 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
     // Initialize choices, meters and party design controllers
     _choicesController = TextEditingController(text: defaultChoices.toString());
-    _metersController = TextEditingController(text: defaultMeters.toString());
+    defaultMetersController = TextEditingController(
+      text: defaultMeters.toString(),
+    );
     _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
     // Initialize current default values
     currentDefaultOFType = widget.textileType;
@@ -435,17 +438,38 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   // Generate APC based on party name and O/F type
   String _generateAPC() {
-    // Create a unique key for the party name + O/F type combination
-    final key = '${widget.partyName}_${selectedOFType}';
+    // Generate APC using existing saved designs to avoid duplicate APC numbers
+    int maxExisting = 0;
+    try {
+      if (Hive.isBoxOpen('designs')) {
+        final box = Hive.box('designs');
+        for (var key in box.keys) {
+          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+            final list = box.get(key);
+            if (list is List) {
+              for (var d in list) {
+                try {
+                  final designNo = d['designNo']?.toString() ?? '';
+                  if (designNo.startsWith('APC-')) {
+                    final parts = designNo.split('-');
+                    if (parts.length >= 2) {
+                      final numPart = int.tryParse(parts.last) ?? 0;
+                      if (numPart > maxExisting) maxExisting = numPart;
+                    }
+                  }
+                } catch (e) {
+                  // ignore parse errors
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error scanning existing APCs: $e');
+    }
 
-    // Get the current count for this combination, or initialize to 0 if it doesn't exist
-    final currentCount = _apcCounters[key] ?? 0;
-
-    // Increment the counter
-    final newCount = currentCount + 1;
-    _apcCounters[key] = newCount;
-
-    // Generate the APC string
+    final newCount = maxExisting + 1;
     return 'APC-$newCount';
   }
 
@@ -506,81 +530,111 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
       // Update summary values based on loaded designs
       _updateSummaryValues();
+
+      // If an initial design was provided (navigated from purchase details), select it for editing
+      if (widget.initialDesign != null) {
+        try {
+          final init = widget.initialDesign!;
+          // Find matching design by ref or designNo
+          int foundIndex = -1;
+          for (int i = 0; i < capturedDesigns.length; i++) {
+            final d = capturedDesigns[i];
+            if ((init['ref'] != null && d['ref'] == init['ref']) ||
+                (init['designNo'] != null &&
+                    d['designNo'] == init['designNo'])) {
+              foundIndex = i;
+              break;
+            }
+          }
+          if (foundIndex != -1) {
+            // Use existing helper to set editing state
+            _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
+          }
+        } catch (e) {
+          print('Error applying initial design: $e');
+        }
+      }
     } catch (e) {
       print('Error loading designs: $e');
     }
   }
 
   void _addOrUpdateDesign({
-  required int? choices,
-  required double? meters,
-  required String? designNo,
-  required String mode,
-}) {
-  // Get the meters value from the defaultMetersController if not provided
-  final metersValue = meters ?? double.tryParse(defaultMetersController.text) ?? 100;
-  
-  if (choices == null) {
+    required int? choices,
+    required double? meters,
+    required String? designNo,
+    required String mode,
+  }) {
+    // Get the meters value from the defaultMetersController if not provided
+    final metersValue =
+        meters ?? double.tryParse(defaultMetersController.text) ?? 100;
+    if (choices == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select Choices'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Generate the next reference number for the selected O/F type
+    int typeCount =
+        1 + capturedDesigns.where((d) => d['ofType'] == selectedOFType).length;
+    String refPrefix = selectedOFType.toUpperCase().substring(
+      0,
+      3,
+    ); // REG, MIX, PLA
+    String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
+
+    setState(() {
+      if (_editingDesignIndex != null) {
+        // Update existing design with all fields
+        capturedDesigns[_editingDesignIndex!] = {
+          'sNo': _editingDesignIndex! + 1,
+          'designNo': designNo ?? '-',
+          'choices': choices,
+          'meters': metersValue,
+          'mode': mode,
+          'timestamp': DateTime.now().toIso8601String(),
+          'ofType': selectedOFType,
+          'weave': selectedWeave,
+          'quality': selectedQuality,
+          'width': selectedWidth,
+          'ref': ref,
+        };
+        _editingDesignIndex = null;
+      } else {
+        // Add new design with all fields
+        capturedDesigns.add({
+          'sNo': capturedDesigns.length + 1,
+          'designNo': designNo ?? '-',
+          'choices': choices,
+          'meters': metersValue,
+          'mode': mode,
+          'timestamp': DateTime.now().toIso8601String(),
+          'ofType': selectedOFType,
+          'weave': selectedWeave,
+          'quality': selectedQuality,
+          'width': selectedWidth,
+          'ref': ref,
+        });
+      }
+    });
+
+    _updateSummaryValues();
+    _clearPartyDesignNo();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please select Choices'),
-        backgroundColor: Colors.red,
+      SnackBar(
+        content: Text(
+          _editingDesignIndex != null
+              ? 'Design updated successfully'
+              : 'Design added successfully',
+        ),
       ),
     );
-    return;
   }
 
-  setState(() {
-    if (_editingDesignIndex != null) {
-      // Update existing design with all fields
-      capturedDesigns[_editingDesignIndex!] = {
-        'sNo': _editingDesignIndex! + 1,
-        'designNo': designNo ?? '-',
-        'choices': choices,
-        'meters': metersValue,
-        'mode': mode,
-        'timestamp': DateTime.now().toIso8601String(),
-        // Add all these fields to the design data
-        'ofType': selectedOFType,
-        'weave': selectedWeave,
-        'quality': selectedQuality,
-        'width': selectedWidth,
-      };
-      _editingDesignIndex = null;
-    } else {
-      // Add new design with all fields
-      capturedDesigns.add({
-        'sNo': capturedDesigns.length + 1,
-        'designNo': designNo ?? '-',
-        'choices': choices,
-        'meters': metersValue,
-        'mode': mode,
-        'timestamp': DateTime.now().toIso8601String(),
-        // Add all these fields to the design data
-        'ofType': selectedOFType,
-        'weave': selectedWeave,
-        'quality': selectedQuality,
-        'width': selectedWidth,
-      });
-    }
-  });
-
-  // Update summary values after adding/updating a design
-  _updateSummaryValues();
-
-  // Clear party design no field and controller
-  _clearPartyDesignNo();
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        _editingDesignIndex != null
-            ? 'Design updated successfully'
-            : 'Design added successfully',
-      ),
-    ),
-  );
-}
   // Update the _clearPartyDesignNo method
   void _clearPartyDesignNo() {
     setState(() {
@@ -590,58 +644,60 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   void _selectDesignForEditing(Map<String, dynamic> design, int index) {
-  setState(() {
-    _editingDesignIndex = index;
+    setState(() {
+      _editingDesignIndex = index;
 
-    // Populate all form fields with the selected design's data
-    partyDesignNo = design['designNo'].toString() != '-'
-        ? design['designNo'].toString()
-        : null;
-    _partyDesignController.text = design['designNo'].toString() != '-'
-        ? design['designNo'].toString()
-        : '';
-    selectedMode = design['mode'].toString();
+      // Populate all form fields with the selected design's data
+      partyDesignNo = design['designNo'].toString() != '-'
+          ? design['designNo'].toString()
+          : null;
+      _partyDesignController.text = design['designNo'].toString() != '-'
+          ? design['designNo'].toString()
+          : '';
+      selectedMode = design['mode'].toString();
 
-    // Update controllers with proper values
-    _choicesController.text = design['choices'].toString();
-    defaultMetersController.text = design['meters'].toStringAsFixed(0);
-    
-    // Update defaultMeters to match the design
-    defaultMeters = design['meters'] as double;
+      // Update controllers with proper values
+      _choicesController.text = design['choices'].toString();
+      defaultMetersController.text = design['meters'].toStringAsFixed(0);
 
-    // Now populate all the additional fields from the design data
-    selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
-    selectedWeave = design['weave']?.toString();
-    selectedQuality = design['quality']?.toString();
-    selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
+      // Update defaultMeters to match the design
+      defaultMeters = design['meters'] as double;
 
-    // Update default values if needed
-    defaultChoices = design['choices'] as int;
-  });
-}
+      // Now populate all the additional fields from the design data
+      selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
+      selectedWeave = design['weave']?.toString();
+      selectedQuality = design['quality']?.toString();
+      selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
+
+      // Update default values if needed
+      defaultChoices = design['choices'] as int;
+    });
+  }
+
   void _clearEditingState() {
-  setState(() {
-    _editingDesignIndex = null;
+    setState(() {
+      _editingDesignIndex = null;
 
-    // Clear all controllers
-    _choicesController.clear();
-    defaultMetersController.clear();
-    _partyDesignController.clear();
+      // Clear all controllers
+      _choicesController.clear();
+      defaultMetersController.clear();
+      _partyDesignController.clear();
 
-    // Reset all field values
-    partyDesignNo = null;
-    selectedMode = 'Design';
-    selectedOFType = currentDefaultOFType;
-    selectedWeave = null;
-    selectedQuality = null;
-    selectedWidth = currentDefaultWidth;
-    defaultChoices = currentDefaultChoices;
-    defaultMeters = currentDefaultMeters;
+      // Reset all field values
+      partyDesignNo = null;
+      selectedMode = 'Design';
+      selectedOFType = currentDefaultOFType;
+      selectedWeave = null;
+      selectedQuality = null;
+      selectedWidth = currentDefaultWidth;
+      defaultChoices = currentDefaultChoices;
+      defaultMeters = currentDefaultMeters;
 
-    // Update default meters controller
-    defaultMetersController.text = defaultMeters.toStringAsFixed(0);
-  });
-}
+      // Update default meters controller
+      defaultMetersController.text = defaultMeters.toStringAsFixed(0);
+    });
+  }
+
   @override
   void dispose() {
     _weaveTypeController.dispose();
@@ -706,6 +762,8 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           const SizedBox(height: 16),
           _buildTextileDetailsCard(),
           const SizedBox(height: 16),
+          _buildCapturePhotoSection(), // Moved to after meters section
+          const SizedBox(height: 16),
           _buildModeSelectionSection(),
           const SizedBox(height: 16),
           _buildPartyDesignNoSection(),
@@ -721,8 +779,6 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           _buildChoicesOverrideSection(),
           const SizedBox(height: 16),
           _buildMetersOverrideSection(),
-          const SizedBox(height: 16),
-          _buildCapturePhotoSection(), // Moved to after meters section
           const SizedBox(height: 16),
           _buildActionButtons(),
           const SizedBox(height: 20),
@@ -783,7 +839,6 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
               ],
             ),
 
-            
             const SizedBox(height: 24),
             _buildActionButtons(),
             const SizedBox(height: 32),
@@ -2270,8 +2325,6 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   Widget _buildCapturePhotoSection() {
-    final isTablet = MediaQuery.of(context).size.width > 600;
-
     return Card(
       elevation: 0,
       color: const Color(0xFFFFFFFF),
@@ -2381,39 +2434,39 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
               ),
             ),
 
-            // Will Capture section - now included for both mobile and tablet views
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Will Capture:',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2937),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildWillCaptureItem('Type:', selectedOFType),
-                  _buildWillCaptureItem('Weave:', selectedWeave ?? '-'),
-                  _buildWillCaptureItem('Quality:', selectedQuality ?? '-'),
-                  _buildWillCaptureItem('Width:', selectedWidth),
-                  _buildWillCaptureItem('Choices:', defaultChoices.toString()),
-                  _buildWillCaptureItem(
-                    'Meters:',
-                    defaultMeters.toStringAsFixed(0),
-                  ),
-                ],
-              ),
-            ),
+            // // Will Capture section - now included for both mobile and tablet views
+            // const SizedBox(height: 16),
+            // Container(
+            //   padding: const EdgeInsets.all(12),
+            //   decoration: BoxDecoration(
+            //     color: const Color(0xFFF5F5F5),
+            //     borderRadius: BorderRadius.circular(8),
+            //     border: Border.all(color: Colors.grey.withOpacity(0.3)),
+            //   ),
+            //   child: Column(
+            //     crossAxisAlignment: CrossAxisAlignment.start,
+            //     children: [
+            //       const Text(
+            //         'Will Capture:',
+            //         style: TextStyle(
+            //           fontSize: 14,
+            //           fontWeight: FontWeight.bold,
+            //           color: Color(0xFF1F2937),
+            //         ),
+            //       ),
+            //       const SizedBox(height: 12),
+            //       _buildWillCaptureItem('Type:', selectedOFType),
+            //       _buildWillCaptureItem('Weave:', selectedWeave ?? '-'),
+            //       _buildWillCaptureItem('Quality:', selectedQuality ?? '-'),
+            //       _buildWillCaptureItem('Width:', selectedWidth),
+            //       _buildWillCaptureItem('Choices:', defaultChoices.toString()),
+            //       _buildWillCaptureItem(
+            //         'Meters:',
+            //         defaultMeters.toStringAsFixed(0),
+            //       ),
+            //     ],
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -2886,285 +2939,298 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   Widget _buildActionButtons() {
-  final isEditing = _editingDesignIndex != null;
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () async {
-              // Capture current form values
-              int choices =
-                  int.tryParse(_choicesController.text) ?? defaultChoices;
-              double meters =
-                  double.tryParse(defaultMetersController.text) ?? defaultMeters;
-
-              // Add or update design
-              _addOrUpdateDesign(
-                choices: choices,
-                meters: meters,
-                designNo: _partyDesignController.text.isNotEmpty
-                    ? _partyDesignController.text
-                    : null,
-                mode: selectedMode,
-              );
-
-              // Save to Hive
-              await _saveCapturedDesignToHive();
-              // Also save summary values
-              await _saveSummaryValuesToHive();
-
-              // Clear editing state
-              _clearEditingState();
-            },
-            icon: const Icon(Icons.check),
-            label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isEditing
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OrderFormFinishPage(
-                    partyName: widget.partyName,
-                    totalDesigns: textileData['d'] ?? 0,
-                    totalChoices: textileData['ch'] ?? 0,
-                    totalMeters: textileData['mtr'] ?? 0,
-                  ),
-                ),
-              );
-            },
-            child: const Text('Finish Order →'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF2563EB),
-              side: const BorderSide(color: Color(0xFF2563EB)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-  Widget _buildCapturedDesignsSection() {
-  // Filter designs based on selected tab
-  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
-    design,
-  ) {
-    if (selectedFilter == 'All') return true;
-    if (selectedFilter == 'Design') return design['mode'] == 'Design';
-    if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
-    return true;
-  }).toList();
-
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final isEditing = _editingDesignIndex != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
-          // First Row - Title only
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'All Captured Designs:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                ),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                // Capture current form values
+                int choices =
+                    int.tryParse(_choicesController.text) ?? defaultChoices;
+                double meters =
+                    double.tryParse(defaultMetersController.text) ??
+                    defaultMeters;
+
+                // Add or update design
+                _addOrUpdateDesign(
+                  choices: choices,
+                  meters: meters,
+                  designNo: _partyDesignController.text.isNotEmpty
+                      ? _partyDesignController.text
+                      : null,
+                  mode: selectedMode,
+                );
+
+                // Save to Hive
+                await _saveCapturedDesignToHive();
+                // Also save summary values
+                await _saveSummaryValuesToHive();
+
+                // Clear editing state
+                _clearEditingState();
+              },
+              icon: const Icon(Icons.check),
+              label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isEditing
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              if (_editingDesignIndex != null)
-                TextButton(
-                  onPressed: _clearEditingState,
-                  child: const Text(
-                    'Cancel Editing',
-                    style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
-                  ),
-                ),
-            ],
+            ),
           ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: ['All', 'Design', 'Sample'].map((filter) {
-              bool isSelected = selectedFilter == filter;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedFilter = filter;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  margin: const EdgeInsets.only(left: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFFFEE2E2)
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFFEF4444)
-                          : Colors.transparent,
-                    ),
-                  ),
-                  child: Text(
-                    filter,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isSelected
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF1F2937),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Design list or empty state
-          if (filteredDesigns.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
-              ),
-              child: const Text(
-                'No designs captured yet. Start capturing photos!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
-              ),
-            )
-          else
-            // MODIFIED PART: Use LayoutBuilder to make table full width
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: constraints.maxWidth, // Take full available width
-                    ),
-                    child: DataTable(
-                      columnSpacing: 24, // Increase spacing between columns
-                      horizontalMargin: 12, // Add horizontal margin
-                      columns: const [
-                        DataColumn(
-                          label: Text(
-                            'S.No',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Design No',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Choices',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            'Meters',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                      rows: filteredDesigns.asMap().entries.map((entry) {
-                        final display = entry.value;
-                        final originalIndex = capturedDesigns.indexOf(display);
-                        return DataRow(
-                          color: MaterialStateProperty.resolveWith<Color?>((
-                            Set<MaterialState> states,
-                          ) {
-                            // Highlight the row that is being edited
-                            if (_editingDesignIndex != null &&
-                                originalIndex == _editingDesignIndex) {
-                              return const Color(0xFFE3F2FD);
-                            }
-                            return null;
-                          }),
-                          onSelectChanged: (selected) {
-                            if (selected ?? false) {
-                              _selectDesignForEditing(display, originalIndex);
-                            }
-                          },
-                          cells: [
-                            DataCell(
-                              Text(
-                                (display['sNo'] ?? (originalIndex + 1)).toString(),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                display['designNo']?.toString() ?? '-',
-                                style: const TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                display['choices']?.toString() ?? '',
-                                style: const TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                (display['meters'] is num)
-                                    ? (display['meters'] as num)
-                                          .toDouble()
-                                          .toStringAsFixed(0)
-                                    : display['meters']?.toString() ?? '',
-                                style: const TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OrderFormFinishPage(
+                      partyName: widget.partyName,
+                      totalDesigns: textileData['d'] ?? 0,
+                      totalChoices: textileData['ch'] ?? 0,
+                      totalMeters: textileData['mtr'] ?? 0,
                     ),
                   ),
                 );
               },
+              child: const Text('Finish Order →'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF2563EB),
+                side: const BorderSide(color: Color(0xFF2563EB)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
+          ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildCapturedDesignsSection() {
+    // Filter designs based on selected tab
+    List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
+      design,
+    ) {
+      if (selectedFilter == 'All') return true;
+      if (selectedFilter == 'Design') return design['mode'] == 'Design';
+      if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
+      return true;
+    }).toList();
+
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // First Row - Title only
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'All Captured Designs:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                if (_editingDesignIndex != null)
+                  TextButton(
+                    onPressed: _clearEditingState,
+                    child: const Text(
+                      'Cancel Editing',
+                      style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
+                    ),
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: ['All', 'Design', 'Sample'].map((filter) {
+                bool isSelected = selectedFilter == filter;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      selectedFilter = filter;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    margin: const EdgeInsets.only(left: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFFEE2E2)
+                          : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFEF4444)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      filter,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isSelected
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF1F2937),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Design list or empty state
+            if (filteredDesigns.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                ),
+                child: const Text(
+                  'No designs captured yet. Start capturing photos!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+                ),
+              )
+            else
+              // MODIFIED PART: Use LayoutBuilder to make table full width
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth:
+                            constraints.maxWidth, // Take full available width
+                      ),
+                      child: DataTable(
+                        columnSpacing: 24, // Increase spacing between columns
+                        horizontalMargin: 12, // Add horizontal margin
+                        columns: const [
+                          DataColumn(
+                            label: Text(
+                              'S.No',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              'Design No',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              'Choices',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              'Meters',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                        rows: filteredDesigns.asMap().entries.map((entry) {
+                          final display = entry.value;
+                          final originalIndex = capturedDesigns.indexOf(
+                            display,
+                          );
+                          return DataRow(
+                            color: MaterialStateProperty.resolveWith<Color?>((
+                              Set<MaterialState> states,
+                            ) {
+                              // Highlight the row that is being edited
+                              if (_editingDesignIndex != null &&
+                                  originalIndex == _editingDesignIndex) {
+                                return const Color(0xFFE3F2FD);
+                              }
+                              return null;
+                            }),
+                            onSelectChanged: (selected) {
+                              if (selected ?? false) {
+                                _selectDesignForEditing(display, originalIndex);
+                              }
+                            },
+                            cells: [
+                              DataCell(
+                                Text(
+                                  (display['sNo'] ?? (originalIndex + 1))
+                                      .toString(),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  display['designNo']?.toString() ?? '-',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  display['choices']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  (display['meters'] is num)
+                                      ? (display['meters'] as num)
+                                            .toDouble()
+                                            .toStringAsFixed(0)
+                                      : display['meters']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveCapturedDesignToHive() async {
     try {
       if (!Hive.isBoxOpen('designs')) {
@@ -3183,11 +3249,11 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           'meters': d['meters'],
           'mode': d['mode'],
           'timestamp': d['timestamp'],
-          // Include all the additional fields
           'ofType': d['ofType'],
           'weave': d['weave'],
           'quality': d['quality'],
           'width': d['width'],
+          'ref': d['ref'],
         };
       }).toList();
 
@@ -3196,6 +3262,43 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
       print('Captured designs saved to Hive with key: $designsKey');
       print('Designs: $designsToSave');
+
+      // Update orders count in the orders box for this party
+      try {
+        if (!Hive.isBoxOpen('orders')) {
+          await Hive.openBox('orders');
+        }
+        final ordersBox = Hive.box('orders');
+
+        // Calculate total designs across all textile types for this party
+        int totalDesignsForParty = 0;
+        for (var key in box.keys) {
+          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+            final list = box.get(key);
+            if (list is List) totalDesignsForParty += list.length;
+          }
+        }
+
+        final orderEntry = {
+          'party': widget.partyName,
+          'orders': totalDesignsForParty,
+          'date': DateTime.now().toIso8601String(),
+          'status': 'pending',
+        };
+
+        await ordersBox.put(widget.partyName, orderEntry);
+        await ordersBox.flush();
+
+        // notify listeners so purchase_list_page reloads
+        try {
+          // Avoid import cycle by using runtime invocation
+          OrderService().notifyOrderUpdated();
+        } catch (e) {
+          print('OrderService notify error: $e');
+        }
+      } catch (e) {
+        print('Error updating orders box: $e');
+      }
     } catch (e) {
       print('Error saving captured designs: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3209,13 +3312,23 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   // Method to calculate summary values from captured designs
   Map<String, dynamic> _calculateSummaryValues() {
+    // Count each saved row as one design so the summary shows raw saved items
     int totalDesigns = capturedDesigns.length;
     int totalChoices = 0;
     double totalMeters = 0.0;
 
     for (var design in capturedDesigns) {
-      totalChoices += design['choices'] as int;
-      totalMeters += design['meters'] as double;
+      final choicesVal = (design['choices'] is int)
+          ? design['choices'] as int
+          : int.tryParse(design['choices']?.toString() ?? '0') ?? 0;
+      totalChoices += choicesVal;
+
+      final metersVal = (design['meters'] is int)
+          ? (design['meters'] as int).toDouble()
+          : (design['meters'] is double
+                ? design['meters'] as double
+                : double.tryParse(design['meters']?.toString() ?? '0') ?? 0.0);
+      totalMeters += metersVal;
     }
 
     return {'d': totalDesigns, 'ch': totalChoices, 'mtr': totalMeters.round()};
