@@ -23,6 +23,14 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
   late Box ordersBox;
   late StreamSubscription<void> _orderUpdateSubscription;
 
+  // List of original parties that should load from JSON
+  final List<String> originalParties = [
+    'Manish Textiles',
+    'Raj Fabrics',
+    'Kumar Mills',
+    'Shree Textiles',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +72,11 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
     return formatter.format(date);
   }
 
+  // Helper function to check if a party is new (not in original parties)
+  bool _isNewParty(String partyName) {
+    return !originalParties.contains(partyName);
+  }
+
   Future<void> loadPurchaseList() async {
   try {
     // Load initial data from JSON
@@ -79,6 +92,11 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
 
       // Convert ISO date strings to simple format for Hive data
       for (var item in hiveData) {
+        // Ensure status is set to pending for new parties
+        if (item['status'] == null) {
+          item['status'] = 'pending';
+        }
+        
         if (item['date'] is String && item['date'].contains('T')) {
           try {
             final DateTime parsedDate = DateTime.parse(item['date']);
@@ -101,7 +119,16 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
             if (key is String && key.startsWith('designs_${partyName}_')) {
               final designs = designsBox.get(key);
               if (designs is List) {
-                orderCount += designs.length;
+                // Only count designs that have actual data (not empty placeholders)
+                for (var design in designs) {
+                  // Check if the design has meaningful data
+                  if (design['ofType'] != null && 
+                      design['ofType'].toString().isNotEmpty &&
+                      design['width'] != null && 
+                      design['width'].toString().isNotEmpty) {
+                    orderCount += 1;
+                  }
+                }
               }
             }
           }
@@ -110,12 +137,12 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
         // Update the orders count
         item['orders'] = orderCount;
         
-        // Update status based on orders count
-        if (orderCount > 0) {
-          // For simplicity, setting status to 'mixed' if there are orders
-          // You can implement more complex logic here based on your requirements
+        // Update status based on orders count and party type
+        if (orderCount > 0 && !_isNewParty(partyName)) {
+          // For original parties, set status to mixed if there are orders
           item['status'] = 'mixed';
         } else {
+          // For new parties or parties with no orders, set status to pending
           item['status'] = 'pending';
         }
       }
@@ -132,6 +159,24 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
     // Override with Hive data if same party exists
     for (var item in hiveData) {
       mergedMap[item['party']] = item;
+    }
+
+    // Ensure all items have a status and that new parties are pending
+    for (var key in mergedMap.keys) {
+      var item = mergedMap[key];
+      // If status is not set, default to pending
+      if (item['status'] == null) {
+        item['status'] = 'pending';
+      }
+      
+      // If this is a new party, ensure status is pending regardless of orders count
+      if (_isNewParty(item['party'])) {
+        item['status'] = 'pending';
+      }
+      // If orders count is 0, ensure status is pending
+      else if (item['orders'] == 0 || item['orders'] == null) {
+        item['status'] = 'pending';
+      }
     }
 
     setState(() {
@@ -382,7 +427,7 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
         dotColor = Colors.green; // Green dot for complete
         break;
       default:
-        dotColor = Colors.grey;
+        dotColor = Colors.red; // Default to red for any unknown status
     }
 
     return Container(
