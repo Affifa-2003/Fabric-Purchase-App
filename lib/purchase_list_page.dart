@@ -77,25 +77,23 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
     return !originalParties.contains(partyName);
   }
 
- 
   Future<void> loadPurchaseList() async {
     try {
-      // Load initial data from JSON
-      final String response = await rootBundle.loadString(
-        'assets/purchase_list.json',
-      );
-      final List<dynamic> jsonData = json.decode(response);
-
       // Load data from Hive
       List<dynamic> hiveData = [];
       if (Hive.isBoxOpen('orders')) {
         hiveData = ordersBox.values.toList();
 
-        // Convert ISO date strings to simple format for Hive data
+        // Process each item
         for (var item in hiveData) {
           // Ensure status is set to pending for new parties
           if (item['status'] == null) {
             item['status'] = 'pending';
+          }
+          
+          // If timestamp is not set, use current time
+          if (item['timestamp'] == null) {
+            item['timestamp'] = DateTime.now().millisecondsSinceEpoch;
           }
           
           if (item['date'] is String && item['date'].contains('T')) {
@@ -145,7 +143,7 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
           // Update status based on orders count and party type
           if (orderCount > 0 && !_isNewParty(partyName)) {
             // For original parties, set status to mixed if there are orders
-            item['status'] = 'mixed';
+            item['status'] = 'pending';
           } else {
             // For new parties or parties with no orders, set status to pending
             item['status'] = 'pending';
@@ -155,11 +153,6 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
 
       // Combine JSON data and Hive data (Hive data overrides JSON if same party exists)
       Map<String, dynamic> mergedMap = {};
-
-      // Add all JSON data first
-      for (var item in jsonData) {
-        mergedMap[item['party']] = item;
-      }
 
       // Override with Hive data if same party exists
       for (var item in hiveData) {
@@ -184,19 +177,23 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
         }
       }
 
+      // Convert to list and sort by timestamp in descending order (newest first)
+      List<dynamic> sortedList = mergedMap.values.toList();
+      sortedList.sort((a, b) {
+        int timestampA = a['timestamp'] ?? 0;
+        int timestampB = b['timestamp'] ?? 0;
+        return timestampB.compareTo(timestampA); // Descending order (newest first)
+      });
+
       setState(() {
-        purchaseList = mergedMap.values.toList();
+        purchaseList = sortedList;
         filteredList = List.from(purchaseList);
       });
 
-      print(
-        'Loaded ${jsonData.length} items from JSON and ${hiveData.length} items from Hive, merged into ${purchaseList.length} unique parties',
-      );
     } catch (e) {
       print('Error loading purchase list: $e');
     }
   }
-
   
   void filterList() {
     String query = searchController.text.toLowerCase();
@@ -308,59 +305,89 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: loadPurchaseList,
-              child: ListView.builder(
-                itemCount: filteredList.length,
-                itemBuilder: (context, index) {
-                  final item = filteredList[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    elevation: 0,
-                    color: const Color(0xFFFFFFFF), // White card background
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Colors.grey.withOpacity(0.2)),
-                    ),
+              child: filteredList.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No data found',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap + icon to add data',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredList.length,
+                      itemBuilder: (context, index) {
+                        final item = filteredList[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+                          elevation: 0,
+                          color: const Color(0xFFFFFFFF), // White card background
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                          ),
 
-                    // In the PurchaseListPage, update the ListTile in the ListView.builder to navigate to PartyDetailsPage
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      leading: _getStatusDot(
-                        item['status'],
-                      ), // Status dot instead of icon
-                      title: Text(
-                        item['party'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${item['orders']} orders • ${item['date']}',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                      ),
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                      ), // Arrow icon
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                PartyDetailsPage(partyName: item['party']),
+                          // In the PurchaseListPage, update the ListTile in the ListView.builder to navigate to PartyDetailsPage
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: _getStatusDot(
+                              item['status'],
+                            ), // Status dot instead of icon
+                            title: Text(
+                              item['party'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${item['orders']} orders • ${item['date']}',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                            ), // Arrow icon
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      PartyDetailsPage(partyName: item['party']),
+                                ),
+                              );
+                            },
                           ),
                         );
                       },
                     ),
-                  );
-                },
-              ),
             ),
           ),
           _buildSummary(),
@@ -445,58 +472,59 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
   }
 
   Widget _buildSummary() {
-  // Use the full purchaseList for overall totals so the bottom summary
-  // always shows totals across all parties, independent of current filter.
-  final listForSummary = purchaseList;
+    // Use the full purchaseList for overall totals so the bottom summary
+    // always shows totals across all parties, independent of current filter.
+    final listForSummary = purchaseList;
 
-  // Count the total number of parties
-  int total = listForSummary.length;
-  
-  // Count the number of parties with 'pending' status
-  int pending = listForSummary
-      .where(
-        (item) =>
-            (item['status'] ?? '').toString().toLowerCase() == 'pending',
-      )
-      .length;
-      
-  // Count the number of parties with 'complete' status
-  int complete = listForSummary
-      .where(
-        (item) =>
-            (item['status'] ?? '').toString().toLowerCase() == 'complete',
-      )
-      .length;
+    // Count the total number of parties
+    int total = listForSummary.length;
+    
+    // Count the number of parties with 'pending' status
+    int pending = listForSummary
+        .where(
+          (item) =>
+              (item['status'] ?? '').toString().toLowerCase() == 'pending',
+        )
+        .length;
+        
+    // Count the number of parties with 'complete' status
+    int complete = listForSummary
+        .where(
+          (item) =>
+              (item['status'] ?? '').toString().toLowerCase() == 'complete',
+        )
+        .length;
 
-  return Card(
-    margin: EdgeInsets.zero, // Remove all margins
-    elevation: 0,
-    color: const Color(0xFFFFFFFF), // White card background
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(0), // Remove border radius
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildSummaryItem('Total', total, Colors.black), // Black for Total
-          _buildSummaryItem(
-            'Pending',
-            pending,
-            Colors.red,
-          ), // Red for Pending
-          _buildSummaryItem(
-            'Complete',
-            complete,
-            Colors.green,
-          ), // Green for Complete
-        ],
+    return Card(
+      margin: EdgeInsets.zero, // Remove all margins
+      elevation: 0,
+      color: const Color(0xFFFFFFFF), // White card background
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(0), // Remove border radius
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
       ),
-    ),
-  );
-}
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildSummaryItem('Total', total, Colors.black), // Black for Total
+            _buildSummaryItem(
+              'Pending',
+              pending,
+              Colors.red,
+            ), // Red for Pending
+            _buildSummaryItem(
+              'Complete',
+              complete,
+              Colors.green,
+            ), // Green for Complete
+          ],
+        ),
+      ),
+    );
+  }
+  
   Widget _buildSummaryItem(String label, int count, Color numberColor) {
     return Column(
       children: [

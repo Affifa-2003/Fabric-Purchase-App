@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'dart:async';
-import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
@@ -25,14 +23,6 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   Map<String, List<Map<String, dynamic>>> groupedDesigns = {};
   late StreamSubscription<void> _orderUpdateSubscription;
 
-  // List of original parties that should load from JSON
-  final List<String> originalParties = [
-    'Manish Textiles',
-    'Raj Fabrics',
-    'Kumar Mills',
-    'Shree Textiles',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -51,34 +41,15 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
 
   Future<void> _loadPartyData() async {
     try {
-      // Check if this is one of the original parties
-      bool isOriginalParty = originalParties.contains(widget.partyName);
+      // Only load from Hive, no JSON loading
+      await _loadCapturedDesigns();
 
-      if (isOriginalParty) {
-        // Load data from JSON for original parties
-        String jsonString = await rootBundle.loadString('assets/party_details.json');
-        Map<String, dynamic> allData = json.decode(jsonString);
-
-        setState(() {
-          partyData = allData[widget.partyName] ?? {};
-        });
-
-        // Also load designs from Hive to show any additional designs added
-        await _loadCapturedDesigns();
-      } else {
-        // For new parties, load only from Hive
-        await _loadCapturedDesigns();
-
-        // Create a default structure for new parties
-        setState(() {
-          partyData = {
-            'summary': {'d': 0, 'ch': 0, 'mtr': 0},
-            'textiles': [],
-          };
-        });
-      }
-
+      // Create a default structure for all parties
       setState(() {
+        partyData = {
+          'summary': {'d': 0, 'ch': 0, 'mtr': 0},
+          'textiles': [],
+        };
         _isLoading = false;
       });
     } catch (e) {
@@ -96,13 +67,6 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
 
   // Helper function to get the next reference number for a type
   String _getNextReference(String type) {
-    // Define the base references for original parties
-    final Map<String, int> baseReferences = {
-      'regular': 4,  // Last used was 004 for Shree
-      'mix': 4,      // Last used was 004 for Shree
-      'plain': 4,    // Last used was 004 for Shree
-    };
-    
     // Get the prefix for the type
     String prefix;
     switch (type.toLowerCase()) {
@@ -119,11 +83,14 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
         prefix = type.substring(0, 3).toUpperCase();
     }
     
-    // Get the next number (base + 1)
-    int nextNumber = (baseReferences[type.toLowerCase()] ?? 0) + 1;
+    // Count existing designs of this type for this party
+    int existingCount = 0;
+    if (groupedDesigns.containsKey(type)) {
+      existingCount = groupedDesigns[type]!.length;
+    }
     
     // Format as 3-digit number with leading zeros
-    return '$prefix-${nextNumber.toString().padLeft(3, '0')}';
+    return '$prefix-${(existingCount + 1).toString().padLeft(3, '0')}';
   }
 
   Future<void> _loadCapturedDesigns() async {
@@ -169,58 +136,57 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  // In party_details_page.dart, update _updateOrdersCount() method
-
-Future<void> _updateOrdersCount() async {
-  try {
-    if (!Hive.isBoxOpen('orders')) {
-      await Hive.openBox('orders');
-    }
-    
-    final ordersBox = Hive.box('orders');
-    
-    // Find the order for this party
-    final existingOrder = ordersBox.values.firstWhere(
-      (order) => order['party'] == widget.partyName,
-      orElse: () => null,
-    );
-    
-    if (existingOrder != null) {
-      // Create a set to track unique textile types
-      Set<String> uniqueTextileTypes = {};
+  Future<void> _updateOrdersCount() async {
+    try {
+      if (!Hive.isBoxOpen('orders')) {
+        await Hive.openBox('orders');
+      }
       
-      // Find all unique textile types for this party
-      for (var design in capturedDesigns) {
-        // Check if the design has meaningful data
-        if (design['ofType'] != null && 
-            design['ofType'].toString().isNotEmpty &&
-            design['width'] != null && 
-            design['width'].toString().isNotEmpty) {
-          // Add the textile type to our set
-          uniqueTextileTypes.add(design['ofType']);
+      final ordersBox = Hive.box('orders');
+      
+      // Find the order for this party
+      final existingOrder = ordersBox.values.firstWhere(
+        (order) => order['party'] == widget.partyName,
+        orElse: () => null,
+      );
+      
+      if (existingOrder != null) {
+        // Create a set to track unique textile types
+        Set<String> uniqueTextileTypes = {};
+        
+        // Find all unique textile types for this party
+        for (var design in capturedDesigns) {
+          // Check if the design has meaningful data
+          if (design['ofType'] != null && 
+              design['ofType'].toString().isNotEmpty &&
+              design['width'] != null && 
+              design['width'].toString().isNotEmpty) {
+            // Add the textile type to our set
+            uniqueTextileTypes.add(design['ofType']);
+          }
         }
+        
+        // The order count is the number of unique textile types
+        existingOrder['orders'] = uniqueTextileTypes.length;
+        
+        // Update status based on orders count
+        if (uniqueTextileTypes.length > 0) {
+          existingOrder['status'] = 'mixed';
+        } else {
+          existingOrder['status'] = 'pending';
+        }
+        
+        // Save the updated order
+        await ordersBox.put(existingOrder['party'], existingOrder);
+        
+        // Notify listeners that orders have been updated
+        OrderService().notifyOrderUpdated();
       }
-      
-      // The order count is the number of unique textile types
-      existingOrder['orders'] = uniqueTextileTypes.length;
-      
-      // Update status based on orders count
-      if (uniqueTextileTypes.length > 0) {
-        existingOrder['status'] = 'mixed';
-      } else {
-        existingOrder['status'] = 'pending';
-      }
-      
-      // Save the updated order
-      await ordersBox.put(existingOrder['party'], existingOrder);
-      
-      // Notify listeners that orders have been updated
-      OrderService().notifyOrderUpdated();
+    } catch (e) {
+      print('Error updating orders count: $e');
     }
-  } catch (e) {
-    print('Error updating orders count: $e');
   }
-}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -290,334 +256,12 @@ Future<void> _updateOrdersCount() async {
                   child: ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 0),
                     children: [
-                      // For original parties, show both JSON data and Hive data
-                      if (originalParties.contains(widget.partyName)) ...[
-                        // Show textile cards from JSON data
-                        if (partyData['textiles'] != null)
-                          ...(partyData['textiles'] as List<dynamic>).map((
-                            textile,
-                          ) {
-                            return Card(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              elevation: 0,
-                              color: const Color(0xFFFFFFFF),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(
-                                  color: Colors.grey.withOpacity(0.2),
-                                ),
-                              ),
-                              child: InkWell(
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => TextileDetailsPage(
-                                        partyName: widget.partyName,
-                                        textileType: textile['type'] ?? '',
-                                        selectedWidth: '58"',
-                                        defaultChoices: textile['ch'] ?? 2,
-                                        defaultMeters: textile['mtr'] ?? 100,
-                                        sampleRequired: 'Yes',
-                                        selectedSampleMtr: null,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                width: 10,
-                                                height: 10,
-                                                decoration: BoxDecoration(
-                                                  color: _parseColor(
-                                                    textile['color'] ??
-                                                        '#000000',
-                                                  ),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    textile['type'] ?? '',
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Color(0xFF1F2937),
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    'Ref: ${textile['ref'] ?? ''}',
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                      color: Color(0xFF6B7280),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                          // Changed icon for JSON-loaded cards
-                                          Icon(
-                                            Icons.list_alt,
-                                            color: Colors.grey[600],
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            'D: ${textile['d'] ?? 0}',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: Color(0xFF1F2937),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Text(
-                                            'Ch: ${textile['ch'] ?? 0}',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: Color(0xFF1F2937),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Text(
-                                            'Mtr: ${textile['mtr'] ?? 0}',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: Color(0xFF1F2937),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                      ],
-
-                      // Show textile cards from Hive data for all parties
+                      // Only show textile cards from Hive data for all parties
                       ...groupedDesigns.entries.map((entry) {
                         final type = entry.key;
                         final designs = entry.value;
 
-                        // Skip if this is an original party and we already have this type in JSON
-                        if (originalParties.contains(widget.partyName) &&
-                            partyData['textiles'] != null) {
-                          bool existsInJson =
-                              (partyData['textiles'] as List<dynamic>).any(
-                                (textile) =>
-                                    (textile['type'] ?? '')
-                                        .toString()
-                                        .toLowerCase() ==
-                                    type.toLowerCase(),
-                              );
-                          if (existsInJson) {
-                            // We'll add a badge to show there are additional designs
-                            return Card(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              elevation: 0,
-                              color: const Color(0xFFFFFFFF),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(
-                                  color: Colors.grey.withOpacity(0.2),
-                                ),
-                              ),
-                              child: InkWell(
-                                onTap: () async {
-                                  // On tap, go to textile_details.dart with the first design of this type
-                                  if (designs.isNotEmpty) {
-                                    final d = designs.first;
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            TextileDetailsPage(
-                                              partyName: widget.partyName,
-                                              textileType: d['ofType'] ?? '',
-                                              selectedWidth:
-                                                  d['width'] ?? '58"',
-                                              defaultChoices: d['choices'] ?? 2,
-                                              defaultMeters: d['meters'] ?? 100,
-                                              sampleRequired: 'Yes',
-                                              selectedSampleMtr: null,
-                                            ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                width: 10,
-                                                height: 10,
-                                                decoration: BoxDecoration(
-                                                  color: _parseColor(
-                                                    _getTypeColor(type),
-                                                  ),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Text(
-                                                        type,
-                                                        style: const TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Color(
-                                                            0xFF1F2937,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 6,
-                                                              vertical: 2,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.blue
-                                                              .withOpacity(0.1),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                10,
-                                                              ),
-                                                        ),
-                                                        child: Text(
-                                                          '+${designs.length} designs',
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 12,
-                                                                color:
-                                                                    Colors.blue,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  Text(
-                                                    'Additional designs',
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                      color: Color(0xFF6B7280),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                          // Camera icon for Hive-loaded cards
-                                          const Icon(
-                                            Icons.camera_alt,
-                                            color: Colors.black,
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      // Compute totals for Designs, Choices, and Meters
-                                      ...(() {
-                                        int totalDesigns = 0;
-                                        int totalChoices = 0;
-                                        double totalMeters = 0.0;
-
-                                        for (var d in designs) {
-                                          totalDesigns += 1;
-                                          totalChoices += (d['choices'] as int);
-                                          totalMeters += ((d['meters'] is int)
-                                              ? (d['meters'] as int).toDouble()
-                                              : (d['meters'] as double));
-                                        }
-
-                                        return [
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 8,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  'D: $totalDesigns',
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    color: Color(0xFF1F2937),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 16),
-                                                Text(
-                                                  'Ch: $totalChoices',
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    color: Color(0xFF1F2937),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 16),
-                                                Text(
-                                                  'Mtr: ${totalMeters.toStringAsFixed(0)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    color: Color(0xFF1F2937),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ];
-                                      })(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                        }
-
-                        // For new parties or types not in JSON, show the original card
+                        // Show the card for each textile type
                         return Card(
                           margin: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -633,21 +277,22 @@ Future<void> _updateOrdersCount() async {
                           ),
                           child: InkWell(
                             onTap: () async {
-                              // On tap, go to textile_details.dart and patch form with first design of this type
+                              // On tap, go to textile_details.dart with the first design of this type
                               if (designs.isNotEmpty) {
                                 final d = designs.first;
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => TextileDetailsPage(
-                                      partyName: widget.partyName,
-                                      textileType: d['ofType'] ?? '',
-                                      selectedWidth: d['width'] ?? '58"',
-                                      defaultChoices: d['choices'] ?? 2,
-                                      defaultMeters: d['meters'] ?? 100,
-                                      sampleRequired: 'Yes',
-                                      selectedSampleMtr: null,
-                                    ),
+                                    builder: (context) =>
+                                        TextileDetailsPage(
+                                          partyName: widget.partyName,
+                                          textileType: d['ofType'] ?? '',
+                                          selectedWidth: d['width'] ?? '58"',
+                                          defaultChoices: d['choices'] ?? 2,
+                                          defaultMeters: d['meters'] ?? 100,
+                                          sampleRequired: 'Yes',
+                                          selectedSampleMtr: null,
+                                        ),
                                   ),
                                 );
                               }
@@ -655,7 +300,8 @@ Future<void> _updateOrdersCount() async {
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     mainAxisAlignment:
@@ -678,13 +324,47 @@ Future<void> _updateOrdersCount() async {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                type,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF1F2937),
-                                                ),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    type,
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Color(
+                                                        0xFF1F2937,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (designs.length > 1) ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 2,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.blue
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        '+${designs.length - 1} more',
+                                                        style:
+                                                            const TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.blue,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                               Text(
                                                 'Ref: ${_getNextReference(type)}',
@@ -761,6 +441,39 @@ Future<void> _updateOrdersCount() async {
                           ),
                         );
                       }).toList(),
+                      
+                      // Show a message if no designs are found
+                      if (groupedDesigns.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.inbox_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No designs found',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap the + button to add a new design',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -770,19 +483,10 @@ Future<void> _updateOrdersCount() async {
   }
 
   Widget _buildSummarySection() {
-    // For original parties, start with JSON summary and add Hive data
+    // Only use Hive data for summary
     int totalDesigns = 0;
     int totalChoices = 0;
     double totalMeters = 0.0;
-
-    if (originalParties.contains(widget.partyName) &&
-        partyData['summary'] != null) {
-      totalDesigns = partyData['summary']['d'] ?? 0;
-      totalChoices = partyData['summary']['ch'] ?? 0;
-      totalMeters = (partyData['summary']['mtr'] is int)
-          ? (partyData['summary']['mtr'] as int).toDouble()
-          : (partyData['summary']['mtr'] as double);
-    }
 
     // Add totals from captured designs
     for (var d in capturedDesigns) {
