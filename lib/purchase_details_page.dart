@@ -292,6 +292,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                           defaultMeters: d['meters'] ?? 100,
                                           sampleRequired: 'Yes',
                                           selectedSampleMtr: null,
+                                          lockOFType: true,
                                         ),
                                   ),
                                 );
@@ -367,7 +368,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                                 ],
                                               ),
                                               Text(
-                                                'Ref: ${_getNextReference(type)}',
+                                                'Ref: -',
                                                 style: const TextStyle(
                                                   fontSize: 14,
                                                   color: Color(0xFF6B7280),
