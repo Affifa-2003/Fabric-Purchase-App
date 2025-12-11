@@ -22,58 +22,58 @@ class _AgentsPageState extends State<AgentsPage> {
     _loadAgents();
   }
 
-  Future<void> _loadAgents() async {
+  // In the _loadAgents method, update the code to properly handle the data format
+Future<void> _loadAgents() async {
+  try {
+    // Load data from JSON
+    List<String> jsonAgents = [];
     try {
-      // Load data from JSON
-      List<String> jsonAgents = [];
-      try {
-        final String response = await rootBundle.loadString('assets/order_data.json');
-        final Map<String, dynamic> jsonData = json.decode(response);
-        jsonAgents = jsonData['agents'] != null ? List<String>.from(jsonData['agents']) : [];
-        print('Loaded ${jsonAgents.length} agents from JSON');
-      } catch (e) {
-        print('Error loading JSON agents: $e');
-      }
-
-      // Load data from Hive
-      List<String> hiveAgents = [];
-      try {
-        // Ensure the box is open
-        if (!Hive.isBoxOpen('appData')) {
-          await Hive.openBox('appData');
-        }
-
-        appDataBox = Hive.box('appData');
-        
-        // Initialize with defaults if box is empty
-        if (appDataBox.isEmpty) {
-          await _initializeBoxWithDefaults(appDataBox);
-        }
-        
-        final agentsData = appDataBox.get('agents');
-        hiveAgents = agentsData != null ? List<String>.from(agentsData) : [];
-        print('Loaded ${hiveAgents.length} agents from Hive');
-      } catch (e) {
-        print('Error loading Hive agents: $e');
-      }
-
-      // Combine JSON and Hive data, removing duplicates
-      setState(() {
-        agents = [...jsonAgents, ...hiveAgents];
-        agents = agents.toSet().toList(); // Remove duplicates
-        _isLoading = false;
-      });
-      
-      print('Combined agents list: $agents');
+      final String response = await rootBundle.loadString('assets/order_data.json');
+      final Map<String, dynamic> jsonData = json.decode(response);
+      jsonAgents = jsonData['agents'] != null ? List<String>.from(jsonData['agents']) : [];
+      print('Loaded ${jsonAgents.length} agents from JSON');
     } catch (e) {
-      print('Error loading agents: $e');
-      setState(() {
-        agents = [];
-        _isLoading = false;
-      });
+      print('Error loading JSON agents: $e');
     }
-  }
 
+    // Load data from Hive
+    List<String> hiveAgents = [];
+    try {
+      // Ensure the box is open
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      appDataBox = Hive.box('appData');
+      
+      // Initialize with defaults if box is empty
+      if (appDataBox.isEmpty) {
+        await _initializeBoxWithDefaults(appDataBox);
+      }
+      
+      final agentsData = appDataBox.get('agents');
+      hiveAgents = agentsData != null ? List<String>.from(agentsData) : [];
+      print('Loaded ${hiveAgents.length} agents from Hive');
+    } catch (e) {
+      print('Error loading Hive agents: $e');
+    }
+
+    // Combine JSON and Hive data, removing duplicates
+    setState(() {
+      agents = [...jsonAgents, ...hiveAgents];
+      agents = agents.toSet().toList(); // Remove duplicates
+      _isLoading = false;
+    });
+    
+    print('Combined agents list: $agents');
+  } catch (e) {
+    print('Error loading agents: $e');
+    setState(() {
+      agents = [];
+      _isLoading = false;
+    });
+  }
+}
   Future<void> _initializeBoxWithDefaults(Box box) async {
     try {
       print('Initializing Hive box with default agents');

@@ -32,19 +32,20 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _initializeHive();
-    loadPurchaseList();
-    searchController.addListener(() {
-      filterList();
-    });
+void initState() {
+  super.initState();
+  _initializeHive();
+  loadPurchaseList();
+  searchController.addListener(() {
+    filterList();
+  });
 
-    // Listen for order updates
-    _orderUpdateSubscription = OrderService().orderUpdateStream.listen((_) {
-      loadPurchaseList();
-    });
-  }
+  // Listen for order updates
+  _orderUpdateSubscription = OrderService().orderUpdateStream.listen((_) {
+    loadPurchaseList();
+    _refreshPartyData(); // Also refresh party data when orders are updated
+  });
+}
 
   @override
   void dispose() {
@@ -78,123 +79,122 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
   }
 
   Future<void> loadPurchaseList() async {
-    try {
-      // Load data from Hive
-      List<dynamic> hiveData = [];
-      if (Hive.isBoxOpen('orders')) {
-        hiveData = ordersBox.values.toList();
+  try {
+    // Load data from Hive
+    List<dynamic> hiveData = [];
+    if (Hive.isBoxOpen('orders')) {
+      hiveData = ordersBox.values.toList();
 
-        // Process each item
-        for (var item in hiveData) {
-          // Ensure status is set to pending for new parties
-          if (item['status'] == null) {
-            item['status'] = 'pending';
+      // Process each item
+      for (var item in hiveData) {
+        // Ensure status is set to pending for new parties
+        if (item['status'] == null) {
+          item['status'] = 'pending';
+        }
+        
+        // If timestamp is not set, use current time
+        if (item['timestamp'] == null) {
+          item['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+        }
+        
+        if (item['date'] is String && item['date'].contains('T')) {
+          try {
+            final DateTime parsedDate = DateTime.parse(item['date']);
+            item['date'] = _formatDate(parsedDate);
+          } catch (e) {
+            print('Error parsing date: ${item['date']} - $e');
           }
+        }
+        
+        // Calculate number of orders based on unique textile types for this party
+        String partyName = item['party'];
+        Set<String> uniqueTextileTypes = {};
+        
+        // Check if designs box is open
+        if (Hive.isBoxOpen('designs')) {
+          final designsBox = Hive.box('designs');
           
-          // If timestamp is not set, use current time
-          if (item['timestamp'] == null) {
-            item['timestamp'] = DateTime.now().millisecondsSinceEpoch;
-          }
-          
-          if (item['date'] is String && item['date'].contains('T')) {
-            try {
-              final DateTime parsedDate = DateTime.parse(item['date']);
-              item['date'] = _formatDate(parsedDate);
-            } catch (e) {
-              print('Error parsing date: ${item['date']} - $e');
-            }
-          }
-          
-          // Calculate the number of orders based on unique textile types for this party
-          String partyName = item['party'];
-          Set<String> uniqueTextileTypes = {};
-          
-          // Check if designs box is open
-          if (Hive.isBoxOpen('designs')) {
-            final designsBox = Hive.box('designs');
-            
-            // Collect unique textile types for this party
-            for (var key in designsBox.keys) {
-              if (key is String && key.startsWith('designs_${partyName}_')) {
-                final designs = designsBox.get(key);
-                if (designs is List) {
-                  // Only consider designs that have actual data (not empty placeholders)
-                  for (var design in designs) {
-                    // Check if the design has meaningful data
-                    if (design['ofType'] != null && 
-                        design['ofType'].toString().isNotEmpty &&
-                        design['width'] != null && 
-                        design['width'].toString().isNotEmpty) {
-                      // Add the textile type to our set
-                      uniqueTextileTypes.add(design['ofType']);
-                    }
+          // Collect unique textile types for this party
+          for (var key in designsBox.keys) {
+            if (key is String && key.startsWith('designs_${partyName}_')) {
+              final designs = designsBox.get(key);
+              if (designs is List) {
+                // Only consider designs that have actual data (not empty placeholders)
+                for (var design in designs) {
+                  // Check if design has meaningful data
+                  if (design['ofType'] != null && 
+                      design['ofType'].toString().isNotEmpty &&
+                      design['width'] != null && 
+                      design['width'].toString().isNotEmpty) {
+                    // Add textile type to our set
+                    uniqueTextileTypes.add(design['ofType']);
                   }
                 }
               }
             }
           }
-          
-          // The order count is the number of unique textile types
-          int orderCount = uniqueTextileTypes.length;
-          
-          // Update the orders count
-          item['orders'] = orderCount;
-          
-          // Update status based on orders count and party type
-          if (orderCount > 0 && !_isNewParty(partyName)) {
-            // For original parties, set status to mixed if there are orders
-            item['status'] = 'pending';
-          } else {
-            // For new parties or parties with no orders, set status to pending
-            item['status'] = 'pending';
-          }
-        }
-      }
-
-      // Combine JSON data and Hive data (Hive data overrides JSON if same party exists)
-      Map<String, dynamic> mergedMap = {};
-
-      // Override with Hive data if same party exists
-      for (var item in hiveData) {
-        mergedMap[item['party']] = item;
-      }
-
-      // Ensure all items have a status and that new parties are pending
-      for (var key in mergedMap.keys) {
-        var item = mergedMap[key];
-        // If status is not set, default to pending
-        if (item['status'] == null) {
-          item['status'] = 'pending';
         }
         
-        // If this is a new party, ensure status is pending regardless of orders count
-        if (_isNewParty(item['party'])) {
+        // The order count is number of unique textile types
+        int orderCount = uniqueTextileTypes.length;
+        
+        // Update orders count
+        item['orders'] = orderCount;
+        
+        // Update status based on orders count and party type
+        if (orderCount > 0 && !_isNewParty(partyName)) {
+          // For original parties, set status to mixed if there are orders
           item['status'] = 'pending';
-        }
-        // If orders count is 0, ensure status is pending
-        else if (item['orders'] == 0 || item['orders'] == null) {
+        } else {
+          // For new parties or parties with no orders, set status to pending
           item['status'] = 'pending';
         }
       }
-
-      // Convert to list and sort by timestamp in descending order (newest first)
-      List<dynamic> sortedList = mergedMap.values.toList();
-      sortedList.sort((a, b) {
-        int timestampA = a['timestamp'] ?? 0;
-        int timestampB = b['timestamp'] ?? 0;
-        return timestampB.compareTo(timestampA); // Descending order (newest first)
-      });
-
-      setState(() {
-        purchaseList = sortedList;
-        filteredList = List.from(purchaseList);
-      });
-
-    } catch (e) {
-      print('Error loading purchase list: $e');
     }
+
+    // Combine JSON data and Hive data (Hive data overrides JSON if same party exists)
+    Map<String, dynamic> mergedMap = {};
+
+    // Override with Hive data if same party exists
+    for (var item in hiveData) {
+      mergedMap[item['party']] = item;
+    }
+
+    // Ensure all items have a status and that new parties are pending
+    for (var key in mergedMap.keys) {
+      var item = mergedMap[key];
+      // If status is not set, default to pending
+      if (item['status'] == null) {
+        item['status'] = 'pending';
+      }
+      
+      // If this is a new party, ensure status is pending regardless of orders count
+      if (_isNewParty(item['party'])) {
+        item['status'] = 'pending';
+      }
+      // If orders count is 0, ensure status is pending
+      else if (item['orders'] == 0 || item['orders'] == null) {
+        item['status'] = 'pending';
+      }
+    }
+
+    // Convert to list and sort by timestamp in descending order (newest first)
+    List<dynamic> sortedList = mergedMap.values.toList();
+    sortedList.sort((a, b) {
+      int timestampA = a['timestamp'] ?? 0;
+      int timestampB = b['timestamp'] ?? 0;
+      return timestampB.compareTo(timestampA); // Descending order (newest first)
+    });
+
+    setState(() {
+      purchaseList = sortedList;
+      filteredList = List.from(purchaseList);
+    });
+
+  } catch (e) {
+    print('Error loading purchase list: $e');
   }
-  
+}
   void filterList() {
     String query = searchController.text.toLowerCase();
     setState(() {
@@ -216,6 +216,50 @@ class _PurchaseListPageState extends State<PurchaseListPage> {
       filterList();
     });
   }
+
+  Future<void> _refreshPartyData() async {
+  try {
+    if (!Hive.isBoxOpen('appData')) {
+      await Hive.openBox('appData');
+    }
+    
+    final appDataBox = Hive.box('appData');
+    final partiesData = appDataBox.get('parties');
+    
+    if (partiesData != null) {
+      // Check which parties are mapped in orders
+      final orders = ordersBox.values.toList();
+      final Set<String> mappedParties = {};
+      for (var order in orders) {
+        if (order is Map && order['party'] != null) {
+          mappedParties.add(order['party'] as String);
+        }
+      }
+      
+      // Update isMapped status for all parties
+      List<Map<String, dynamic>> updatedPartiesData = [];
+      if (partiesData is List) {
+        for (var party in partiesData) {
+          Map<String, dynamic> partyMap = Map<String, dynamic>.from(party);
+          if (mappedParties.contains(partyMap['name'])) {
+            partyMap['isMapped'] = true;
+          } else {
+            partyMap['isMapped'] = false;
+          }
+          updatedPartiesData.add(partyMap);
+        }
+      }
+      
+      // Save updated parties data
+      await appDataBox.put('parties', updatedPartiesData);
+      await appDataBox.flush();
+      
+      print('Party data refreshed with updated mapping status');
+    }
+  } catch (e) {
+    print('Error refreshing party data: $e');
+  }
+}
 
   @override
   Widget build(BuildContext context) {

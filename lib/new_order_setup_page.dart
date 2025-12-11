@@ -75,6 +75,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       selectedSampleMtr = widget.selectedSampleMtr ?? '2.5';
     }
     _initializeHiveAndLoadData();
+    
+    // Update party data from Hive to get latest changes
+    _updatePartyDataFromHive();
 
     // Add a delay to verify data after loading
     Future.delayed(Duration(seconds: 2), () {
@@ -143,7 +146,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  // Updated method to load data from both JSON and Hive
   Future<void> _loadDataFromSources() async {
     try {
       // Load data from JSON
@@ -182,43 +184,57 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         final jsonParties = jsonData['parties'] != null
             ? List<String>.from(jsonData['parties'])
             : [];
-        final hiveParties = hiveData['parties'] != null
-            ? List<String>.from(hiveData['parties'])
-            : [];
+        
+        // Handle parties from Hive - could be in old format (List<String>) or new format (List<Map<String, dynamic>>)
+        List<String> hiveParties = [];
+        if (hiveData['parties'] != null) {
+          if (hiveData['parties'] is List) {
+            for (var party in hiveData['parties']) {
+              if (party is String) {
+                // Old format
+                hiveParties.add(party);
+              } else if (party is Map && party['name'] != null) {
+                // New format
+                hiveParties.add(party['name'] as String);
+              }
+            }
+          }
+        }
+        
         parties = [...jsonParties, ...hiveParties];
         parties = parties.toSet().toList(); // Remove duplicates
 
-        // In the _loadDataFromSources method, find this section:
-final jsonOfTypes = jsonData['ofTypes'] != null
-    ? List<String>.from(jsonData['ofTypes'])
-    : [];
-final hiveOfTypes = hiveData['ofTypes'] != null
-    ? List<String>.from(hiveData['ofTypes'])
-    : [];
-final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
-    ? List<String>.from(hiveData['textileOFTypes'])
-    : [];
+        // Combine ofTypes
+        final jsonOfTypes = jsonData['ofTypes'] != null
+            ? List<String>.from(jsonData['ofTypes'])
+            : [];
+        final hiveOfTypes = hiveData['ofTypes'] != null
+            ? List<String>.from(hiveData['ofTypes'])
+            : [];
+        final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
+            ? List<String>.from(hiveData['textileOFTypes'])
+            : [];
 
-// Combine lists while preserving order
-List<String> combinedOfTypes = [];
-combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
+        // Combine lists while preserving order
+        List<String> combinedOfTypes = [];
+        combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
 
-// Add items from hiveOfTypes if not already present
-for (var item in hiveOfTypes) {
-  if (!combinedOfTypes.contains(item)) {
-    combinedOfTypes.add(item);
-  }
-}
+        // Add items from hiveOfTypes if not already present
+        for (var item in hiveOfTypes) {
+          if (!combinedOfTypes.contains(item)) {
+            combinedOfTypes.add(item);
+          }
+        }
 
-// Add items from hiveTextileOfTypes if not already present
-for (var item in hiveTextileOfTypes) {
-  if (!combinedOfTypes.contains(item)) {
-    combinedOfTypes.add(item);
-  }
-}
+        // Add items from hiveTextileOfTypes if not already present
+        for (var item in hiveTextileOfTypes) {
+          if (!combinedOfTypes.contains(item)) {
+            combinedOfTypes.add(item);
+          }
+        }
 
-ofTypes = combinedOfTypes;
-// Remove the ofTypes.sort() line to maintain the original order
+        ofTypes = combinedOfTypes;
+        // Remove the ofTypes.sort() line to maintain the original order
 
         // Combine widths
         final jsonWidths = jsonData['widths'] != null
@@ -262,9 +278,7 @@ ofTypes = combinedOfTypes;
             ? List<String>.from(hiveData['sampleMtrOptions'])
             : [];
         sampleMtrOptions = [...jsonSampleMtrOptions, ...hiveSampleMtrOptions];
-        sampleMtrOptions = sampleMtrOptions
-            .toSet()
-            .toList(); // Remove duplicates
+        sampleMtrOptions = sampleMtrOptions.toSet().toList(); // Remove duplicates
 
         _isLoading = false;
       });
@@ -389,7 +403,7 @@ ofTypes = combinedOfTypes;
     }
   }
 
-  // In the _saveOrderToHive method in NewOrderSetupPage
+  // In _saveOrderToHive method in NewOrderSetupPage
   Future<void> _saveOrderToHive() async {
     try {
       // Ensure the orders box is open
@@ -427,6 +441,9 @@ ofTypes = combinedOfTypes;
 
       // Notify that orders have been updated
       OrderService().notifyOrderUpdated();
+      
+      // Mark the party as mapped
+      await _markPartyAsMapped(selectedParty!);
     } catch (e) {
       print('Error saving order: $e');
       // Show error to user
@@ -439,27 +456,162 @@ ofTypes = combinedOfTypes;
     }
   }
 
+  // Add this new method to _NewOrderSetupPageState:
+  Future<void> _markPartyAsMapped(String partyName) async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+      
+      final box = Hive.box('appData');
+      List<Map<String, dynamic>> partiesData = [];
+      
+      // Get existing parties
+      final existingParties = box.get('parties');
+      if (existingParties != null) {
+        if (existingParties is List) {
+          for (var party in existingParties) {
+            if (party is Map) {
+              partiesData.add(Map<String, dynamic>.from(party));
+            } else if (party is String) {
+              // Handle legacy data format
+              partiesData.add({
+                'name': party,
+                'agent': null,
+                'visitingCardImage': null,
+                'isMapped': false,
+              });
+            }
+          }
+        }
+      }
+      
+      // Find and update the party
+      for (int i = 0; i < partiesData.length; i++) {
+        if (partiesData[i]['name'] == partyName) {
+          partiesData[i]['isMapped'] = true;
+          break;
+        }
+      }
+      
+      // Save to Hive
+      await box.put('parties', partiesData);
+      await box.flush();
+      
+      print('Party "$partyName" marked as mapped');
+    } catch (e) {
+      print('Error marking party as mapped: $e');
+    }
+  }
+
+  Future<void> _updatePartyDataFromHive() async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+      
+      final box = Hive.box('appData');
+      final partiesData = box.get('parties');
+      
+      if (partiesData != null) {
+        List<String> updatedParties = [];
+        
+        if (partiesData is List) {
+          for (var party in partiesData) {
+            if (party is Map && party['name'] != null) {
+              updatedParties.add(party['name'] as String);
+            } else if (party is String) {
+              updatedParties.add(party);
+            }
+          }
+        }
+        
+        setState(() {
+          parties = updatedParties;
+        });
+      }
+    } catch (e) {
+      print('Error updating party data: $e');
+    }
+  }
+
   // Add this helper function to format the date
   String _formatDate(DateTime date) {
     final DateFormat formatter = DateFormat('dd MMM yyyy');
     return formatter.format(date);
   }
 
-  // Method to add a new party and update state
-  void _addNewParty(String partyName, String? agent) {
-    setState(() {
-      parties.add(partyName);
-      selectedParty = partyName;
-
-      // Add new agent if provided and not already in the list
-      if (agent != null && !agents.contains(agent)) {
-        agents.add(agent);
-        selectedAgent = agent;
+  Future<void> _addNewParty(String partyName, String? agent, String? visitingCardImage) async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        Hive.openBox('appData');
       }
-    });
-    _saveDataToStorage();
-  }
+      
+      final box = Hive.box('appData');
+      List<Map<String, dynamic>> partiesData = [];
+      
+      // Get existing parties
+      final existingParties = box.get('parties');
+      if (existingParties != null) {
+        if (existingParties is List) {
+          for (var party in existingParties) {
+            if (party is Map) {
+              partiesData.add(Map<String, dynamic>.from(party));
+            } else if (party is String) {
+              // Handle legacy data format
+              partiesData.add({
+                'name': party,
+                'agent': null,
+                'visitingCardImage': null,
+                'isMapped': false,
+              });
+            }
+          }
+        }
+      }
+      
+      // Check if party already exists
+      final existingIndex = partiesData.indexWhere((p) => p['name'] == partyName);
+      if (existingIndex != -1) {
+        // Update existing party
+        partiesData[existingIndex] = {
+          'name': partyName,
+          'agent': agent,
+          'visitingCardImage': visitingCardImage,
+          'isMapped': partiesData[existingIndex]['isMapped'] ?? false,
+        };
+      } else {
+        // Add new party at the beginning of the list
+        partiesData.insert(0, {
+          'name': partyName,
+          'agent': agent,
+          'visitingCardImage': visitingCardImage,
+          'isMapped': false,
+        });
+      }
+      
+      // Save to Hive
+      await box.put('parties', partiesData);
+      await box.flush();
+      
+      // Update local state - add to the beginning of the list
+      setState(() {
+        if (!parties.contains(partyName)) {
+          parties.insert(0, partyName);
+        }
+        selectedParty = partyName;
 
+        // Add new agent if provided and not already in the list
+        if (agent != null && !agents.contains(agent)) {
+          agents.add(agent);
+          selectedAgent = agent;
+        }
+      });
+    } catch (e) {
+      print('Error adding new party: $e');
+    }
+  }
+  
   // Check if Sample Mtr field should be shown
   bool get _showSampleMtrField {
     return sampleRequired == 'Yes' || sampleRequired == 'Sample Only';
@@ -591,101 +743,125 @@ ofTypes = combinedOfTypes;
   }
 
   Widget _buildPartyNameField() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: const [
-                Text(
-                  'Party Name',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(' *', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Theme(
-                    data: Theme.of(context).copyWith(
-                      iconTheme: const IconThemeData(color: Color(0xFF767676)),
-                    ),
-                    child: DropdownButtonFormField<String>(
-                      value: selectedParty,
-                      hint: const Text('Search or select party...'),
-                      isDense: true,
-                      style: const TextStyle(color: Colors.black),
-                      items: parties.map((party) {
-                        return DropdownMenuItem<String>(
-                          value: party,
-                          child: Text(party),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedParty = value;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: Colors.grey.withOpacity(0.3),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: Colors.grey.withOpacity(0.3),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF529FF3),
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Text(
+                'Party Name',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(' *', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    iconTheme: const IconThemeData(color: Color(0xFF767676)),
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    value: selectedParty,
+                    hint: const Text('Search or select party...'),
+                    isDense: true,
+                    style: const TextStyle(color: Colors.black),
+                    items: parties.map((party) {
+                      return DropdownMenuItem<String>(
+                        value: party,
+                        child: Text(party), // Just show the text without any icon
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedParty = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.3),
                         ),
                       ),
-                      icon: const Icon(
-                        Icons.arrow_drop_down,
-                        color: Color(0xFF767676),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.3),
+                        ),
                       ),
-                      iconSize: 24,
-                      isExpanded: true,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF529FF3),
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
+                    icon: const Icon(
+                      Icons.arrow_drop_down,
+                      color: Color(0xFF767676),
+                    ),
+                    iconSize: 24,
+                    isExpanded: true,
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.add, color: Color(0xFF529FF3)),
-                  onPressed: _showAddNewPartyDialog,
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add, color: Color(0xFF529FF3)),
+                onPressed: _showAddNewPartyDialog,
+              ),
+            ],
+          ),
+        ],
       ),
-    );
+    ),
+  );
+}
+  // Add this helper method to get party image path
+  String? _getPartyImage(String partyName) {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        return null;
+      }
+      
+      final box = Hive.box('appData');
+      final partiesData = box.get('parties');
+      
+      if (partiesData != null) {
+        for (var party in partiesData) {
+          if (party is Map && party['name'] == partyName) {
+            return party['visitingCardImage'];
+          }
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      print('Error getting party image: $e');
+      return null;
+    }
   }
 
   void _showAddNewPartyDialog() {
     TextEditingController newPartyController = TextEditingController();
+    String? selectedAgent;
     File? visitingCardImage;
-    String? dialogSelectedAgent = selectedAgent; // Local variable for dialog
 
     showDialog(
       context: context,
@@ -782,9 +958,7 @@ ofTypes = combinedOfTypes;
                                 ),
                                 onEditingComplete: () {
                                   // Trim trailing spaces when editing is complete
-                                  newPartyController.text = newPartyController
-                                      .text
-                                      .trim();
+                                  newPartyController.text = newPartyController.text.trim();
                                   setState(() {});
                                 },
                               ),
@@ -812,7 +986,7 @@ ofTypes = combinedOfTypes;
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
-                                value: dialogSelectedAgent,
+                                value: selectedAgent,
                                 hint: const Text('Select agent...'),
                                 isDense: true,
                                 style: const TextStyle(color: Colors.black),
@@ -824,7 +998,7 @@ ofTypes = combinedOfTypes;
                                 }).toList(),
                                 onChanged: (value) {
                                   setState(() {
-                                    dialogSelectedAgent = value;
+                                    selectedAgent = value;
                                   });
                                 },
                                 decoration: InputDecoration(
@@ -883,12 +1057,10 @@ ofTypes = combinedOfTypes;
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: () async {
-                                  final XFile? pickedFile = await _imagePicker
-                                      .pickImage(
-                                        source: ImageSource.camera,
-                                        preferredCameraDevice:
-                                            CameraDevice.rear,
-                                      );
+                                  final XFile? pickedFile = await _imagePicker.pickImage(
+                                    source: ImageSource.camera,
+                                    preferredCameraDevice: CameraDevice.rear,
+                                  );
                                   if (pickedFile != null) {
                                     setState(() {
                                       visitingCardImage = File(pickedFile.path);
@@ -928,6 +1100,19 @@ ofTypes = combinedOfTypes;
                                   ),
                                 ),
                               ),
+                              if (visitingCardImage != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      visitingCardImage!,
+                                      height: 150,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -971,27 +1156,36 @@ ofTypes = combinedOfTypes;
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: TextButton(
-                              onPressed: () async {
-                                // Trim any trailing spaces before saving
-                                String partyName = newPartyController.text
-                                    .trim();
-                                if (partyName.isNotEmpty) {
-                                  // Add the new party using the dedicated method
-                                  _addNewParty(partyName, dialogSelectedAgent);
+                              // In the _showAddNewPartyDialog method, update the onPressed handler for the "Save to Master" button:
 
-                                  Navigator.pop(context);
-
-                                  // Show success message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Party added successfully'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              },
+onPressed: () async {
+  // Trim any trailing spaces before saving
+  String partyName = newPartyController.text.trim();
+  if (partyName.isNotEmpty) {
+    // Save to Hive first
+    await _saveNewPartyToHive(partyName, selectedAgent, visitingCardImage?.path);
+    
+    // Then refresh party data from Hive
+    await _refreshPartyData();
+    
+    // Set the selected party to the newly added one
+    setState(() {
+      selectedParty = partyName;
+    });
+    
+    Navigator.pop(context);
+    
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Party added successfully'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+},
                               child: const Text(
-                                'Save Party',
+                                'Save to Master',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -1012,6 +1206,106 @@ ofTypes = combinedOfTypes;
     );
   }
 
+  Future<void> _saveNewPartyToHive(String partyName, String? agent, String? visitingCardImage) async {
+  try {
+    if (!Hive.isBoxOpen('appData')) {
+      await Hive.openBox('appData');
+    }
+    
+    final box = Hive.box('appData');
+    List<Map<String, dynamic>> partiesData = [];
+    
+    // Get existing parties
+    final existingParties = box.get('parties');
+    if (existingParties != null) {
+      if (existingParties is List) {
+        for (var party in existingParties) {
+          if (party is Map) {
+            partiesData.add(Map<String, dynamic>.from(party));
+          } else if (party is String) {
+            // Handle legacy data format
+            partiesData.add({
+              'name': party,
+              'agent': null,
+              'visitingCardImage': null,
+              'isMapped': false,
+            });
+          }
+        }
+      }
+    }
+    
+    // Check if party already exists
+    final existingIndex = partiesData.indexWhere((p) => p['name'] == partyName);
+    if (existingIndex != -1) {
+      // Update existing party
+      partiesData[existingIndex] = {
+        'name': partyName,
+        'agent': agent,
+        'visitingCardImage': visitingCardImage,
+        'isMapped': partiesData[existingIndex]['isMapped'] ?? false,
+      };
+    } else {
+      // Add new party at the beginning of the list
+      partiesData.insert(0, {
+        'name': partyName,
+        'agent': agent,
+        'visitingCardImage': visitingCardImage,
+        'isMapped': false,
+      });
+    }
+    
+    // Save to Hive
+    await box.put('parties', partiesData);
+    await box.flush();
+    
+    // Update local state immediately
+    setState(() {
+      if (!parties.contains(partyName)) {
+        parties.insert(0, partyName);
+      }
+      
+      // Add new agent if provided and not already in the list
+      if (agent != null && !agents.contains(agent)) {
+        agents.add(agent);
+      }
+    });
+    
+    print('Party "$partyName" saved to Hive with all details');
+  } catch (e) {
+    print('Error saving new party to Hive: $e');
+  }
+}
+  Future<void> _refreshPartyData() async {
+  try {
+    if (!Hive.isBoxOpen('appData')) {
+      await Hive.openBox('appData');
+    }
+    
+    final box = Hive.box('appData');
+    final partiesData = box.get('parties');
+    
+    if (partiesData != null) {
+      List<String> updatedParties = [];
+      
+      if (partiesData is List) {
+        for (var party in partiesData) {
+          if (party is Map && party['name'] != null) {
+            updatedParties.add(party['name'] as String);
+          } else if (party is String) {
+            updatedParties.add(party);
+          }
+        }
+      }
+      
+      setState(() {
+        parties = updatedParties;
+      });
+    }
+  } catch (e) {
+    print('Error updating party data: $e');
+  }
+}
   Widget _buildOfTypeField() {
     return Card(
       elevation: 0,
@@ -1949,5 +2243,37 @@ ofTypes = combinedOfTypes;
         ),
       ),
     );
+  }
+}
+
+class Party {
+  final String name;
+  final String? agent;
+  final String? visitingCardImage;
+  final bool isMapped;
+
+  Party({
+    required this.name,
+    this.agent,
+    this.visitingCardImage,
+    this.isMapped = false,
+  });
+
+  factory Party.fromMap(Map<String, dynamic> map) {
+    return Party(
+      name: map['name'] ?? '',
+      agent: map['agent'],
+      visitingCardImage: map['visitingCardImage'],
+      isMapped: map['isMapped'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'agent': agent,
+      'visitingCardImage': visitingCardImage,
+      'isMapped': isMapped,
+    };
   }
 }

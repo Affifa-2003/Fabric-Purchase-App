@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:purchase_app/agent_page.dart';
+import 'package:purchase_app/parties_page.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'purchase_list_page.dart';
 import 'login_page.dart';
@@ -171,6 +172,28 @@ Widget _buildDrawer() {
                     onTap: () {
                       Navigator.pop(context); // Close drawer
                       // Already on purchase page
+                    },
+                  ),
+                  // Parties menu item
+                  ListTile(
+                    leading: Icon(
+                      Icons.business, 
+                      color: primaryColor,
+                      size: iconSize,
+                    ),
+                    title: Text(
+                      'Parties',
+                      style: TextStyle(
+                        fontSize: menuItemFontSize,
+                        color: Colors.black,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context); // Close drawer
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const PartiesPage()),
+                      );
                     },
                   ),
                   // Agents menu item
