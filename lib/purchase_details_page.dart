@@ -24,15 +24,14 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   late StreamSubscription<void> _orderUpdateSubscription;
 
   @override
-  void initState() {
-    super.initState();
-    _loadPartyData();
-    // Listen for OrderService updates so this page reloads when designs/orders change
-    _orderUpdateSubscription = OrderService().orderUpdateStream.listen((_) {
-      _loadCapturedDesigns();
-    });
-  }
-
+void initState() {
+  super.initState();
+  _loadPartyData();
+  // Listen for OrderService updates so this page reloads when designs/orders change
+  _orderUpdateSubscription = OrderService().orderUpdateStream.listen((_) {
+    _loadCapturedDesigns();
+  });
+}
   @override
   void dispose() {
     _orderUpdateSubscription.cancel();
@@ -40,58 +39,110 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   }
 
   Future<void> _loadPartyData() async {
-    try {
-      // Only load from Hive, no JSON loading
-      await _loadCapturedDesigns();
+  try {
+    // Only load from Hive, no JSON loading
+    await _ensureAllTextileTypes(); // Add this line
+    await _loadCapturedDesigns();
 
-      // Create a default structure for all parties
-      setState(() {
-        partyData = {
-          'summary': {'d': 0, 'ch': 0, 'mtr': 0},
-          'textiles': [],
-        };
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading party data: $e');
-      // Fallback to default data if loading fails
-      setState(() {
-        partyData = {
-          'summary': {'d': 0, 'ch': 0, 'mtr': 0},
-          'textiles': [],
-        };
-        _isLoading = false;
-      });
-    }
+    // Create a default structure for all parties
+    setState(() {
+      partyData = {
+        'summary': {'d': 0, 'ch': 0, 'mtr': 0},
+        'textiles': [],
+      };
+      _isLoading = false;
+    });
+  } catch (e) {
+    print('Error loading party data: $e');
+    // Fallback to default data if loading fails
+    setState(() {
+      partyData = {
+        'summary': {'d': 0, 'ch': 0, 'mtr': 0},
+        'textiles': [],
+      };
+      _isLoading = false;
+    });
   }
+}
+  Future<void> _ensureAllTextileTypes() async {
+  try {
+    if (!Hive.isBoxOpen('designs')) {
+      await Hive.openBox('designs');
+    }
+
+    final box = Hive.box('designs');
+    
+    // Get all textile types for this party
+    Set<String> textileTypes = {};
+    for (var key in box.keys) {
+      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+        // Extract textile type from key (format: designs_partyName_textileType)
+        final parts = key.split('_');
+        if (parts.length >= 3) {
+          textileTypes.add(parts.sublist(2).join('_')); // Join remaining parts in case textile type has underscores
+        }
+      }
+    }
+    
+    // Ensure all textile types have at least one design entry
+    for (var type in textileTypes) {
+      final key = 'designs_${widget.partyName}_$type';
+      final designs = box.get(key);
+      
+      if (designs == null || (designs is List && designs.isEmpty)) {
+        // Create a placeholder design if none exists
+        await box.put(key, [
+          {
+            'sNo': 1,
+            'designNo': '-',
+            'choices': 0,
+            'meters': 0,
+            'mode': 'Design',
+            'timestamp': DateTime.now().toIso8601String(),
+            'ofType': type,
+            'weave': '',
+            'quality': '',
+            'width': '58"',
+            'ref': '-',
+            'photos': [],
+          }
+        ]);
+      }
+    }
+    
+    await box.flush();
+  } catch (e) {
+    print('Error ensuring all textile types: $e');
+  }
+}
 
   // Helper function to get the next reference number for a type
-  String _getNextReference(String type) {
-    // Get the prefix for the type
-    String prefix;
-    switch (type.toLowerCase()) {
-      case 'regular':
-        prefix = 'REG';
-        break;
-      case 'mix':
-        prefix = 'MIX';
-        break;
-      case 'plain':
-        prefix = 'PLAIN';
-        break;
-      default:
-        prefix = type.substring(0, 3).toUpperCase();
-    }
+  // String _getNextReference(String type) {
+  //   // Get the prefix for the type
+  //   String prefix;
+  //   switch (type.toLowerCase()) {
+  //     case 'regular':
+  //       prefix = 'REG';
+  //       break;
+  //     case 'mix':
+  //       prefix = 'MIX';
+  //       break;
+  //     case 'plain':
+  //       prefix = 'PLAIN';
+  //       break;
+  //     default:
+  //       prefix = type.substring(0, 3).toUpperCase();
+  //   }
     
-    // Count existing designs of this type for this party
-    int existingCount = 0;
-    if (groupedDesigns.containsKey(type)) {
-      existingCount = groupedDesigns[type]!.length;
-    }
+  //   // Count existing designs of this type for this party
+  //   int existingCount = 0;
+  //   if (groupedDesigns.containsKey(type)) {
+  //     existingCount = groupedDesigns[type]!.length;
+  //   }
     
-    // Format as 3-digit number with leading zeros
-    return '$prefix-${(existingCount + 1).toString().padLeft(3, '0')}';
-  }
+  //   // Format as 3-digit number with leading zeros
+  //   return '$prefix-${(existingCount + 1).toString().padLeft(3, '0')}';
+  // }
 
   Future<void> _loadCapturedDesigns() async {
     try {
@@ -130,7 +181,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       // Update the orders box with the correct count
       await _updateOrdersCount();
       
-      print('Loaded ${capturedDesigns.length} captured designs from Hive');
+      // print('Loaded ${capturedDesigns.length} captured designs from Hive');
     } catch (e) {
       print('Error loading captured designs: $e');
     }
@@ -338,33 +389,33 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                                       ),
                                                     ),
                                                   ),
-                                                  if (designs.length > 1) ...[
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 2,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.blue
-                                                            .withOpacity(0.1),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              10,
-                                                            ),
-                                                      ),
-                                                      child: Text(
-                                                        '+${designs.length - 1} more',
-                                                        style:
-                                                            const TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.blue,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
+                                                  // if (designs.length > 1) ...[
+                                                  //   const SizedBox(width: 8),
+                                                  //   Container(
+                                                  //     padding:
+                                                  //         const EdgeInsets.symmetric(
+                                                  //           horizontal: 6,
+                                                  //           vertical: 2,
+                                                  //         ),
+                                                  //     decoration: BoxDecoration(
+                                                  //       color: Colors.blue
+                                                  //           .withOpacity(0.1),
+                                                  //       borderRadius:
+                                                  //           BorderRadius.circular(
+                                                  //             10,
+                                                  //           ),
+                                                  //     ),
+                                                  //     child: Text(
+                                                  //       '+${designs.length - 1} more',
+                                                  //       style:
+                                                  //           const TextStyle(
+                                                  //             fontSize: 12,
+                                                  //             color:
+                                                  //                 Colors.blue,
+                                                  //           ),
+                                                  //     ),
+                                                  //   ),
+                                                  // ],
                                                 ],
                                               ),
                                               Text(
