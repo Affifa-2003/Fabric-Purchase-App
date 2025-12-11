@@ -254,7 +254,7 @@ void initState() {
       await appDataBox.put('parties', updatedPartiesData);
       await appDataBox.flush();
       
-      print('Party data refreshed with updated mapping status');
+      // print('Party data refreshed with updated mapping status');
     }
   } catch (e) {
     print('Error refreshing party data: $e');
