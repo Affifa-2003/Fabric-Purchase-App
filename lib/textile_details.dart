@@ -212,7 +212,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       Map<String, dynamic> jsonTextileData = {};
       try {
         final String response = await rootBundle.loadString(
-          'textile_designs.json',
+          'assets/textile_designs.json',
         );
         jsonTextileData = json.decode(response);
         print('Loaded textile data from JSON successfully');
@@ -3718,85 +3718,100 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   );
 }
   Future<void> _saveCapturedDesignToHive() async {
+  try {
+    if (!Hive.isBoxOpen('designs')) {
+      await Hive.openBox('designs');
+    }
+
+    final box = Hive.box('designs');
+    final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
+
+    // Get existing designs for this textile type
+    List<Map<String, dynamic>> existingDesigns = [];
+    if (box.containsKey(designsKey)) {
+      final savedDesigns = box.get(designsKey);
+      if (savedDesigns is List) {
+        existingDesigns = List<Map<String, dynamic>>.from(
+          savedDesigns.map((d) => Map<String, dynamic>.from(d as Map))
+        );
+      }
+    }
+
+    // Merge new designs with existing ones
+    List<Map<String, dynamic>> mergedDesigns = [...existingDesigns];
+    
+    // Add new designs or update existing ones
+    for (var newDesign in capturedDesigns) {
+      final designNo = newDesign['designNo']?.toString();
+      final ref = newDesign['ref']?.toString();
+      
+      // Check if design already exists
+      final existingIndex = mergedDesigns.indexWhere((d) => 
+        (designNo != null && designNo != '-' && d['designNo'] == designNo) ||
+        (ref != null && ref != '-' && d['ref'] == ref)
+      );
+      
+      if (existingIndex >= 0) {
+        // Update existing design
+        mergedDesigns[existingIndex] = newDesign;
+      } else {
+        // Add new design
+        mergedDesigns.add(newDesign);
+      }
+    }
+
+    // Save merged designs
+    await box.put(designsKey, mergedDesigns);
+    await box.flush();
+
+    print('Captured designs saved to Hive with key: $designsKey');
+    print('Designs: $mergedDesigns');
+
+    // Update orders count in the orders box for this party
     try {
-      if (!Hive.isBoxOpen('designs')) {
-        await Hive.openBox('designs');
+      if (!Hive.isBoxOpen('orders')) {
+        await Hive.openBox('orders');
+      }
+      final ordersBox = Hive.box('orders');
+
+      // Calculate total designs across all textile types for this party
+      int totalDesignsForParty = 0;
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          final list = box.get(key);
+          if (list is List) totalDesignsForParty += list.length;
+        }
       }
 
-      final box = Hive.box('designs');
-      final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
+      final orderEntry = {
+        'party': widget.partyName,
+        'orders': totalDesignsForParty,
+        'date': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      };
 
-      // Convert all designs to serializable format with all fields
-      final designsToSave = capturedDesigns.map((d) {
-        return {
-          'sNo': d['sNo'],
-          'designNo':
-              d['designNo']?.toString() ?? '-', // Ensure designNo is saved
-          'choices': d['choices'],
-          'meters': d['meters'],
-          'mode': d['mode'],
-          'timestamp': d['timestamp'],
-          'ofType': d['ofType'],
-          'weave': d['weave'],
-          'quality': d['quality'],
-          'width': d['width'],
-          'ref': d['ref'],
-          'photos': d['photos'] ?? [], // Ensure photos are included
-        };
-      }).toList();
+      await ordersBox.put(widget.partyName, orderEntry);
+      await ordersBox.flush();
 
-      await box.put(designsKey, designsToSave);
-      await box.flush();
-
-      print('Captured designs saved to Hive with key: $designsKey');
-      print('Designs: $designsToSave');
-
-      // Update orders count in the orders box for this party
+      // notify listeners so purchase_list_page reloads
       try {
-        if (!Hive.isBoxOpen('orders')) {
-          await Hive.openBox('orders');
-        }
-        final ordersBox = Hive.box('orders');
-
-        // Calculate total designs across all textile types for this party
-        int totalDesignsForParty = 0;
-        for (var key in box.keys) {
-          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-            final list = box.get(key);
-            if (list is List) totalDesignsForParty += list.length;
-          }
-        }
-
-        final orderEntry = {
-          'party': widget.partyName,
-          'orders': totalDesignsForParty,
-          'date': DateTime.now().toIso8601String(),
-          'status': 'pending',
-        };
-
-        await ordersBox.put(widget.partyName, orderEntry);
-        await ordersBox.flush();
-
-        // notify listeners so purchase_list_page reloads
-        try {
-          OrderService().notifyOrderUpdated();
-        } catch (e) {
-          print('OrderService notify error: $e');
-        }
+        OrderService().notifyOrderUpdated();
       } catch (e) {
-        print('Error updating orders box: $e');
+        print('OrderService notify error: $e');
       }
     } catch (e) {
-      print('Error saving captured designs: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving designs: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error updating orders box: $e');
     }
+  } catch (e) {
+    print('Error saving captured designs: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error saving designs: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
-
+}
   // Method to calculate summary values from captured designs
   Map<String, dynamic> _calculateSummaryValues() {
     // Count each saved row as one design so the summary shows raw saved items
