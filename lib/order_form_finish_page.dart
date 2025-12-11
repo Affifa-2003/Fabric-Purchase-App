@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:purchase_app/home_page.dart';
 import 'utils/input_formatters.dart';
+// Add this import at the top of your file if you're using the direct navigation option
+import 'purchase_list_page.dart';
 
 class OrderFormFinishPage extends StatefulWidget {
   final String partyName;
@@ -283,6 +286,7 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                 Expanded(
                   child: TextField(
                     controller: _fromNoController,
+                    keyboardType: TextInputType.number, // Added numeric keyboard
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                       NoLeadingOrMultipleSpacesFormatter(),
@@ -311,6 +315,7 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                 Expanded(
                   child: TextField(
                     controller: _toNoController,
+                    keyboardType: TextInputType.number, // Added numeric keyboard
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                       NoLeadingOrMultipleSpacesFormatter(),
@@ -488,8 +493,8 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
           // Save data to Hive
           _saveOrderFormToHive();
 
-          // Show success dialog
-          _showSuccessDialog();
+          // Show success message and navigate
+          _showSuccessMessageAndNavigate();
         },
         icon: const Icon(Icons.check_circle, size: 20),
         label: const Text('FINISH & Create Dummy PO'),
@@ -544,71 +549,52 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
     }
   }
 
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Color(0xFF10B981),
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Order Created Successfully!',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Order Form: ${orderFormFromNo} to ${orderFormToNo}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Go back to previous page
-                      Navigator.pop(context); // Go back to home
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('Done'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+  void _showSuccessMessageAndNavigate() {
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Dummy PO Created! Order sent to office for processing.'),
+        duration: Duration(seconds: 2),
+        backgroundColor: Color(0xFF10B981),
+      ),
     );
+
+    // Navigate to purchase_details_page.dart after a short delay
+    Future.delayed(const Duration(seconds: 1), () {
+      // Try different navigation approaches
+      try {
+        // Option 1: Try using pushReplacementNamed
+        Navigator.pushReplacementNamed(
+          context,
+          '/home_page',
+        );
+      } catch (e) {
+        print('Error with pushReplacementNamed: $e');
+        
+        // Option 2: Try using pushAndRemoveUntil
+        try {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/home_page',
+            (route) => false,
+          );
+        } catch (e2) {
+          print('Error with pushNamedAndRemoveUntil: $e2');
+          
+          // Option 3: Try direct navigation using MaterialPageRoute
+          try {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const HomePage(),
+              ),
+            );
+          } catch (e3) {
+            print('Error with direct navigation: $e3');
+          }
+        }
+      }
+    });
   }
 }
+
