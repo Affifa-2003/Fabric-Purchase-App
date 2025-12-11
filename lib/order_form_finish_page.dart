@@ -550,51 +550,25 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
   }
 
   void _showSuccessMessageAndNavigate() {
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Dummy PO Created! Order sent to office for processing.'),
-        duration: Duration(seconds: 2),
-        backgroundColor: Color(0xFF10B981),
+  // Show success message
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Dummy PO Created! Order sent to office for processing.'),
+      duration: Duration(seconds: 2),
+      backgroundColor: Color(0xFF10B981),
+    ),
+  );
+
+  // Navigate to HomePage after a short delay
+  Future.delayed(const Duration(seconds: 1), () {
+    // Use pushAndRemoveUntil to clear the navigation stack
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const HomePage(),
       ),
+      (route) => false, // This removes all routes from the stack
     );
-
-    // Navigate to purchase_details_page.dart after a short delay
-    Future.delayed(const Duration(seconds: 1), () {
-      // Try different navigation approaches
-      try {
-        // Option 1: Try using pushReplacementNamed
-        Navigator.pushReplacementNamed(
-          context,
-          '/home_page',
-        );
-      } catch (e) {
-        print('Error with pushReplacementNamed: $e');
-        
-        // Option 2: Try using pushAndRemoveUntil
-        try {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/home_page',
-            (route) => false,
-          );
-        } catch (e2) {
-          print('Error with pushNamedAndRemoveUntil: $e2');
-          
-          // Option 3: Try direct navigation using MaterialPageRoute
-          try {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const HomePage(),
-              ),
-            );
-          } catch (e3) {
-            print('Error with direct navigation: $e3');
-          }
-        }
-      }
-    });
-  }
+  });
 }
-
+}
