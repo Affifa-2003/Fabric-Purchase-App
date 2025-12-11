@@ -3,13 +3,13 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'order_form_finish_page.dart';
 import 'new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
-
+enum FilterType { mode, ofType }
 class TextileDetailsPage extends StatefulWidget {
   final String partyName;
   final String textileType;
@@ -19,6 +19,7 @@ class TextileDetailsPage extends StatefulWidget {
   final String sampleRequired;
   final String? selectedSampleMtr;
   final Map<String, dynamic>? initialDesign;
+  final bool lockOFType;
 
   const TextileDetailsPage({
     Key? key,
@@ -30,6 +31,7 @@ class TextileDetailsPage extends StatefulWidget {
     required this.sampleRequired,
     this.selectedSampleMtr,
     this.initialDesign,
+    this.lockOFType = false,
   }) : super(key: key);
 
   @override
@@ -43,6 +45,8 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   final Color primaryColor = const Color(0xFF2563EB);
   final ImagePicker _imagePicker = ImagePicker();
   String selectedFilter = 'All';
+  
+  FilterType currentFilterType = FilterType.mode;
   TextEditingController defaultMetersController = TextEditingController(
     text: '100',
   );
@@ -195,7 +199,9 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       // Load data from order_data.json
       Map<String, dynamic> jsonOrderData = {};
       try {
-        final String response = await rootBundle.loadString('assets/order_data.json');
+        final String response = await rootBundle.loadString(
+          'assets/order_data.json',
+        );
         jsonOrderData = json.decode(response);
         print('Loaded order data from JSON successfully');
       } catch (e) {
@@ -529,159 +535,167 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   Future<void> _loadCapturedDesigns() async {
-  try {
-    if (!Hive.isBoxOpen('designs')) {
-      await Hive.openBox('designs');
-    }
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
 
-    final box = Hive.box('designs');
-    List<Map<String, dynamic>> allDesigns = [];
+      final box = Hive.box('designs');
+      List<Map<String, dynamic>> allDesigns = [];
 
-    // Load all designs for all textile types of this party
-    for (var key in box.keys) {
-      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-        final designs = box.get(key);
-        if (designs is List) {
-          allDesigns.addAll(
-            designs.map((d) => Map<String, dynamic>.from(d as Map)),
-          );
+      // Load all designs for all textile types of this party
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          final designs = box.get(key);
+          if (designs is List) {
+            allDesigns.addAll(
+              designs.map((d) => Map<String, dynamic>.from(d as Map)),
+            );
+          }
         }
       }
+
+      // Filter designs by the current textileType (O/F Type)
+      List<Map<String, dynamic>> filteredDesigns = allDesigns
+          .where((design) => design['ofType'] == widget.textileType)
+          .toList();
+
+      // Reset S.No to start from 1 for each textile type
+      for (int i = 0; i < filteredDesigns.length; i++) {
+        filteredDesigns[i]['sNo'] = i + 1;
+      }
+
+      setState(() {
+        capturedDesigns = filteredDesigns;
+      });
+
+      // Update summary values based on filtered designs
+      _updateSummaryValues();
+
+      // If an initial design was provided, select it for editing
+      if (widget.initialDesign != null) {
+        try {
+          final init = widget.initialDesign!;
+          // Find matching design by ref or designNo
+          int foundIndex = -1;
+          for (int i = 0; i < capturedDesigns.length; i++) {
+            final d = capturedDesigns[i];
+            if ((init['ref'] != null && d['ref'] == init['ref']) ||
+                (init['designNo'] != null &&
+                    d['designNo'] == init['designNo'])) {
+              foundIndex = i;
+              break;
+            }
+          }
+          if (foundIndex != -1) {
+            _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
+          }
+        } catch (e) {
+          print('Error applying initial design: $e');
+        }
+      }
+    } catch (e) {
+      print('Error loading designs: $e');
+    }
+  }
+
+  void _addOrUpdateDesign({
+    required int? choices,
+    required double? meters,
+    required String? designNo,
+    required String mode,
+  }) async {
+    // Get the meters value from the defaultMetersController if not provided
+    final metersValue =
+        meters ?? double.tryParse(defaultMetersController.text) ?? 100;
+    if (choices == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select Choices'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
 
-    // Filter designs by the current textileType (O/F Type)
-    List<Map<String, dynamic>> filteredDesigns = allDesigns
-        .where((design) => design['ofType'] == widget.textileType)
-        .toList();
+    // Generate the next reference number for the selected O/F type
+    int typeCount = capturedDesigns.length + 1; // Use current length + 1
+    String refPrefix = selectedOFType.toUpperCase().substring(0, 3);
+    String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
 
-    // Reset S.No to start from 1 for each textile type
-    for (int i = 0; i < filteredDesigns.length; i++) {
-      filteredDesigns[i]['sNo'] = i + 1;
+    // Convert captured photos to base64 strings for storage
+    List<String> photoBase64List = [];
+    for (XFile photo in capturedPhotos) {
+      String base64 = await _xFileToBase64(photo);
+      photoBase64List.add(base64);
     }
 
     setState(() {
-      capturedDesigns = filteredDesigns;
+      if (_editingDesignIndex != null) {
+        // Update existing design with all fields, but keep the original S.No
+        capturedDesigns[_editingDesignIndex!] = {
+          'sNo':
+              capturedDesigns[_editingDesignIndex!]['sNo'], // Keep original S.No
+          'designNo': designNo ?? '-',
+          'choices': choices,
+          'meters': metersValue,
+          'mode': mode,
+          'timestamp': DateTime.now().toIso8601String(),
+          'ofType': selectedOFType,
+          'weave': selectedWeave,
+          'quality': selectedQuality,
+          'width': selectedWidth,
+          'ref': ref,
+          'photos': photoBase64List,
+        };
+        _editingDesignIndex = null;
+      } else {
+        // Add new design with all fields and set S.No to current length + 1
+        capturedDesigns.add({
+          'sNo': capturedDesigns.length + 1, // Set S.No to current length + 1
+          'designNo': designNo ?? '-',
+          'choices': choices,
+          'meters': metersValue,
+          'mode': mode,
+          'timestamp': DateTime.now().toIso8601String(),
+          'ofType': selectedOFType,
+          'weave': selectedWeave,
+          'quality': selectedQuality,
+          'width': selectedWidth,
+          'ref': ref,
+          'photos': photoBase64List,
+        });
+      }
     });
 
-    // Update summary values based on filtered designs
     _updateSummaryValues();
+    // Only clear party design number, quality, and weave
+    _clearSelectedFields();
 
-    // If an initial design was provided, select it for editing
-    if (widget.initialDesign != null) {
-      try {
-        final init = widget.initialDesign!;
-        // Find matching design by ref or designNo
-        int foundIndex = -1;
-        for (int i = 0; i < capturedDesigns.length; i++) {
-          final d = capturedDesigns[i];
-          if ((init['ref'] != null && d['ref'] == init['ref']) ||
-              (init['designNo'] != null && d['designNo'] == init['designNo'])) {
-            foundIndex = i;
-            break;
-          }
-        }
-        if (foundIndex != -1) {
-          _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
-        }
-      } catch (e) {
-        print('Error applying initial design: $e');
-      }
-    }
-  } catch (e) {
-    print('Error loading designs: $e');
-  }
-}
-  void _addOrUpdateDesign({
-  required int? choices,
-  required double? meters,
-  required String? designNo,
-  required String mode,
-}) async {
-  // Get the meters value from the defaultMetersController if not provided
-  final metersValue =
-      meters ?? double.tryParse(defaultMetersController.text) ?? 100;
-  if (choices == null) {
+    // Clear captured photos after saving
+    setState(() {
+      capturedPhotos = [];
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please select Choices'),
-        backgroundColor: Colors.red,
+      SnackBar(
+        content: Text(
+          _editingDesignIndex != null
+              ? 'Design updated successfully'
+              : 'Design added successfully',
+        ),
       ),
     );
-    return;
   }
 
-  // Generate the next reference number for the selected O/F type
-  int typeCount = capturedDesigns.length + 1; // Use current length + 1
-  String refPrefix = selectedOFType.toUpperCase().substring(0, 3);
-  String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
-
-  // Convert captured photos to base64 strings for storage
-  List<String> photoBase64List = [];
-  for (XFile photo in capturedPhotos) {
-    String base64 = await _xFileToBase64(photo);
-    photoBase64List.add(base64);
-  }
-
-  setState(() {
-    if (_editingDesignIndex != null) {
-      // Update existing design with all fields, but keep the original S.No
-      capturedDesigns[_editingDesignIndex!] = {
-        'sNo': capturedDesigns[_editingDesignIndex!]['sNo'], // Keep original S.No
-        'designNo': designNo ?? '-',
-        'choices': choices,
-        'meters': metersValue,
-        'mode': mode,
-        'timestamp': DateTime.now().toIso8601String(),
-        'ofType': selectedOFType,
-        'weave': selectedWeave,
-        'quality': selectedQuality,
-        'width': selectedWidth,
-        'ref': ref,
-        'photos': photoBase64List,
-      };
-      _editingDesignIndex = null;
-    } else {
-      // Add new design with all fields and set S.No to current length + 1
-      capturedDesigns.add({
-        'sNo': capturedDesigns.length + 1, // Set S.No to current length + 1
-        'designNo': designNo ?? '-',
-        'choices': choices,
-        'meters': metersValue,
-        'mode': mode,
-        'timestamp': DateTime.now().toIso8601String(),
-        'ofType': selectedOFType,
-        'weave': selectedWeave,
-        'quality': selectedQuality,
-        'width': selectedWidth,
-        'ref': ref,
-        'photos': photoBase64List,
-      });
-    }
-  });
-
-  _updateSummaryValues();
-  _clearPartyDesignNo();
-
-  // Clear captured photos after saving
-  setState(() {
-    capturedPhotos = [];
-  });
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        _editingDesignIndex != null
-            ? 'Design updated successfully'
-            : 'Design added successfully',
-      ),
-    ),
-  );
-}
-  // Update the _clearPartyDesignNo method
-  void _clearPartyDesignNo() {
+  // Update the _clearSelectedFields method to clear only party design number, quality, and weave
+  void _clearSelectedFields() {
     setState(() {
       partyDesignNo = null;
       _partyDesignController.clear();
+      selectedQuality = null;
+      selectedWeave = null;
+      // Keep Mode, O/F Type, Width, Choices, and Meters unchanged
     });
   }
 
@@ -733,25 +747,14 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     setState(() {
       _editingDesignIndex = null;
 
-      // Clear all controllers
-      _choicesController.clear();
-      defaultMetersController.clear();
+      // Clear only the party design controller, quality, and weave
       _partyDesignController.clear();
-
-      // Reset all field values
       partyDesignNo = null;
-      selectedMode = 'Design';
-      selectedOFType = currentDefaultOFType;
-      selectedWeave = null;
       selectedQuality = null;
-      selectedWidth = currentDefaultWidth;
-      defaultChoices = currentDefaultChoices;
-      defaultMeters = currentDefaultMeters;
+      selectedWeave = null;
 
-      // Update default meters controller
-      defaultMetersController.text = defaultMeters.toStringAsFixed(0);
-
-      // Clear captured photos
+      // Keep Mode, O/F Type, Width, Choices, and Meters unchanged
+      // Only clear the captured photos
       capturedPhotos = [];
     });
   }
@@ -766,65 +769,75 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   @override
-Widget build(BuildContext context) {
-  final isTablet = MediaQuery.of(context).size.width > 600;
+  Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
 
-  return Scaffold(
-    key: _scaffoldKey,
-    appBar: AppBar(
-      toolbarHeight: 90,
-      backgroundColor: primaryColor,
-      title: Text(
-        widget.partyName,
-        style: const TextStyle(
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: AppBar(
+        toolbarHeight: 90,
+        backgroundColor: primaryColor,
+        title: Text(
+          widget.partyName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        titleTextStyle: const TextStyle(
           color: Colors.white,
-          fontSize: 20,
+          fontSize: 16,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
-      ),
-      iconTheme: const IconThemeData(color: Colors.white),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-      ),
-      titleTextStyle: const TextStyle(
-        color: Colors.white,
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.5,
-      ),
-    ),
-    backgroundColor: const Color(0xFFF9FAFB),
-    body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
-            children: [
-              // Sticky summary card at the top
-              Container(
-                color: const Color(0xFFF9FAFB), // Same as background color
-                child: _buildSummaryCard(),
-              ),
-              
-              // Scrollable content below
-              Expanded(
-                child: Stack(
-                  children: [
-                    (isTablet ? _buildTabletView() : _buildMobileView()),
-                    if (_showAddWeaveDialog) _buildAddWeaveDialog(),
-                    if (_showAddQualityDialog) _buildAddQualityDialog(),
-                    if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
-                    if (_showAddWidthDialog) _buildAddWidthDialog(),
-                    if (_previewPhotoIndex != null) _buildFullScreenPreview(),
-                  ],
-                ),
-              ),
-            ],
+        actions: [
+          // Hamburger menu button
+          IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () {
+              _scaffoldKey.currentState?.openEndDrawer();
+            },
           ),
-  );
-}
+        ],
+      ),
+      endDrawer: Drawer(child: _buildCapturedDesignsSection()),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // Sticky summary card at the top
+                Container(
+                  color: const Color(0xFFF9FAFB), // Same as background color
+                  child: _buildSummaryCard(),
+                ),
+
+                // Scrollable content below
+                Expanded(
+                  child: Stack(
+                    children: [
+                      (isTablet ? _buildTabletView() : _buildMobileView()),
+                      if (_showAddWeaveDialog) _buildAddWeaveDialog(),
+                      if (_showAddQualityDialog) _buildAddQualityDialog(),
+                      if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
+                      if (_showAddWidthDialog) _buildAddWidthDialog(),
+                      if (_previewPhotoIndex != null) _buildFullScreenPreview(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
 
   Future<String> _xFileToBase64(XFile file) async {
     List<int> imageBytes = await file.readAsBytes();
@@ -843,98 +856,96 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildMobileView() {
-  return SingleChildScrollView(
-    child: Column(
-      children: [
-        // Removed _buildSummaryCard() from here
-        const SizedBox(height: 16),
-        _buildTextileDetailsCard(),
-        const SizedBox(height: 16),
-        _buildCapturePhotoSection(),
-        const SizedBox(height: 16),
-        _buildModeSelectionSection(),
-        const SizedBox(height: 16),
-        _buildPartyDesignNoSection(),
-        const SizedBox(height: 16),
-        _buildOFTypeSection(),
-        const SizedBox(height: 16),
-        _buildWeaveTypeSection(),
-        const SizedBox(height: 16),
-        _buildQualitySection(),
-        const SizedBox(height: 16),
-        _buildWidthOverrideSection(),
-        const SizedBox(height: 16),
-        _buildChoicesOverrideSection(),
-        const SizedBox(height: 16),
-        _buildMetersOverrideSection(),
-        const SizedBox(height: 16),
-        _buildActionButtons(),
-        const SizedBox(height: 20),
-        _buildCapturedDesignsSection(),
-        const SizedBox(height: 20),
-      ],
-    ),
-  );
-}
-
-  Widget _buildTabletView() {
-  return SingleChildScrollView(
-    child: Padding(
-      padding: const EdgeInsets.all(24.0),
+    return SingleChildScrollView(
       child: Column(
         children: [
           // Removed _buildSummaryCard() from here
           const SizedBox(height: 16),
           _buildTextileDetailsCard(),
           const SizedBox(height: 16),
-
-          // Two column layout
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left column - Photo capture
-              Expanded(
-                flex: 1,
-                child: _buildCapturePhotoSection(),
-              ),
-              const SizedBox(width: 24),
-
-              // Right column - Form fields
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    _buildModeSelectionSection(),
-                    const SizedBox(height: 16),
-                    _buildPartyDesignNoSection(),
-                    const SizedBox(height: 16),
-                    _buildOFTypeSection(),
-                    const SizedBox(height: 16),
-                    _buildWeaveTypeSection(),
-                    const SizedBox(height: 16),
-                    _buildQualitySection(),
-                    const SizedBox(height: 16),
-                    _buildWidthOverrideSection(),
-                    const SizedBox(height: 16),
-                    _buildChoicesOverrideSection(),
-                    const SizedBox(height: 16),
-                    _buildMetersOverrideSection(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
+          _buildCapturePhotoSection(),
+          const SizedBox(height: 16),
+          _buildModeSelectionSection(),
+          const SizedBox(height: 16),
+          _buildPartyDesignNoSection(),
+          const SizedBox(height: 16),
+          _buildOFTypeSection(),
+          const SizedBox(height: 16),
+          _buildWeaveTypeSection(),
+          const SizedBox(height: 16),
+          _buildQualitySection(),
+          const SizedBox(height: 16),
+          _buildWidthOverrideSection(),
+          const SizedBox(height: 16),
+          _buildChoicesOverrideSection(),
+          const SizedBox(height: 16),
+          _buildMetersOverrideSection(),
+          const SizedBox(height: 16),
           _buildActionButtons(),
-          const SizedBox(height: 32),
-          _buildCapturedDesignsSection(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          // Removed _buildCapturedDesignsSection() from here
+          const SizedBox(height: 20),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildTabletView() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            // Removed _buildSummaryCard() from here
+            const SizedBox(height: 16),
+            _buildTextileDetailsCard(),
+            const SizedBox(height: 16),
+
+            // Two column layout
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left column - Photo capture
+                Expanded(flex: 1, child: _buildCapturePhotoSection()),
+                const SizedBox(width: 24),
+
+                // Right column - Form fields
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      _buildModeSelectionSection(),
+                      const SizedBox(height: 16),
+                      _buildPartyDesignNoSection(),
+                      const SizedBox(height: 16),
+                      _buildOFTypeSection(),
+                      const SizedBox(height: 16),
+                      _buildWeaveTypeSection(),
+                      const SizedBox(height: 16),
+                      _buildQualitySection(),
+                      const SizedBox(height: 16),
+                      _buildWidthOverrideSection(),
+                      const SizedBox(height: 16),
+                      _buildChoicesOverrideSection(),
+                      const SizedBox(height: 16),
+                      _buildMetersOverrideSection(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+            _buildActionButtons(),
+            const SizedBox(height: 32),
+            // Removed _buildCapturedDesignsSection() from here
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
   // New summary card with vertical lines
   Widget _buildSummaryCard() {
     return Card(
@@ -1204,7 +1215,6 @@ Widget build(BuildContext context) {
     );
   }
 
-  // New O/F Type section
   Widget _buildOFTypeSection() {
     return Card(
       elevation: 0,
@@ -1222,33 +1232,36 @@ Widget build(BuildContext context) {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'O/F Type: (Override)',
-                  style: TextStyle(
+                Text(
+                  widget.lockOFType ? 'O/F Type:' : 'O/F Type: (Override)',
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1F2937),
                   ),
                 ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedOFType = currentDefaultOFType;
-                    });
-                  },
-                  child: const Text(
-                    'Reset',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.bold,
+                if (!widget.lockOFType)
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        selectedOFType = currentDefaultOFType;
+                      });
+                    },
+                    child: const Text(
+                      'Reset',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF2563EB),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
 
             const SizedBox(height: 12),
+
+            // Show all options but make them non-interactive when locked
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -1256,29 +1269,44 @@ Widget build(BuildContext context) {
                 bool isSelected = selectedOFType == type;
 
                 return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedOFType = type;
-                    });
-                  },
+                  onTap: widget.lockOFType
+                      ? null
+                      : () {
+                          // Disable tap when locked
+                          setState(() {
+                            selectedOFType = type;
+                          });
+                        },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF2563EB)
-                          : Colors.grey[200],
+                      color: widget.lockOFType
+                          ? (isSelected
+                                ? const Color(0xFF2563EB).withOpacity(0.8)
+                                : Colors.grey[300])
+                          : (isSelected
+                                ? const Color(0xFF2563EB)
+                                : Colors.grey[200]),
                       borderRadius: BorderRadius.circular(6),
-                      border: isSelected
-                          ? Border.all(color: const Color(0xFF2563EB))
-                          : Border.all(color: Colors.grey.withOpacity(0.3)),
+                      border: Border.all(
+                        color: widget.lockOFType
+                            ? (isSelected
+                                  ? const Color(0xFF2563EB).withOpacity(0.8)
+                                  : Colors.grey.withOpacity(0.3))
+                            : (isSelected
+                                  ? const Color(0xFF2563EB)
+                                  : Colors.grey.withOpacity(0.3)),
+                      ),
                     ),
                     child: Text(
                       type,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
+                        color: widget.lockOFType
+                            ? (isSelected ? Colors.white : Colors.grey[600])
+                            : (isSelected ? Colors.white : Colors.black),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -2784,6 +2812,7 @@ Widget build(BuildContext context) {
     );
   }
 
+  // Modified _buildChoicesOverrideSection to reduce spacing between icons
   Widget _buildChoicesOverrideSection() {
     return Card(
       elevation: 0,
@@ -2828,7 +2857,9 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Minus button
                 GestureDetector(
                   onTap: () {
                     setState(() {
@@ -2844,18 +2875,27 @@ Widget build(BuildContext context) {
                     child: const Icon(Icons.remove, size: 20),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
+                const SizedBox(width: 4), // Reduced spacing
+                // Number display
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   child: Text(
                     defaultChoices.toString(),
-                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 4), // Reduced spacing
+                // Plus button
                 GestureDetector(
                   onTap: () {
                     setState(() {
@@ -3302,8 +3342,8 @@ Widget build(BuildContext context) {
                 // Also save summary values
                 await _saveSummaryValuesToHive();
 
-                // Clear editing state
-                _clearEditingState();
+                // Only clear specific fields
+                _clearSelectedFields();
               },
               icon: const Icon(Icons.check),
               label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
@@ -3346,227 +3386,337 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildCapturedDesignsSection() {
-    // Filter designs based on selected tab
-    List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
-      design,
-    ) {
+  // Determine which filter options to show based on currentFilterType
+  List<String> filterOptions = [];
+  if (currentFilterType == FilterType.mode) {
+    filterOptions = ['All', 'Design', 'Sample'];
+  } else {
+    filterOptions = ['All', ...ofTypes];
+  }
+
+  // Filter designs based on selected tab and filter type
+  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((design) {
+    if (currentFilterType == FilterType.mode) {
       if (selectedFilter == 'All') return true;
       if (selectedFilter == 'Design') return design['mode'] == 'Design';
       if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
-      return true;
-    }).toList();
+    } else { // FilterType.ofType
+      if (selectedFilter == 'All') return true;
+      return design['ofType'] == selectedFilter;
+    }
+    return true;
+  }).toList();
 
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // First Row - Title only
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Captured Designs (${widget.textileType}):', // Show the current O/F Type
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
+  return Container(
+    color: Colors.white,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with close button
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: primaryColor),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'All Captured Designs:', // Show the current O/F Type
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close the drawer
+                },
+              ),
+            ],
+          ),
+        ),
+
+        // Filter type selector (Mode or O/F Type)
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Text(
+                'Filter by:',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Mode filter button
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    currentFilterType = FilterType.mode;
+                    selectedFilter = 'All'; // Reset to All when switching filter types
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: currentFilterType == FilterType.mode
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: currentFilterType == FilterType.mode
+                          ? const Color(0xFF2563EB)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Text(
+                    'Mode',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: currentFilterType == FilterType.mode
+                          ? Colors.white
+                          : const Color(0xFF1F2937),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                if (_editingDesignIndex != null)
-                  TextButton(
-                    onPressed: _clearEditingState,
-                    child: const Text(
-                      'Cancel Editing',
-                      style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
+              ),
+              // O/F Type filter button
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    currentFilterType = FilterType.ofType;
+                    selectedFilter = 'All'; // Reset to All when switching filter types
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: currentFilterType == FilterType.ofType
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: currentFilterType == FilterType.ofType
+                          ? const Color(0xFF2563EB)
+                          : Colors.transparent,
                     ),
                   ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: ['All', 'Design', 'Sample'].map((filter) {
-                bool isSelected = selectedFilter == filter;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedFilter = filter;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                  child: Text(
+                    'O/F Type',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: currentFilterType == FilterType.ofType
+                          ? Colors.white
+                          : const Color(0xFF1F2937),
+                      fontWeight: FontWeight.bold,
                     ),
-                    margin: const EdgeInsets.only(left: 8),
-                    decoration: BoxDecoration(
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Filter tabs
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            children: filterOptions.map((filter) {
+              bool isSelected = selectedFilter == filter;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedFilter = filter;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  margin: const EdgeInsets.only(left: 8, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFFEE2E2)
+                        : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
                       color: isSelected
-                          ? const Color(0xFFFEE2E2)
-                          : const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFFEF4444)
-                            : Colors.transparent,
-                      ),
-                    ),
-                    child: Text(
-                      filter,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isSelected
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF1F2937),
-                        fontWeight: FontWeight.bold,
-                      ),
+                          ? const Color(0xFFEF4444)
+                          : Colors.transparent,
                     ),
                   ),
-                );
-              }).toList(),
+                  child: Text(
+                    filter,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isSelected
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF1F2937),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
+        // Design list or empty state
+        if (filteredDesigns.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.withOpacity(0.2)),
             ),
-
-            const SizedBox(height: 16),
-
-            // Design list or empty state
-            if (filteredDesigns.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                ),
-                child: Text(
-                  'No ${widget.textileType} designs captured yet. Start capturing photos!',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ),
-              )
-            else
-              // MODIFIED PART: Use LayoutBuilder to make table full width
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth:
-                            constraints.maxWidth, // Take full available width
-                      ),
-                      child: DataTable(
-                        columnSpacing: 24, // Increase spacing between columns
-                        horizontalMargin: 12, // Add horizontal margin
-                        columns: const [
-                          DataColumn(
+            child: Text(
+              currentFilterType == FilterType.mode
+                  ? 'No ${selectedFilter.toLowerCase()} designs captured yet. Start capturing photos!'
+                  : 'No ${selectedFilter} designs captured yet. Start capturing photos!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+            ),
+          )
+        else
+          // MODIFIED PART: Use LayoutBuilder to make table full width
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth, // Take full available width
+                    ),
+                    child: DataTable(
+                      columnSpacing: 24, // Increase spacing between columns
+                      horizontalMargin: 12, // Add horizontal margin
+                      columns: [
+                        const DataColumn(
+                          label: Text(
+                            'S.No',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const DataColumn(
+                          label: Text(
+                            'Design No',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const DataColumn(
+                          label: Text(
+                            'Choices',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const DataColumn(
+                          label: Text(
+                            'Meters',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        if (currentFilterType == FilterType.mode) // Only show O/F Type column when filtering by mode
+                          const DataColumn(
                             label: Text(
-                              'S.No',
+                              'O/F Type',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
-                          DataColumn(
-                            label: Text(
-                              'Design No',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          DataColumn(
-                            label: Text(
-                              'Choices',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          DataColumn(
-                            label: Text(
-                              'Meters',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                        rows: filteredDesigns.asMap().entries.map((entry) {
-                          final display = entry.value;
-                          final originalIndex = capturedDesigns.indexOf(
-                            display,
-                          );
-                          return DataRow(
-                            color: MaterialStateProperty.resolveWith<Color?>((
-                              Set<MaterialState> states,
-                            ) {
+                      ],
+                      rows: filteredDesigns.asMap().entries.map((entry) {
+                        final display = entry.value;
+                        final originalIndex = capturedDesigns.indexOf(display);
+                        return DataRow(
+                          color: MaterialStateProperty.resolveWith<Color?>(
+                            (Set<MaterialState> states) {
                               // Highlight the row that is being edited
                               if (_editingDesignIndex != null &&
                                   originalIndex == _editingDesignIndex) {
                                 return const Color(0xFFE3F2FD);
                               }
                               return null;
-                            }),
-                            onSelectChanged: (selected) {
-                              if (selected ?? false) {
-                                _selectDesignForEditing(display, originalIndex);
-                              }
                             },
-                            cells: [
-                              DataCell(
-                                Text(
-                                  (display['sNo'] ?? (originalIndex + 1))
-                                      .toString(),
+                          ),
+                          onSelectChanged: (selected) {
+                            if (selected ?? false) {
+                              Navigator.of(context).pop(); // Close the drawer first
+                              _selectDesignForEditing(display, originalIndex);
+                            }
+                          },
+                          cells: [
+                            DataCell(
+                              Text(
+                                (display['sNo'] ?? (originalIndex + 1))
+                                    .toString(),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                display['designNo']?.toString() ?? '-',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
+                            ),
+                            DataCell(
+                              Text(
+                                display['choices']?.toString() ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                (display['meters'] is num)
+                                    ? (display['meters'] as num)
+                                          .toDouble()
+                                          .toStringAsFixed(0)
+                                    : display['meters']?.toString() ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (currentFilterType == FilterType.mode) // Only show O/F Type cell when filtering by mode
                               DataCell(
                                 Text(
-                                  display['designNo']?.toString() ?? '-',
+                                  display['ofType']?.toString() ?? '',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                              DataCell(
-                                Text(
-                                  display['choices']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Text(
-                                  (display['meters'] is num)
-                                      ? (display['meters'] as num)
-                                            .toDouble()
-                                            .toStringAsFixed(0)
-                                      : display['meters']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
+                          ],
+                        );
+                      }).toList(),
                     ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    ),
+  );
+}
   Future<void> _saveCapturedDesignToHive() async {
     try {
       if (!Hive.isBoxOpen('designs')) {
