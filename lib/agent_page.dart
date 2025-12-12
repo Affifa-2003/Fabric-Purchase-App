@@ -621,7 +621,7 @@ class _AgentsPageState extends State<AgentsPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF2563EB),
-        toolbarHeight: 90,
+        toolbarHeight: 55,
         title: const Text('Agents'),
         titleTextStyle: const TextStyle(
           color: Color(0xFFFFFFFF),

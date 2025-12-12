@@ -264,338 +264,348 @@ class _PartiesPageState extends State<PartiesPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
+              // Set constraints to make dialog responsive
+              insetPadding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header with title and close button
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Add New Party',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Icon(
+                              Icons.close,
+                              color: Color(0xFF767676),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Add New Party',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(
-                            Icons.close,
-                            color: Color(0xFF767676),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                    // Horizontal divider
+                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Party Name Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
+                    // Content with SingleChildScrollView to make it scrollable
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Party Name Field
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFFFF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Party Name: *',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: newPartyController,
-                                inputFormatters: [
-                                  NoLeadingOrMultipleSpacesFormatter(),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'Enter party name',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                onEditingComplete: () {
-                                  // Trim trailing spaces when editing is complete
-                                  newPartyController.text = newPartyController.text.trim();
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Agent Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Agent: ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: selectedAgent,
-                                hint: const Text('Select agent...'),
-                                isDense: true,
-                                style: const TextStyle(color: Colors.black),
-                                items: agents.map((agent) {
-                                  return DropdownMenuItem<String>(
-                                    value: agent,
-                                    child: Text(agent),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    selectedAgent = value;
-                                  });
-                                },
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF529FF3),
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                icon: const Icon(
-                                  Icons.arrow_drop_down,
-                                  color: Color(0xFF767676),
-                                ),
-                                iconSize: 24,
-                                isExpanded: true,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Visiting Card Photo Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Visiting Card Photo: ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () async {
-                                  final XFile? pickedFile = await _imagePicker.pickImage(
-                                    source: ImageSource.camera,
-                                    preferredCameraDevice: CameraDevice.rear,
-                                  );
-                                  if (pickedFile != null) {
-                                    setState(() {
-                                      visitingCardImage = File(pickedFile.path);
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.grey.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Row(
+                                  const Row(
                                     children: [
-                                      const Icon(
-                                        Icons.add_a_photo,
-                                        color: Color(0xFF529FF3),
-                                        size: 24,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          visitingCardImage != null
-                                              ? 'Photo captured'
-                                              : 'Tap to capture visiting card',
-                                          style: TextStyle(
-                                            color: visitingCardImage != null
-                                                ? Colors.black
-                                                : Colors.grey,
-                                          ),
+                                      Text(
+                                        'Party Name: *',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 8),
+                                  TextField(
+                                    controller: newPartyController,
+                                    inputFormatters: [
+                                      NoLeadingOrMultipleSpacesFormatter(),
+                                    ],
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter party name',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    onEditingComplete: () {
+                                      // Trim trailing spaces when editing is complete
+                                      newPartyController.text = newPartyController.text.trim();
+                                      setState(() {});
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Agent Field
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFFFF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
                                 ),
                               ),
-                              if (visitingCardImage != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      visitingCardImage!,
-                                      height: 150,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Agent: ',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  DropdownButtonFormField<String>(
+                                    value: selectedAgent,
+                                    hint: const Text('Select agent...'),
+                                    isDense: true,
+                                    style: const TextStyle(color: Colors.black),
+                                    items: agents.map((agent) {
+                                      return DropdownMenuItem<String>(
+                                        value: agent,
+                                        child: Text(agent),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        selectedAgent = value;
+                                      });
+                                    },
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF529FF3),
+                                        ),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down,
+                                      color: Color(0xFF767676),
+                                    ),
+                                    iconSize: 24,
+                                    isExpanded: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Visiting Card Photo Field
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Visiting Card Photo: ',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final XFile? pickedFile = await _imagePicker.pickImage(
+                                        source: ImageSource.camera,
+                                        preferredCameraDevice: CameraDevice.rear,
+                                      );
+                                      if (pickedFile != null) {
+                                        setState(() {
+                                          visitingCardImage = File(pickedFile.path);
+                                        });
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.grey.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.add_a_photo,
+                                            color: Color(0xFF529FF3),
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              visitingCardImage != null
+                                                  ? 'Photo captured'
+                                                  : 'Tap to capture visiting card',
+                                              style: TextStyle(
+                                                color: visitingCardImage != null
+                                                    ? Colors.black
+                                                    : Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Buttons
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Trim any trailing spaces before saving
-                                String partyName = newPartyController.text.trim();
-                                if (partyName.isNotEmpty) {
-                                  // Create new party
-                                  final newParty = Party(
-                                    name: partyName,
-                                    agent: selectedAgent,
-                                    visitingCardImage: visitingCardImage?.path,
-                                    isMapped: false,
-                                  );
-
-                                  // Update local state immediately
-                                  this.setState(() {
-                                    // Add to the beginning of the list
-                                    parties.insert(0, newParty);
-                                  });
-
-                                  // Save to Hive
-                                  await _savePartiesToStorage();
-
-                                  // Force a UI update
-                                  this.setState(() {});
-
-                                  Navigator.pop(context);
-
-                                  // Show success message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Party added successfully'),
-                                      backgroundColor: Colors.green,
+                                  if (visitingCardImage != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          visitingCardImage!,
+                                          height: 150,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
                                     ),
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'Save to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Horizontal divider
+                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+                    // Buttons - Fixed at bottom
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                },
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: TextButton(
+                                onPressed: () async {
+                                  // Trim any trailing spaces before saving
+                                  String partyName = newPartyController.text.trim();
+                                  if (partyName.isNotEmpty) {
+                                    // Create new party
+                                    final newParty = Party(
+                                      name: partyName,
+                                      agent: selectedAgent,
+                                      visitingCardImage: visitingCardImage?.path,
+                                      isMapped: false,
+                                    );
+
+                                    // Update local state immediately
+                                    this.setState(() {
+                                      // Add to the beginning of the list
+                                      parties.insert(0, newParty);
+                                    });
+
+                                    // Save to Hive
+                                    await _savePartiesToStorage();
+
+                                    // Force a UI update
+                                    this.setState(() {});
+
+                                    Navigator.pop(context);
+
+                                    // Show success message
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Party added successfully'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text(
+                                  'Save to Master',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -605,427 +615,437 @@ class _PartiesPageState extends State<PartiesPage> {
   }
 
   void _showEditPartyDialog(Party party) {
-  TextEditingController partyNameController = TextEditingController(text: party.name);
-  String? selectedAgent = party.agent;
-  File? visitingCardImage;
-  String? originalImagePath = party.visitingCardImage;
-  String originalPartyName = party.name; // Store the original name
+    TextEditingController partyNameController = TextEditingController(text: party.name);
+    String? selectedAgent = party.agent;
+    File? visitingCardImage;
+    String? originalImagePath = party.visitingCardImage;
+    String originalPartyName = party.name; // Store the original name
 
-  // If there's an existing image path, create a File object
-  if (originalImagePath != null) {
-    visitingCardImage = File(originalImagePath);
-  }
+    // If there's an existing image path, create a File object
+    if (originalImagePath != null) {
+      visitingCardImage = File(originalImagePath);
+    }
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            backgroundColor: const Color(0xFFFFFFFF),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header with title and close button
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFFFFF),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      topRight: Radius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Edit Party',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
-                        child: const Icon(
-                          Icons.close,
-                          color: Color(0xFF767676),
-                        ),
-                      ),
-                    ],
-                  ),
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: const Color(0xFFFFFFFF),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              // Set constraints to make dialog responsive
+              insetPadding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
                 ),
-
-                // Horizontal divider
-                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                // Content
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Party Name Field
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFFFF),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Text(
-                                  'Party Name: *',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: partyNameController,
-                              inputFormatters: [
-                                NoLeadingOrMultipleSpacesFormatter(),
-                              ],
-                              decoration: const InputDecoration(
-                                hintText: 'Enter party name',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                              ),
-                              onEditingComplete: () {
-                                // Trim trailing spaces when editing is complete
-                                partyNameController.text = partyNameController.text.trim();
-                                setState(() {});
-                              },
-                            ),
-                          ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header with title and close button
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
                         ),
                       ),
-                      const SizedBox(height: 16),
-
-                      // Agent Field
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFFFF),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Edit Party',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
                           ),
-                        ),
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Agent: ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Icon(
+                              Icons.close,
+                              color: Color(0xFF767676),
                             ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<String>(
-                              value: selectedAgent,
-                              hint: const Text('Select agent...'),
-                              isDense: true,
-                              style: const TextStyle(color: Colors.black),
-                              items: agents.map((agent) {
-                                return DropdownMenuItem<String>(
-                                  value: agent,
-                                  child: Text(agent),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedAgent = value;
-                                });
-                              },
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.withOpacity(0.3),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.withOpacity(0.3),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF529FF3),
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.arrow_drop_down,
-                                color: Color(0xFF767676),
-                              ),
-                              iconSize: 24,
-                              isExpanded: true,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
+                    ),
 
-                      // Visiting Card Photo Field
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                          ),
-                        ),
+                    // Horizontal divider
+                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+                    // Content with SingleChildScrollView to make it scrollable
+                    Expanded(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Visiting Card Photo: ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            GestureDetector(
-                              onTap: () async {
-                                final XFile? pickedFile = await _imagePicker.pickImage(
-                                  source: ImageSource.camera,
-                                  preferredCameraDevice: CameraDevice.rear,
-                                );
-                                if (pickedFile != null) {
-                                  setState(() {
-                                    visitingCardImage = File(pickedFile.path);
-                                  });
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.grey.withOpacity(0.3),
-                                  ),
+                            // Party Name Field
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFFFF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
                                 ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.add_a_photo,
-                                      color: Color(0xFF529FF3),
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        visitingCardImage != null
-                                            ? 'Photo captured'
-                                            : 'Tap to capture visiting card',
+                              ),
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Text(
+                                        'Party Name: *',
                                         style: TextStyle(
-                                          color: visitingCardImage != null
-                                              ? Colors.black
-                                              : Colors.grey,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextField(
+                                    controller: partyNameController,
+                                    inputFormatters: [
+                                      NoLeadingOrMultipleSpacesFormatter(),
+                                    ],
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter party name',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    onEditingComplete: () {
+                                      // Trim trailing spaces when editing is complete
+                                      partyNameController.text = partyNameController.text.trim();
+                                      setState(() {});
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Agent Field
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFFFF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Agent: ',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  DropdownButtonFormField<String>(
+                                    value: selectedAgent,
+                                    hint: const Text('Select agent...'),
+                                    isDense: true,
+                                    style: const TextStyle(color: Colors.black),
+                                    items: agents.map((agent) {
+                                      return DropdownMenuItem<String>(
+                                        value: agent,
+                                        child: Text(agent),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        selectedAgent = value;
+                                      });
+                                    },
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF529FF3),
+                                        ),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down,
+                                      color: Color(0xFF767676),
+                                    ),
+                                    iconSize: 24,
+                                    isExpanded: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Visiting Card Photo Field
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Visiting Card Photo: ',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final XFile? pickedFile = await _imagePicker.pickImage(
+                                        source: ImageSource.camera,
+                                        preferredCameraDevice: CameraDevice.rear,
+                                      );
+                                      if (pickedFile != null) {
+                                        setState(() {
+                                          visitingCardImage = File(pickedFile.path);
+                                        });
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.grey.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.add_a_photo,
+                                            color: Color(0xFF529FF3),
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              visitingCardImage != null
+                                                  ? 'Photo captured'
+                                                  : 'Tap to capture visiting card',
+                                              style: TextStyle(
+                                                color: visitingCardImage != null
+                                                    ? Colors.black
+                                                    : Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (visitingCardImage != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          visitingCardImage!,
+                                          height: 150,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                ],
                               ),
                             ),
-                            if (visitingCardImage != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(
-                                    visitingCardImage!,
-                                    height: 150,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                // Horizontal divider
-                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                    // Horizontal divider
+                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-                // Buttons
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                    // Buttons - Fixed at bottom
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: TextButton(
-                            onPressed: () async {
-                              // Trim any trailing spaces before saving
-                              String partyName = partyNameController.text.trim();
-                              if (partyName.isNotEmpty) {
-                                // Find party in list and update it
-                                final index = parties.indexWhere((p) => p.name == party.name);
-                                if (index != -1) {
-                                  // Check if party name is being changed
-                                  bool nameChanged = partyName != originalPartyName;
-                                  
-                                  // Update local state immediately
-                                  this.setState(() {
-                                    parties[index] = Party(
-                                      name: partyName,
-                                      agent: selectedAgent,
-                                      visitingCardImage: visitingCardImage?.path,
-                                      isMapped: party.isMapped,
-                                    );
-                                  });
-
-                                  // Save to Hive
-                                  await _savePartiesToStorage();
-
-                                  // If name changed, update all related records
-                                  if (nameChanged) {
-                                    await _updatePartyNameInAllRecords(originalPartyName, partyName);
-                                  }
-
-                                  // Force a UI update
-                                  this.setState(() {});
-
+                              child: TextButton(
+                                onPressed: () {
                                   Navigator.pop(context);
-
-                                  // Show success message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Party updated successfully'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            child: const Text(
-                              'Update to Master',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                                },
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: TextButton(
+                                onPressed: () async {
+                                  // Trim any trailing spaces before saving
+                                  String partyName = partyNameController.text.trim();
+                                  if (partyName.isNotEmpty) {
+                                    // Find party in list and update it
+                                    final index = parties.indexWhere((p) => p.name == party.name);
+                                    if (index != -1) {
+                                      // Check if party name is being changed
+                                      bool nameChanged = partyName != originalPartyName;
+                                      
+                                      // Update local state immediately
+                                      this.setState(() {
+                                        parties[index] = Party(
+                                          name: partyName,
+                                          agent: selectedAgent,
+                                          visitingCardImage: visitingCardImage?.path,
+                                          isMapped: party.isMapped,
+                                        );
+                                      });
+
+                                      // Save to Hive
+                                      await _savePartiesToStorage();
+
+                                      // If name changed, update all related records
+                                      if (nameChanged) {
+                                        await _updatePartyNameInAllRecords(originalPartyName, partyName);
+                                      }
+
+                                      // Force a UI update
+                                      this.setState(() {});
+
+                                      Navigator.pop(context);
+
+                                      // Show success message
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Party updated successfully'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                child: const Text(
+                                  'Update to Master',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-
-Future<void> _updatePartyNameInAllRecords(String oldName, String newName) async {
-  try {
-    // Update party name in orders box
-    if (Hive.isBoxOpen('orders')) {
-      final ordersBox = Hive.box('orders');
-      final orders = ordersBox.values.toList();
-      
-      for (var i = 0; i < orders.length; i++) {
-        var order = orders[i];
-        if (order is Map && order['party'] == oldName) {
-          order['party'] = newName;
-          await ordersBox.putAt(i, order);
-        }
-      }
-      
-      await ordersBox.flush();
-      print('Updated party name in orders box');
-    }
-    
-    // Update party name in designs box
-    if (Hive.isBoxOpen('designs')) {
-      final designsBox = Hive.box('designs');
-      final keys = designsBox.keys.toList();
-      
-      for (var key in keys) {
-        if (key is String && key.startsWith('designs_${oldName}_')) {
-          // Get the design data
-          final designData = designsBox.get(key);
-          
-          // Create new key with new party name
-          String newKey = key.replaceFirst('designs_${oldName}_', 'designs_${newName}_');
-          
-          // Save with new key
-          await designsBox.put(newKey, designData);
-          
-          // Delete old key
-          await designsBox.delete(key);
-        }
-      }
-      
-      await designsBox.flush();
-      print('Updated party name in designs box');
-    }
-    
-    // Notify that orders have been updated
-    OrderService().notifyOrderUpdated();
-    
-  } catch (e) {
-    print('Error updating party name in all records: $e');
+              ),
+            );
+          },
+        );
+      },
+    );
   }
-}
+
+  Future<void> _updatePartyNameInAllRecords(String oldName, String newName) async {
+    try {
+      // Update party name in orders box
+      if (Hive.isBoxOpen('orders')) {
+        final ordersBox = Hive.box('orders');
+        final orders = ordersBox.values.toList();
+        
+        for (var i = 0; i < orders.length; i++) {
+          var order = orders[i];
+          if (order is Map && order['party'] == oldName) {
+            order['party'] = newName;
+            await ordersBox.putAt(i, order);
+          }
+        }
+        
+        await ordersBox.flush();
+        print('Updated party name in orders box');
+      }
+      
+      // Update party name in designs box
+      if (Hive.isBoxOpen('designs')) {
+        final designsBox = Hive.box('designs');
+        final keys = designsBox.keys.toList();
+        
+        for (var key in keys) {
+          if (key is String && key.startsWith('designs_${oldName}_')) {
+            // Get the design data
+            final designData = designsBox.get(key);
+            
+            // Create new key with new party name
+            String newKey = key.replaceFirst('designs_${oldName}_', 'designs_${newName}_');
+            
+            // Save with new key
+            await designsBox.put(newKey, designData);
+            
+            // Delete old key
+            await designsBox.delete(key);
+          }
+        }
+        
+        await designsBox.flush();
+        print('Updated party name in designs box');
+      }
+      
+      // Notify that orders have been updated
+      OrderService().notifyOrderUpdated();
+      
+    } catch (e) {
+      print('Error updating party name in all records: $e');
+    }
+  }
+
   void _showDeleteConfirmationDialog(int index) {
     final party = parties[index];
     
@@ -1085,7 +1105,7 @@ Future<void> _updatePartyNameInAllRecords(String oldName, String newName) async 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF2563EB),
-        toolbarHeight: 90,
+        toolbarHeight: 55,
         title: const Text('Parties'),
         titleTextStyle: const TextStyle(
           color: Color(0xFFFFFFFF),
@@ -1244,4 +1264,3 @@ class Party {
     };
   }
 }
-

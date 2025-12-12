@@ -628,7 +628,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       return Scaffold(
         appBar: AppBar(
           backgroundColor: const Color(0xFF2563EB),
-          toolbarHeight: 90,
+          toolbarHeight: 50,
           title: Text(
             widget.isEditMode ? 'Edit Order - Setup' : 'New Order - Setup',
           ),
@@ -647,7 +647,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF2563EB),
-        toolbarHeight: 90,
+        toolbarHeight: 55,
         title: Text(
           widget.isEditMode ? 'Edit Order - Setup' : 'New Order - Setup',
         ),
@@ -2217,18 +2217,18 @@ onPressed: () async {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF529FF3),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(
-                widget.isEditMode ? Icons.edit : Icons.play_arrow,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
+            // Container(
+            //   padding: const EdgeInsets.all(4),
+            //   decoration: BoxDecoration(
+            //     color: const Color(0xFF529FF3),
+            //     borderRadius: BorderRadius.circular(4),
+            //   ),
+            //   // child: Icon(
+            //   //   widget.isEditMode ? Icons.edit : Icons.play_arrow,
+            //   //   color: Colors.white,
+            //   //   size: 28,
+            //   // ),
+            // ),
             const SizedBox(width: 12),
             Text(
               widget.isEditMode ? 'Update' : 'Start Capturing',

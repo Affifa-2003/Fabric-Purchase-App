@@ -21,7 +21,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        toolbarHeight: 90, // Increased app bar height
+        toolbarHeight: 55, // Increased app bar height
         title: const Text(
           'Fabric Purchase',
           style: TextStyle(

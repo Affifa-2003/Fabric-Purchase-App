@@ -243,7 +243,7 @@ void initState() {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        toolbarHeight: 90,
+        toolbarHeight: 55,
         backgroundColor: primaryColor,
         title: Text(
           widget.partyName,
