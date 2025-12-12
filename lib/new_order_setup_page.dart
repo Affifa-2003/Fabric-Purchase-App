@@ -859,19 +859,26 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   }
 
   void _showAddNewPartyDialog() {
-    TextEditingController newPartyController = TextEditingController();
-    String? selectedAgent;
-    File? visitingCardImage;
+  TextEditingController newPartyController = TextEditingController();
+  String? selectedAgent;
+  File? visitingCardImage;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: const Color(0xFFFFFFFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            backgroundColor: const Color(0xFFFFFFFF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            // Set constraints to make dialog responsive
+            insetPadding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -913,217 +920,219 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                   // Horizontal divider
                   const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Party Name Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
+                  // Content with SingleChildScrollView to make it scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Party Name Field
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFFFF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
+                              ),
                             ),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Party Name: *',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: newPartyController,
-                                inputFormatters: [
-                                  NoLeadingOrMultipleSpacesFormatter(),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'Enter party name',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                onEditingComplete: () {
-                                  // Trim trailing spaces when editing is complete
-                                  newPartyController.text = newPartyController.text.trim();
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Agent Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Agent: ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: selectedAgent,
-                                hint: const Text('Select agent...'),
-                                isDense: true,
-                                style: const TextStyle(color: Colors.black),
-                                items: agents.map((agent) {
-                                  return DropdownMenuItem<String>(
-                                    value: agent,
-                                    child: Text(agent),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    selectedAgent = value;
-                                  });
-                                },
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF529FF3),
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                icon: const Icon(
-                                  Icons.arrow_drop_down,
-                                  color: Color(0xFF767676),
-                                ),
-                                iconSize: 24,
-                                isExpanded: true,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Visiting Card Photo Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Visiting Card Photo: ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () async {
-                                  final XFile? pickedFile = await _imagePicker.pickImage(
-                                    source: ImageSource.camera,
-                                    preferredCameraDevice: CameraDevice.rear,
-                                  );
-                                  if (pickedFile != null) {
-                                    setState(() {
-                                      visitingCardImage = File(pickedFile.path);
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.grey.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.add_a_photo,
-                                        color: Color(0xFF529FF3),
-                                        size: 24,
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Text(
+                                      'Party Name: *',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          visitingCardImage != null
-                                              ? 'Photo captured'
-                                              : 'Tap to capture visiting card',
-                                          style: TextStyle(
-                                            color: visitingCardImage != null
-                                                ? Colors.black
-                                                : Colors.grey,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: newPartyController,
+                                  inputFormatters: [
+                                    NoLeadingOrMultipleSpacesFormatter(),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    hintText: 'Enter party name',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onEditingComplete: () {
+                                    // Trim trailing spaces when editing is complete
+                                    newPartyController.text = newPartyController.text.trim();
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Agent Field
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFFFF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Agent: ',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<String>(
+                                  value: selectedAgent,
+                                  hint: const Text('Select agent...'),
+                                  isDense: true,
+                                  style: const TextStyle(color: Colors.black),
+                                  items: agents.map((agent) {
+                                    return DropdownMenuItem<String>(
+                                      value: agent,
+                                      child: Text(agent),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      selectedAgent = value;
+                                    });
+                                  },
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF529FF3),
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.arrow_drop_down,
+                                    color: Color(0xFF767676),
+                                  ),
+                                  iconSize: 24,
+                                  isExpanded: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Visiting Card Photo Field
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Visiting Card Photo: ',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () async {
+                                    final XFile? pickedFile = await _imagePicker.pickImage(
+                                      source: ImageSource.camera,
+                                      preferredCameraDevice: CameraDevice.rear,
+                                    );
+                                    if (pickedFile != null) {
+                                      setState(() {
+                                        visitingCardImage = File(pickedFile.path);
+                                      });
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Colors.grey.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.add_a_photo,
+                                          color: Color(0xFF529FF3),
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            visitingCardImage != null
+                                                ? 'Photo captured'
+                                                : 'Tap to capture visiting card',
+                                            style: TextStyle(
+                                              color: visitingCardImage != null
+                                                  ? Colors.black
+                                                  : Colors.grey,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              if (visitingCardImage != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      visitingCardImage!,
-                                      height: 150,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
+                                      ],
                                     ),
                                   ),
                                 ),
-                            ],
+                                if (visitingCardImage != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        visitingCardImage!,
+                                        height: 150,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
 
                   // Horizontal divider
                   const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-                  // Buttons
+                  // Buttons - Fixed at bottom
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Row(
@@ -1156,34 +1165,32 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: TextButton(
-                              // In the _showAddNewPartyDialog method, update the onPressed handler for the "Save to Master" button:
-
-onPressed: () async {
-  // Trim any trailing spaces before saving
-  String partyName = newPartyController.text.trim();
-  if (partyName.isNotEmpty) {
-    // Save to Hive first
-    await _saveNewPartyToHive(partyName, selectedAgent, visitingCardImage?.path);
-    
-    // Then refresh party data from Hive
-    await _refreshPartyData();
-    
-    // Set the selected party to the newly added one
-    setState(() {
-      selectedParty = partyName;
-    });
-    
-    Navigator.pop(context);
-    
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Party added successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-},
+                              onPressed: () async {
+                                // Trim any trailing spaces before saving
+                                String partyName = newPartyController.text.trim();
+                                if (partyName.isNotEmpty) {
+                                  // Save to Hive first
+                                  await _saveNewPartyToHive(partyName, selectedAgent, visitingCardImage?.path);
+                                  
+                                  // Then refresh party data from Hive
+                                  await _refreshPartyData();
+                                  
+                                  // Set the selected party to the newly added one
+                                  setState(() {
+                                    selectedParty = partyName;
+                                  });
+                                  
+                                  Navigator.pop(context);
+                                  
+                                  // Show success message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Party added successfully'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              },
                               child: const Text(
                                 'Save to Master',
                                 style: TextStyle(
@@ -1199,13 +1206,13 @@ onPressed: () async {
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-
+            ),
+          );
+        },
+      );
+    },
+  );
+}
   Future<void> _saveNewPartyToHive(String partyName, String? agent, String? visitingCardImage) async {
   try {
     if (!Hive.isBoxOpen('appData')) {
@@ -1378,210 +1385,221 @@ onPressed: () async {
   }
 
   void _showAddNewTypeDialog() {
-    TextEditingController newTypeController = TextEditingController();
+  TextEditingController newTypeController = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: const Color(0xFFFFFFFF),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header with title and close button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Add O/F Type',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.close, color: Color(0xFF767676)),
-                    ),
-                  ],
-                ),
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            backgroundColor: const Color(0xFFFFFFFF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            // Set only width constraint, keep original height
+            insetPadding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+                // Remove maxHeight to keep original dialog height
               ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Type Name Field in a card
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Type Name: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: newTypeController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. Next Season, Special',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            onEditingComplete: () {
-                              // Trim trailing spaces when editing is complete
-                              newTypeController.text = newTypeController.text
-                                  .trim();
-                              setState(() {});
-                            },
-                          ),
-                        ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // This keeps the dialog compact
+                children: [
+                  // Header with title and close button
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Information text with icon in a box
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEBF8FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF3182CE)),
-                      ),
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF3182CE),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Add O/F Type',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
                           ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'This will be added to master and available for future orders.',
-                              style: TextStyle(color: Color(0xFF3182CE)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: TextButton(
-                          onPressed: () {
+                        GestureDetector(
+                          onTap: () {
                             Navigator.pop(context);
                           },
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          child: const Icon(Icons.close, color: Color(0xFF767676)),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () async {
-                            // Trim any trailing spaces before saving
-                            String typeName = newTypeController.text.trim();
-                            if (typeName.isNotEmpty) {
-                              setState(() {
-                                ofTypes.add(typeName);
-                                ofType = typeName;
-                              });
+                  ),
 
-                              // Save to Hive
-                              await _saveDataToStorage();
+                  // Horizontal divider
+                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-                              Navigator.pop(context);
-
-                              // Show success message
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Type added successfully'),
-                                  backgroundColor: Colors.green,
+                  // Content without Expanded to keep compact
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Type Name Field in a card
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Type Name: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: newTypeController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                ],
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. Next Season, Special',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                 ),
-                              );
-                            }
-                          },
-                          child: const Text(
-                            'Save to Master',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                                onEditingComplete: () {
+                                  // Trim trailing spaces when editing is complete
+                                  newTypeController.text = newTypeController.text.trim();
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Information text with icon in a box
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEBF8FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF3182CE)),
+                          ),
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xFF3182CE),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'This will be added to master and available for future orders.',
+                                  style: TextStyle(color: Color(0xFF3182CE)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Horizontal divider
+                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+                  // Buttons - Fixed at bottom
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: TextButton(
+                              onPressed: () async {
+                                // Trim any trailing spaces before saving
+                                String typeName = newTypeController.text.trim();
+                                if (typeName.isNotEmpty) {
+                                  setState(() {
+                                    ofTypes.add(typeName);
+                                    ofType = typeName;
+                                  });
 
+                                  // Save to Hive
+                                  await _saveDataToStorage();
+
+                                  Navigator.pop(context);
+
+                                  // Show success message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Type added successfully'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text(
+                                'Save to Master',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
   Widget _buildWidthField() {
     return Card(
       elevation: 0,
@@ -1654,213 +1672,224 @@ onPressed: () async {
   }
 
   void _showAddNewWidthDialog() {
-    TextEditingController newWidthController = TextEditingController();
+  TextEditingController newWidthController = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: const Color(0xFFFFFFFF),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header with title and close button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Add Width',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.close, color: Color(0xFF767676)),
-                    ),
-                  ],
-                ),
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            backgroundColor: const Color(0xFFFFFFFF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            // Set only width constraint, keep original height
+            insetPadding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+                // Remove maxHeight to keep original dialog height
               ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Width Field in a card
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Width (in inches): *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: newWidthController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. 72',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            keyboardType: TextInputType.number,
-                            onEditingComplete: () {
-                              // Trim trailing spaces when editing is complete
-                              newWidthController.text = newWidthController.text
-                                  .trim();
-                              setState(() {});
-                            },
-                          ),
-                        ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // This keeps the dialog compact
+                children: [
+                  // Header with title and close button
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Information text with icon in a box
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEBF8FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF3182CE)),
-                      ),
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF3182CE),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Add Width',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
                           ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'This will be added to master and available for future orders.',
-                              style: TextStyle(color: Color(0xFF3182CE)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: TextButton(
-                          onPressed: () {
+                        GestureDetector(
+                          onTap: () {
                             Navigator.pop(context);
                           },
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          child: const Icon(Icons.close, color: Color(0xFF767676)),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () async {
-                            // Trim any trailing spaces before saving
-                            String widthValue = newWidthController.text.trim();
-                            if (widthValue.isNotEmpty) {
-                              setState(() {
-                                widths.add(widthValue + '"');
-                                selectedWidth = widthValue + '"';
-                              });
+                  ),
 
-                              // Save to Hive
-                              await _saveDataToStorage();
+                  // Horizontal divider
+                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-                              Navigator.pop(context);
-
-                              // Show success message
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Width added successfully'),
-                                  backgroundColor: Colors.green,
+                  // Content without Expanded to keep compact
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Width Field in a card
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Width (in inches): *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: newWidthController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. 72',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                 ),
-                              );
-                            }
-                          },
-                          child: const Text(
-                            'Save to Master',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                                keyboardType: TextInputType.number,
+                                onEditingComplete: () {
+                                  // Trim trailing spaces when editing is complete
+                                  newWidthController.text = newWidthController.text.trim();
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Information text with icon in a box
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEBF8FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF3182CE)),
+                          ),
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xFF3182CE),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'This will be added to master and available for future orders.',
+                                  style: TextStyle(color: Color(0xFF3182CE)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Horizontal divider
+                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+                  // Buttons - Fixed at bottom
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: TextButton(
+                              onPressed: () async {
+                                // Trim any trailing spaces before saving
+                                String widthValue = newWidthController.text.trim();
+                                if (widthValue.isNotEmpty) {
+                                  setState(() {
+                                    widths.add(widthValue + '"');
+                                    selectedWidth = widthValue + '"';
+                                  });
 
+                                  // Save to Hive
+                                  await _saveDataToStorage();
+
+                                  Navigator.pop(context);
+
+                                  // Show success message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Width added successfully'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text(
+                                'Save to Master',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+  
   Widget _buildDefaultChoicesField() {
     return Card(
       elevation: 0,
@@ -2217,18 +2246,6 @@ onPressed: () async {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Container(
-            //   padding: const EdgeInsets.all(4),
-            //   decoration: BoxDecoration(
-            //     color: const Color(0xFF529FF3),
-            //     borderRadius: BorderRadius.circular(4),
-            //   ),
-            //   // child: Icon(
-            //   //   widget.isEditMode ? Icons.edit : Icons.play_arrow,
-            //   //   color: Colors.white,
-            //   //   size: 28,
-            //   // ),
-            // ),
             const SizedBox(width: 12),
             Text(
               widget.isEditMode ? 'Update' : 'Start Capturing',
