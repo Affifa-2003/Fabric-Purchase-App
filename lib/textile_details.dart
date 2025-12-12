@@ -9,7 +9,10 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'order_form_finish_page.dart';
 import 'new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
+import 'dart:async';
+
 enum FilterType { mode, ofType }
+
 class TextileDetailsPage extends StatefulWidget {
   final String partyName;
   final String textileType;
@@ -45,6 +48,12 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   final Color primaryColor = const Color(0xFF2563EB);
   final ImagePicker _imagePicker = ImagePicker();
   String selectedFilter = 'All';
+
+  bool _isSummaryVisible = true;
+  bool _isScrolling = false;
+  bool _showEyeIcon = false;
+  ScrollController _scrollController = ScrollController();
+  Timer? _hideEyeIconTimer;
   
   FilterType currentFilterType = FilterType.mode;
   TextEditingController defaultMetersController = TextEditingController(
@@ -112,35 +121,37 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   int? _previewPhotoIndex;
 
   @override
-  void initState() {
-    super.initState();
-    // Initialize with values from new_order_setup_page
-    selectedOFType = widget.textileType;
-    selectedWidth = widget.selectedWidth;
-    defaultChoices = widget.defaultChoices;
-    defaultMeters = widget.defaultMeters;
-    sampleRequired = widget.sampleRequired;
-    selectedSampleMtr = widget.selectedSampleMtr;
-    defaultMetersController = TextEditingController(
-      text: defaultMeters.toString(),
-    );
+void initState() {
+  super.initState();
+  // Initialize with values from new_order_setup_page
+  selectedOFType = widget.textileType;
+  selectedWidth = widget.selectedWidth;
+  defaultChoices = widget.defaultChoices;
+  defaultMeters = widget.defaultMeters;
+  sampleRequired = widget.sampleRequired;
+  selectedSampleMtr = widget.selectedSampleMtr;
+  defaultMetersController = TextEditingController(
+    text: defaultMeters.toString(),
+  );
 
-    // Initialize choices, meters and party design controllers
-    _choicesController = TextEditingController(text: defaultChoices.toString());
-    defaultMetersController = TextEditingController(
-      text: defaultMeters.toString(),
-    );
-    _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
-    // Initialize current default values
-    currentDefaultOFType = widget.textileType;
-    currentDefaultWidth = widget.selectedWidth;
-    currentDefaultChoices = widget.defaultChoices;
-    currentDefaultMeters = widget.defaultMeters;
+   _scrollController = ScrollController();
+    _scrollController.addListener(_scrollListener);
 
-    _initializeHiveAndLoadData();
-  }
+  // Initialize choices, meters and party design controllers
+  _choicesController = TextEditingController(text: defaultChoices.toString());
+  defaultMetersController = TextEditingController(
+    text: defaultMeters.toString(),
+  );
+  _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
+  // Initialize current default values
+  currentDefaultOFType = widget.textileType;
+  currentDefaultWidth = widget.selectedWidth;
+  currentDefaultChoices = widget.defaultChoices;
+  currentDefaultMeters = widget.defaultMeters;
 
-  // Update the _initializeHiveAndLoadData method to initialize with empty designs
+  _initializeHiveAndLoadData();
+}
+
   Future<void> _initializeHiveAndLoadData() async {
     try {
       // Get the boxes (they should already be open from main.dart)
@@ -759,16 +770,51 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     });
   }
 
-  @override
-  void dispose() {
-    _weaveTypeController.dispose();
-    _qualityController.dispose();
-    _partyDesignController.dispose();
-    defaultMetersController.dispose();
-    super.dispose();
-  }
+@override
+void dispose() {
+  _weaveTypeController.dispose();
+  _qualityController.dispose();
+  _partyDesignController.dispose();
+  defaultMetersController.dispose();
+    _hideEyeIconTimer?.cancel();
+    _scrollController.dispose();
+  super.dispose();
+}
 
-  @override
+void _scrollListener() {
+    // Cancel any existing timer
+    _hideEyeIconTimer?.cancel();
+    
+    // Check if we're at the top of the scroll view
+    if (_scrollController.offset <= 0) {
+      // Hide the eye icon and show the summary card when at the top
+      setState(() {
+        _showEyeIcon = false;
+        _isScrolling = false;
+        _isSummaryVisible = true; // Make sure summary card is visible at the top
+      });
+      return;
+    }
+    
+    // Show eye icon when scrolling starts
+    if (!_showEyeIcon) {
+      setState(() {
+        _showEyeIcon = true;
+        _isScrolling = true;
+        _isSummaryVisible = false; // Hide summary card when scrolling down
+      });
+    }
+    
+    // Set a timer to hide the eye icon after scrolling stops
+    _hideEyeIconTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          _isScrolling = false;
+        });
+      }
+    });
+  }
+    @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
 
@@ -786,7 +832,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
             letterSpacing: 0.5,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+         iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -808,6 +854,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
             },
           ),
         ],
+
       ),
       endDrawer: Drawer(child: _buildCapturedDesignsSection()),
       backgroundColor: const Color(0xFFF9FAFB),
@@ -815,17 +862,21 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Sticky summary card at the top
-                Container(
-                  color: const Color(0xFFF9FAFB), // Same as background color
-                  child: _buildSummaryCard(),
-                ),
+                // Sticky summary card at the top - conditionally visible
+                if (_isSummaryVisible)
+                  Container(
+                    color: const Color(0xFFF9FAFB), // Same as background color
+                    child: _buildSummaryCard(),
+                  ),
 
-                // Scrollable content below
+                // Scrollable content in the middle
                 Expanded(
                   child: Stack(
                     children: [
-                      (isTablet ? _buildTabletView() : _buildMobileView()),
+                      // Use the scroll controller in both views
+                      (isTablet 
+                          ? _buildTabletView(_scrollController) 
+                          : _buildMobileView(_scrollController)),
                       if (_showAddWeaveDialog) _buildAddWeaveDialog(),
                       if (_showAddQualityDialog) _buildAddQualityDialog(),
                       if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
@@ -834,11 +885,57 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                     ],
                   ),
                 ),
+
+                // Sticky action buttons at the bottom
+                Container(
+                  color: const Color(0xFFF9FAFB), // Same as background color
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildActionButtons(),
+                ),
               ],
             ),
+      // Only show the floating action button (eye icon) when scrolling
+      // Replace the existing FloatingActionButton code with this smaller version
+floatingActionButton: _showEyeIcon
+    ? Padding(
+        padding: const EdgeInsets.only(top: 60), // Reduced padding
+        child: Container(
+          width: 36, // Smaller width
+          height: 36, // Smaller height
+          decoration: BoxDecoration(
+            color: primaryColor,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: IconButton(
+            onPressed: () {
+              setState(() {
+                _isSummaryVisible = !_isSummaryVisible;
+              });
+            },
+            icon: Icon(
+              _isSummaryVisible ? Icons.visibility : Icons.visibility_off,
+              color: Colors.white,
+              size: 18, // Smaller icon size
+            ),
+            padding: EdgeInsets.zero, // Remove default padding
+            constraints: const BoxConstraints(
+              minWidth: 36, // Match container width
+              minHeight: 36, // Match container height
+            ),
+          ),
+        ),
+      )
+    : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
     );
-  }
-
+  } 
   Future<String> _xFileToBase64(XFile file) async {
     List<int> imageBytes = await file.readAsBytes();
     return base64Encode(imageBytes);
@@ -855,11 +952,11 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     return XFile(tempFile.path);
   }
 
-  Widget _buildMobileView() {
+    Widget _buildMobileView(ScrollController controller) {
     return SingleChildScrollView(
+      controller: controller,
       child: Column(
         children: [
-          // Removed _buildSummaryCard() from here
           const SizedBox(height: 16),
           _buildTextileDetailsCard(),
           const SizedBox(height: 16),
@@ -880,23 +977,20 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           _buildChoicesOverrideSection(),
           const SizedBox(height: 16),
           _buildMetersOverrideSection(),
-          const SizedBox(height: 16),
-          _buildActionButtons(),
-          const SizedBox(height: 20),
-          // Removed _buildCapturedDesignsSection() from here
           const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildTabletView() {
+  // Update _buildTabletView to accept ScrollController
+  Widget _buildTabletView(ScrollController controller) {
     return SingleChildScrollView(
+      controller: controller,
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Removed _buildSummaryCard() from here
             const SizedBox(height: 16),
             _buildTextileDetailsCard(),
             const SizedBox(height: 16),
@@ -934,75 +1028,71 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                 ),
               ],
             ),
-
-            const SizedBox(height: 24),
-            _buildActionButtons(),
             const SizedBox(height: 32),
-            // Removed _buildCapturedDesignsSection() from here
-            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
+  
+ Widget _buildSummaryCard() {
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      // INCREASED vertical padding from 8 to 12
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: [
+          // Designs column
+          Expanded(
+            child: _buildSummaryItem(
+              'Designs',
+              textileData['d']?.toString() ?? '0',
+            ),
+          ),
 
-  // New summary card with vertical lines
-  Widget _buildSummaryCard() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+          // Vertical line 1
+          Container(
+            // INCREASED height from 30 to 40 to match new card height
+            height: 40,
+            width: 1,
+            color: Colors.grey.withOpacity(0.3),
+          ),
+
+          // Colors column
+          Expanded(
+            child: _buildSummaryItem(
+              'Choices',
+              textileData['ch']?.toString() ?? '0',
+            ),
+          ),
+
+          // Vertical line 2
+          Container(
+            // INCREASED height from 30 to 40 to match new card height
+            height: 40,
+            width: 1,
+            color: Colors.grey.withOpacity(0.3),
+          ),
+
+          // Meters column
+          Expanded(
+            child: _buildSummaryItem(
+              'Meters',
+              textileData['mtr']?.toString() ?? '0',
+            ),
+          ),
+        ],
       ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Designs column
-            Expanded(
-              child: _buildSummaryItem(
-                'Designs',
-                textileData['d']?.toString() ?? '0',
-              ),
-            ),
-
-            // Vertical line 1
-            Container(
-              height: 50,
-              width: 1,
-              color: Colors.grey.withOpacity(0.3),
-            ),
-
-            // Colors column
-            Expanded(
-              child: _buildSummaryItem(
-                'Choices',
-                textileData['ch']?.toString() ?? '0',
-              ),
-            ),
-
-            // Vertical line 2
-            Container(
-              height: 50,
-              width: 1,
-              color: Colors.grey.withOpacity(0.3),
-            ),
-
-            // Meters column
-            Expanded(
-              child: _buildSummaryItem(
-                'Meters',
-                textileData['mtr']?.toString() ?? '0',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+    ),
+  );
+}
   Widget _buildTextileDetailsCard() {
   return Card(
     elevation: 0,
@@ -1225,8 +1315,8 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                       ),
                     ),
                   ),
-              ],
-            ),
+            ],
+          ),
 
             const SizedBox(height: 12),
 
@@ -2386,25 +2476,26 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     }
   }
 
-  Widget _buildSummaryItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+  // Update your _buildSummaryItem method to make it shorter
+Widget _buildSummaryItem(String label, String value) {
+  return Column(
+    children: [
+      Text(
+        label,
+        style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)), // Reduced font size
+      ),
+      const SizedBox(height: 2), // Reduced spacing
+      Text(
+        value,
+        style: const TextStyle(
+          fontSize: 16, // Reduced font size
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF2563EB),
         ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2563EB),
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildCapturePhotoSection() {
     return Card(
