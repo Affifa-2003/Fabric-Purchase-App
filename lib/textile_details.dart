@@ -869,11 +869,11 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
           const SizedBox(height: 16),
           _buildPartyDesignNoSection(),
           const SizedBox(height: 16),
-          _buildOFTypeSection(),
-          const SizedBox(height: 16),
           _buildWeaveTypeSection(),
           const SizedBox(height: 16),
           _buildQualitySection(),
+          const SizedBox(height: 16),
+          _buildOFTypeSection(),
           const SizedBox(height: 16),
           _buildWidthOverrideSection(),
           const SizedBox(height: 16),
@@ -918,11 +918,11 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                       const SizedBox(height: 16),
                       _buildPartyDesignNoSection(),
                       const SizedBox(height: 16),
-                      _buildOFTypeSection(),
-                      const SizedBox(height: 16),
                       _buildWeaveTypeSection(),
                       const SizedBox(height: 16),
                       _buildQualitySection(),
+                      const SizedBox(height: 16),
+                      _buildOFTypeSection(),
                       const SizedBox(height: 16),
                       _buildWidthOverrideSection(),
                       const SizedBox(height: 16),
@@ -1003,161 +1003,26 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     );
   }
 
-  // New textile details card - MODIFIED TO PUT ALL FIELDS IN A SINGLE ROW
   Widget _buildTextileDetailsCard() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Single row with all fields
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // O/F TYPE column
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        'O/F TYPE',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B7280),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        selectedOFType,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2563EB),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Vertical line 1
-                Container(
-                  height: 50,
-                  width: 1,
-                  color: Colors.grey.withOpacity(0.3),
-                ),
-
-                // WIDTH column
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildDetailHeading('WIDTH'),
-                      const SizedBox(height: 4),
-                      _buildDetailValue(selectedWidth),
-                    ],
-                  ),
-                ),
-
-                // Vertical line 2
-                Container(
-                  height: 50,
-                  width: 1,
-                  color: Colors.grey.withOpacity(0.3),
-                ),
-
-                // CHOICES column
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildDetailHeading('CHOICES'),
-                      const SizedBox(height: 4),
-                      _buildDetailValue(defaultChoices.toString()),
-                    ],
-                  ),
-                ),
-
-                // Vertical line 3
-                Container(
-                  height: 50,
-                  width: 1,
-                  color: Colors.grey.withOpacity(0.3),
-                ),
-
-                // METERS column
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildDetailHeading('METERS'),
-                      const SizedBox(height: 4),
-                      _buildDetailValue(defaultMeters.toStringAsFixed(0)),
-                    ],
-                  ),
-                ),
-
-                // Vertical line 4
-                Container(
-                  height: 50,
-                  width: 1,
-                  color: Colors.grey.withOpacity(0.3),
-                ),
-
-                // SAMPLE column
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildDetailHeading('SAMPLE'),
-                      const SizedBox(height: 4),
-                      _buildDetailValue(_formatSampleDisplay()),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Notification with icon
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF9C4), // Light yellow background
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFFFBC02D),
-                ), // Yellow border
-              ),
-              child: Row(
-                children: const [
-                  Icon(
-                    Icons.info_outline,
-                    color: Color(0xFFF57F17), // Dark yellow
-                    size: 20,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Weave & Quality will be selected during photo capture for each design',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF5D4037), // Dark brown text
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Edit Defaults button with icon
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with edit button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // Edit icon button
+              IconButton(
                 onPressed: () async {
                   // Navigate back to NewOrderSetupPage in edit mode with current values
                   final result = await Navigator.push<Map<String, dynamic>>(
@@ -1176,21 +1041,18 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                     ),
                   );
 
-                  // In _buildTextileDetailsCard() method, update this part:
+                  // Update values if returned
                   if (result != null) {
                     setState(() {
                       selectedOFType = result['ofType'] ?? selectedOFType;
                       selectedWidth = result['selectedWidth'] ?? selectedWidth;
-                      defaultChoices =
-                          result['defaultChoices'] ?? defaultChoices;
+                      defaultChoices = result['defaultChoices'] ?? defaultChoices;
                       defaultMeters = result['defaultMeters'] ?? defaultMeters;
-                      sampleRequired =
-                          result['sampleRequired'] ?? sampleRequired;
+                      sampleRequired = result['sampleRequired'] ?? sampleRequired;
                       selectedSampleMtr = result['selectedSampleMtr'];
 
                       // Update the controller text to match the new defaultMeters value
-                      defaultMetersController.text = defaultMeters
-                          .toStringAsFixed(0);
+                      defaultMetersController.text = defaultMeters.toStringAsFixed(0);
 
                       // Update current default values
                       currentDefaultOFType = selectedOFType;
@@ -1200,21 +1062,127 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                     });
                   }
                 },
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text('Edit Defaults'),
-                style: ElevatedButton.styleFrom(
+                icon: const Icon(Icons.edit, size: 20),
+                style: IconButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.all(8),
+                  minimumSize: const Size(36, 36),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Single row with all fields
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // O/F TYPE column
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      'O/F TYPE',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B7280),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      selectedOFType,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
+              // Vertical line 1
+              Container(
+                height: 50,
+                width: 1,
+                color: Colors.grey.withOpacity(0.3),
+              ),
+
+              // WIDTH column
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildDetailHeading('WIDTH'),
+                    const SizedBox(height: 4),
+                    _buildDetailValue(selectedWidth),
+                  ],
+                ),
+              ),
+
+              // Vertical line 2
+              Container(
+                height: 50,
+                width: 1,
+                color: Colors.grey.withOpacity(0.3),
+              ),
+
+              // CHOICES column
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildDetailHeading('CHOICES'),
+                    const SizedBox(height: 4),
+                    _buildDetailValue(defaultChoices.toString()),
+                  ],
+                ),
+              ),
+
+              // Vertical line 3
+              Container(
+                height: 50,
+                width: 1,
+                color: Colors.grey.withOpacity(0.3),
+              ),
+
+              // METERS column
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildDetailHeading('METERS'),
+                    const SizedBox(height: 4),
+                    _buildDetailValue(defaultMeters.toStringAsFixed(0)),
+                  ],
+                ),
+              ),
+
+              // Vertical line 4
+              Container(
+                height: 50,
+                width: 1,
+                color: Colors.grey.withOpacity(0.3),
+              ),
+
+              // SAMPLE column
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildDetailHeading('SAMPLE'),
+                    const SizedBox(height: 4),
+                    _buildDetailValue(_formatSampleDisplay()),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+  
   Widget _buildOFTypeSection() {
     return Card(
       elevation: 0,
@@ -2814,116 +2782,105 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   // Modified _buildChoicesOverrideSection to reduce spacing between icons
   Widget _buildChoicesOverrideSection() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Choices: (Override)',
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Choices: (Override)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    defaultChoices = currentDefaultChoices;
+                  });
+                },
+                child: const Text(
+                  'Reset',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
+                    color: Color(0xFF2563EB),
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
                   ),
                 ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      defaultChoices = currentDefaultChoices;
-                    });
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    if (defaultChoices > 0) {
+                      setState(() {
+                        defaultChoices--;
+                      });
+                    }
                   },
-                  child: const Text(
-                    'Reset',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  icon: const Icon(Icons.remove),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Minus button
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (defaultChoices > 0) defaultChoices--;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Icon(Icons.remove, size: 20),
-                  ),
-                ),
-                const SizedBox(width: 4), // Reduced spacing
-                // Number display
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+              ),
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(4),
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     defaultChoices.toString(),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18),
                   ),
                 ),
-                const SizedBox(width: 4), // Reduced spacing
-                // Plus button
-                GestureDetector(
-                  onTap: () {
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  onPressed: () {
                     setState(() {
                       defaultChoices++;
                     });
                   },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Icon(Icons.add, size: 20),
-                  ),
+                  icon: const Icon(Icons.add),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Default: $currentDefaultChoices',
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Default: $currentDefaultChoices',
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+        ],
       ),
-    );
-  }
-
+    ),
+  );
+}
   Widget _buildMetersOverrideSection() {
     return Card(
       elevation: 0,
@@ -3312,79 +3269,78 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   Widget _buildActionButtons() {
-    final isEditing = _editingDesignIndex != null;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                // Capture current form values
-                int choices =
-                    int.tryParse(_choicesController.text) ?? defaultChoices;
-                double meters =
-                    double.tryParse(defaultMetersController.text) ??
-                    defaultMeters;
+  final isEditing = _editingDesignIndex != null;
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              // Capture current form values
+              int choices =
+                  int.tryParse(_choicesController.text) ?? defaultChoices;
+              double meters =
+                  double.tryParse(defaultMetersController.text) ??
+                  defaultMeters;
 
-                // Add or update design
-                _addOrUpdateDesign(
-                  choices: choices,
-                  meters: meters,
-                  designNo: _partyDesignController.text.isNotEmpty
-                      ? _partyDesignController.text
-                      : null,
-                  mode: selectedMode,
-                );
+              // Add or update design
+              _addOrUpdateDesign(
+                choices: choices,
+                meters: meters,
+                designNo: _partyDesignController.text.isNotEmpty
+                    ? _partyDesignController.text
+                    : null,
+                mode: selectedMode,
+              );
 
-                // Save to Hive
-                await _saveCapturedDesignToHive();
-                // Also save summary values
-                await _saveSummaryValuesToHive();
+              // Save to Hive
+              await _saveCapturedDesignToHive();
+              // Also save summary values
+              await _saveSummaryValuesToHive();
 
-                // Only clear specific fields
-                _clearSelectedFields();
-              },
-              icon: const Icon(Icons.check),
-              label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isEditing
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+              // Only clear specific fields
+              _clearSelectedFields();
+            },
+            icon: const Icon(Icons.check),
+            label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isEditing
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => OrderFormFinishPage(
-                      partyName: widget.partyName,
-                      totalDesigns: textileData['d'] ?? 0,
-                      totalChoices: textileData['ch'] ?? 0,
-                      totalMeters: textileData['mtr'] ?? 0,
-                    ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OrderFormFinishPage(
+                    partyName: widget.partyName,
+                    totalDesigns: textileData['d'] ?? 0,
+                    totalChoices: textileData['ch'] ?? 0,
+                    totalMeters: textileData['mtr'] ?? 0,
                   ),
-                );
-              },
-              child: const Text('Finish Order →'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF2563EB),
-                side: const BorderSide(color: Color(0xFF2563EB)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+                ),
+              );
+            },
+            child: const Text('Finish Order →'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF2563EB),
+              side: const BorderSide(color: Color(0xFF2563EB)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildCapturedDesignsSection() {
   // Determine which filter options to show based on currentFilterType
   List<String> filterOptions = [];
