@@ -54,6 +54,10 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   bool _showEyeIcon = false;
   ScrollController _scrollController = ScrollController();
   Timer? _hideEyeIconTimer;
+
+  bool _isCapturingMultiple = false;
+List<XFile> _pendingPhotos = [];
+bool _isProcessingPhotos = false;
   
   FilterType currentFilterType = FilterType.mode;
   TextEditingController defaultMetersController = TextEditingController(
@@ -778,6 +782,7 @@ void dispose() {
   defaultMetersController.dispose();
     _hideEyeIconTimer?.cancel();
     _scrollController.dispose();
+     _isCapturingMultiple = false;
   super.dispose();
 }
 
@@ -814,128 +819,138 @@ void _scrollListener() {
       }
     });
   }
-    @override
-  Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+ @override
+Widget build(BuildContext context) {
+  final isTablet = MediaQuery.of(context).size.width > 600;
+  final isPreviewActive = _previewPhotoIndex != null;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
-        toolbarHeight: 55,
-        backgroundColor: primaryColor,
-        title: Text(
-          widget.partyName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-         iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-        actions: [
-          // Hamburger menu button
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () {
-              _scaffoldKey.currentState?.openEndDrawer();
-            },
-          ),
-        ],
-
-      ),
-      endDrawer: Drawer(child: _buildCapturedDesignsSection()),
-      backgroundColor: const Color(0xFFF9FAFB),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Sticky summary card at the top - conditionally visible
-                if (_isSummaryVisible)
-                  Container(
-                    color: const Color(0xFFF9FAFB), // Same as background color
-                    child: _buildSummaryCard(),
-                  ),
-
-                // Scrollable content in the middle
-                Expanded(
-                  child: Stack(
-                    children: [
-                      // Use the scroll controller in both views
-                      (isTablet 
-                          ? _buildTabletView(_scrollController) 
-                          : _buildMobileView(_scrollController)),
-                      if (_showAddWeaveDialog) _buildAddWeaveDialog(),
-                      if (_showAddQualityDialog) _buildAddQualityDialog(),
-                      if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
-                      if (_showAddWidthDialog) _buildAddWidthDialog(),
-                      if (_previewPhotoIndex != null) _buildFullScreenPreview(),
-                    ],
-                  ),
-                ),
-
-                // Sticky action buttons at the bottom
-                Container(
-                  color: const Color(0xFFF9FAFB), // Same as background color
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _buildActionButtons(),
-                ),
-              ],
+  return Scaffold(
+    key: _scaffoldKey,
+    // Hide app bar when preview is active
+    appBar: isPreviewActive 
+        ? null 
+        : AppBar(
+            toolbarHeight: 55,
+            backgroundColor: primaryColor,
+            title: Text(
+              widget.partyName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
             ),
-      // Only show the floating action button (eye icon) when scrolling
-      // Replace the existing FloatingActionButton code with this smaller version
-floatingActionButton: _showEyeIcon
-    ? Padding(
-        padding: const EdgeInsets.only(top: 60), // Reduced padding
-        child: Container(
-          width: 36, // Smaller width
-          height: 36, // Smaller height
-          decoration: BoxDecoration(
-            color: primaryColor,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+            iconTheme: const IconThemeData(color: Colors.white),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+            titleTextStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+            actions: [
+              // Hamburger menu button
+              IconButton(
+                icon: const Icon(Icons.menu, color: Colors.white),
+                onPressed: () {
+                  _scaffoldKey.currentState?.openEndDrawer();
+                },
               ),
             ],
           ),
-          child: IconButton(
-            onPressed: () {
-              setState(() {
-                _isSummaryVisible = !_isSummaryVisible;
-              });
-            },
-            icon: Icon(
-              _isSummaryVisible ? Icons.visibility : Icons.visibility_off,
-              color: Colors.white,
-              size: 18, // Smaller icon size
+    endDrawer: Drawer(child: _buildCapturedDesignsSection()),
+    backgroundColor: const Color(0xFFF9FAFB),
+    body: Stack(
+      children: [
+        // Main content
+        _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  // Sticky summary card at the top - conditionally visible
+                  if (_isSummaryVisible && !isPreviewActive)
+                    Container(
+                      color: const Color(0xFFF9FAFB), // Same as background color
+                      child: _buildSummaryCard(),
+                    ),
+
+                  // Scrollable content in the middle
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        // Use the scroll controller in both views
+                        (isTablet
+                            ? _buildTabletView(_scrollController)
+                            : _buildMobileView(_scrollController)),
+                        if (_showAddWeaveDialog) _buildAddWeaveDialog(),
+                        if (_showAddQualityDialog) _buildAddQualityDialog(),
+                        if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
+                        if (_showAddWidthDialog) _buildAddWidthDialog(),
+                      ],
+                    ),
+                  ),
+
+                  // Sticky action buttons at the bottom - hide when preview is active
+                  if (!isPreviewActive)
+                    Container(
+                      color: const Color(0xFFF9FAFB), // Same as background color
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildActionButtons(),
+                    ),
+                ],
+              ),
+        
+        // Full screen preview overlay
+        if (isPreviewActive) _buildFullScreenPreview(),
+      ],
+    ),
+    // Only show the floating action button when scrolling and not in preview
+    floatingActionButton: (_showEyeIcon && !isPreviewActive)
+        ? Padding(
+            padding: const EdgeInsets.only(top: 60), // Reduced padding
+            child: Container(
+              width: 36, // Smaller width
+              height: 36, // Smaller height
+              decoration: BoxDecoration(
+                color: primaryColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: () {
+                  setState(() {
+                    _isSummaryVisible = !_isSummaryVisible;
+                  });
+                },
+                icon: Icon(
+                  _isSummaryVisible ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.white,
+                  size: 18, // Smaller icon size
+                ),
+                padding: EdgeInsets.zero, // Remove default padding
+                constraints: const BoxConstraints(
+                  minWidth: 36, // Match container width
+                  minHeight: 36, // Match container height
+                ),
+              ),
             ),
-            padding: EdgeInsets.zero, // Remove default padding
-            constraints: const BoxConstraints(
-              minWidth: 36, // Match container width
-              minHeight: 36, // Match container height
-            ),
-          ),
-        ),
-      )
-    : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
-    );
-  } 
+          )
+        : null,
+    floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+  );
+}  
   Future<String> _xFileToBase64(XFile file) async {
     List<int> imageBytes = await file.readAsBytes();
     return base64Encode(imageBytes);
@@ -1103,17 +1118,19 @@ floatingActionButton: _showEyeIcon
     ),
     margin: const EdgeInsets.symmetric(horizontal: 16),
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with edit button
+          // Row with clickable text in top right corner
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Edit icon button
-              IconButton(
-                onPressed: () async {
+              // Empty container to push the text to the right
+              const SizedBox(),
+              // Clickable text in top right corner
+              GestureDetector(
+                onTap: () async {
                   // Navigate back to NewOrderSetupPage in edit mode with current values
                   final result = await Navigator.push<Map<String, dynamic>>(
                     context,
@@ -1152,19 +1169,20 @@ floatingActionButton: _showEyeIcon
                     });
                   }
                 },
-                icon: const Icon(Icons.edit, size: 16),
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.all(4),
-                  minimumSize: const Size(28, 28),
-                  shape: const CircleBorder(),
+                child: Text(
+                  'Click here to edit',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF2563EB),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
           ),
           
-          const SizedBox(height: 16),
+          // Added space below the clickable text
+          const SizedBox(height: 8),
           
           // Single row with all fields
           Row(
@@ -1197,7 +1215,7 @@ floatingActionButton: _showEyeIcon
 
               // Vertical line 1
               Container(
-                height: 50,
+                height: 40,
                 width: 1,
                 color: Colors.grey.withOpacity(0.3),
               ),
@@ -1215,7 +1233,7 @@ floatingActionButton: _showEyeIcon
 
               // Vertical line 2
               Container(
-                height: 50,
+                height: 40,
                 width: 1,
                 color: Colors.grey.withOpacity(0.3),
               ),
@@ -1233,7 +1251,7 @@ floatingActionButton: _showEyeIcon
 
               // Vertical line 3
               Container(
-                height: 50,
+                height: 40,
                 width: 1,
                 color: Colors.grey.withOpacity(0.3),
               ),
@@ -1251,7 +1269,7 @@ floatingActionButton: _showEyeIcon
 
               // Vertical line 4
               Container(
-                height: 50,
+                height: 40,
                 width: 1,
                 color: Colors.grey.withOpacity(0.3),
               ),
@@ -1262,7 +1280,17 @@ floatingActionButton: _showEyeIcon
                   children: [
                     _buildDetailHeading('SAMPLE'),
                     const SizedBox(height: 4),
-                    _buildDetailValue(_formatSampleDisplay()),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _formatSampleDisplay(),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1273,7 +1301,6 @@ floatingActionButton: _showEyeIcon
     ),
   );
 }
-  
   Widget _buildOFTypeSection() {
     return Card(
       elevation: 0,
@@ -2498,90 +2525,145 @@ Widget _buildSummaryItem(String label, String value) {
 }
 
   Widget _buildCapturePhotoSection() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text(
-              'Capture Photo:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
-              ),
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(12), // Reduced padding from 16 to 12
+      child: Column(
+        children: [
+          const Text(
+            'Capture Photo:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1F2937),
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 12), // Reduced height from 16 to 12
 
-            // Photo capture area
-            if (capturedPhotos.isEmpty)
-              _buildEmptyCaptureArea()
-            else
-              _buildPhotoGrid(),
+          // Photo capture area
+          if (capturedPhotos.isEmpty && _pendingPhotos.isEmpty)
+            _buildEmptyCaptureArea()
+          else
+            _buildPhotoGrid(),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 12), // Reduced height from 16 to 12
 
-            // Capture button
-            InkWell(
-              onTap: () async {
-                final XFile? pickedFile = await _imagePicker.pickImage(
-                  source: ImageSource.camera,
-                  preferredCameraDevice: CameraDevice.rear,
-                );
-                if (pickedFile != null) {
-                  setState(() {
-                    capturedPhotos.add(pickedFile);
-                  });
-                }
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          // Capture button
+          InkWell(
+            onTap: () async {
+              setState(() {
+                _isCapturingMultiple = true;
+                _pendingPhotos.clear();
+              });
+              
+              await _captureMultiplePhotos();
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10), // Reduced padding from 12 to 10
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2563EB).withOpacity(0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.camera_alt, color: Colors.white, size: 20), // Reduced icon size from 24 to 20
+                  SizedBox(width: 8),
+                  Text(
+                    'Capture Photos',
+                    style: TextStyle(
+                      fontSize: 14, // Reduced font size from 16 to 14
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.camera_alt, color: Colors.white, size: 24),
-                    SizedBox(width: 8),
-                    Text(
-                      'Capture New Photo',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
+    ),
+  );
+}
+// Add this new method to handle multiple photo capture
+Future<void> _captureMultiplePhotos() async {
+  try {
+    while (_isCapturingMultiple) {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+      
+      if (pickedFile != null) {
+        setState(() {
+          _pendingPhotos.add(pickedFile);
+          _isProcessingPhotos = true;
+        });
+        
+        // Process the photo in background
+        await _processPendingPhoto(pickedFile);
+      } else {
+        // User cancelled or closed camera
+        setState(() {
+          _isCapturingMultiple = false;
+        });
+        break;
+      }
+    }
+  } catch (e) {
+    print('Error capturing photos: $e');
+    setState(() {
+      _isCapturingMultiple = false;
+      _isProcessingPhotos = false;
+    });
   }
+}
+
+// Add this method to process pending photos
+Future<void> _processPendingPhoto(XFile photo) async {
+  try {
+    // Simulate processing time
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    setState(() {
+      capturedPhotos.add(photo);
+      _pendingPhotos.remove(photo);
+      
+      if (_pendingPhotos.isEmpty) {
+        _isProcessingPhotos = false;
+      }
+    });
+  } catch (e) {
+    print('Error processing photo: $e');
+    setState(() {
+      _pendingPhotos.remove(photo);
+      if (_pendingPhotos.isEmpty) {
+        _isProcessingPhotos = false;
+      }
+    });
+  }
+}
 
   Widget _buildWillCaptureItem(String label, String value) {
     return Padding(
@@ -3050,187 +3132,248 @@ Widget _buildSummaryItem(String label, String value) {
   }
 
   Widget _buildEmptyCaptureArea() {
-    return InkWell(
-      onTap: () async {
-        final XFile? pickedFile = await _imagePicker.pickImage(
-          source: ImageSource.camera,
-          preferredCameraDevice: CameraDevice.rear,
-        );
-        if (pickedFile != null) {
-          setState(() {
-            capturedPhotos.add(pickedFile);
-          });
-        }
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        height: 200,
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Colors.grey.withOpacity(0.3),
-            style: BorderStyle.solid,
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          color: const Color(0xFFF9FAFB),
+  return InkWell(
+    onTap: () async {
+      // Start multiple photo capture process instead of single photo
+      setState(() {
+        _isCapturingMultiple = true;
+        _pendingPhotos.clear();
+      });
+      
+      await _captureMultiplePhotos();
+    },
+    borderRadius: BorderRadius.circular(8),
+    child: Container(
+      width: double.infinity,
+      height: 140, // Reduced height from 200 to 160
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.3),
+          style: BorderStyle.solid,
+          width: 2,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Modern camera icon with gradient background
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFFF9FAFB),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Modern camera icon with gradient background - made smaller
+          Container(
+            width: 36, // Reduced width from 45 to 36
+            height: 36, // Reduced height from 45 to 36
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12), // Reduced from 16 to 12
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withOpacity(0.3),
+                  blurRadius: 8, // Reduced blur radius from 10 to 8
+                  offset: const Offset(0, 2), // Reduced offset from 3 to 2
                 ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF2563EB).withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
+              ],
+            ),
+            child: const Icon(
+              Icons.camera_alt,
+              color: Colors.white,
+              size: 20, // Reduced icon size from 28 to 20
+            ),
+          ),
+          const SizedBox(height: 12), // Reduced height from 16 to 12
+          const Text(
+            'Tap to Capture Photos',
+            style: TextStyle(
+              fontSize: 14, // Reduced font size from 16 to 14
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2563EB),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Ready to capture photos',
+            style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)), // Reduced font size from 12 to 11
+          ),
+        ],
+      ),
+    ),
+  );
+}
+  
+  Widget _buildPhotoGrid() {
+  final isTablet = MediaQuery.of(context).size.width > 600;
+  final allPhotos = [...capturedPhotos, ..._pendingPhotos];
+
+  if (isTablet) {
+    // Tablet view - Grid layout with smaller images
+    return Container(
+      height: 200, // Reduced height
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(4), // Reduced padding from 6 to 4
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4, // Increased count for smaller images
+          crossAxisSpacing: 2, // Reduced spacing from 4 to 2
+          mainAxisSpacing: 2, // Reduced spacing from 4 to 2
+        ),
+        itemCount: allPhotos.length,
+        itemBuilder: (context, index) {
+          final isPending = index >= capturedPhotos.length;
+          return GestureDetector(
+            onTap: isPending ? null : () {
+              setState(() {
+                _previewPhotoIndex = index;
+              });
+            },
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6), // Slightly smaller border radius
+                  child: Container(
+                    color: Colors.grey[200],
+                    child: isPending
+                        ? const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF2563EB),
+                              ),
+                            ),
+                          )
+                        : Image.file(
+                            File(allPhotos[index].path),
+                            fit: BoxFit.cover,
+                          ),
                   ),
+                ),
+                if (isPending)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  } else {
+    // Mobile view - Horizontal list with smaller images
+    return SizedBox(
+      height: 80, // Reduced height
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: allPhotos.length,
+        itemBuilder: (context, index) {
+          final isPending = index >= capturedPhotos.length;
+          return GestureDetector(
+            onTap: isPending ? null : () {
+              setState(() {
+                _previewPhotoIndex = index;
+              });
+            },
+            child: Container(
+              width: 80, // Reduced width
+              margin: const EdgeInsets.only(right: 2), // Reduced margin from 4 to 2
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6), // Slightly smaller border radius
+                    child: Container(
+                      color: Colors.grey[200],
+                      child: isPending
+                          ? const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF2563EB),
+                                ),
+                              ),
+                            )
+                          : Image.file(
+                              File(allPhotos[index].path),
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                  ),
+                  if (isPending)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              child: const Icon(
-                Icons.camera_alt,
-                color: Colors.white,
-                size: 40,
-              ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Tap to Capture',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2563EB),
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Ready to capture',
-              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
-
-  Widget _buildPhotoGrid() {
-    final isTablet = MediaQuery.of(context).size.width > 600;
-
-    if (isTablet) {
-      // Tablet view - Grid layout
-      return Container(
-        height: 300,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.withOpacity(0.3)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: GridView.builder(
-          padding: const EdgeInsets.all(8),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: capturedPhotos.length,
-          itemBuilder: (context, index) {
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _previewPhotoIndex = index;
-                });
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(
-                  File(capturedPhotos[index].path),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    } else {
-      // Mobile view - Horizontal list
-      return SizedBox(
-        height: 120,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: capturedPhotos.length,
-          itemBuilder: (context, index) {
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _previewPhotoIndex = index;
-                });
-              },
-              child: Container(
-                width: 100,
-                margin: const EdgeInsets.only(right: 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    File(capturedPhotos[index].path),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
+}
+  
+  // Update the _buildFullScreenPreview method to properly handle full screen
+Widget _buildFullScreenPreview() {
+  if (_previewPhotoIndex == null || capturedPhotos.isEmpty) {
+    return const SizedBox.shrink();
   }
 
-  Widget _buildFullScreenPreview() {
-    if (_previewPhotoIndex == null || capturedPhotos.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Stack(
+  return WillPopScope(
+    onWillPop: () async {
+      // When back button is pressed, just close the preview
+      setState(() {
+        _previewPhotoIndex = null;
+      });
+      return false; // Prevent default back navigation
+    },
+    child: Stack(
       children: [
         // Full screen black background
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _previewPhotoIndex = null;
-            });
-          },
+        Positioned.fill(
           child: Container(
             color: Colors.black,
-            width: double.infinity,
-            height: double.infinity,
           ),
         ),
 
-        // Photo preview
-        Center(
+        // Main photo preview - now covers entire screen
+        Positioned.fill(
+          top: 0, // Start from top of screen
+          bottom: 100, // Leave space for thumbnails at bottom
           child: InteractiveViewer(
             panEnabled: true,
             minScale: 0.5,
             maxScale: 3,
-            child: Image.file(
-              File(capturedPhotos[_previewPhotoIndex!].path),
-              fit: BoxFit.contain,
+            child: Center(
+              child: Image.file(
+                File(capturedPhotos[_previewPhotoIndex!].path),
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ),
 
-        // Top bar with close button
+        // Top bar with close button - positioned below status bar
         Positioned(
-          top: 40,
-          left: 20,
-          right: 20,
+          top: MediaQuery.of(context).padding.top + 16, // Account for status bar
+          left: 16,
+          right: 16,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -3270,15 +3413,7 @@ Widget _buildSummaryItem(String label, String value) {
               // Delete button
               GestureDetector(
                 onTap: () {
-                  setState(() {
-                    capturedPhotos.removeAt(_previewPhotoIndex!);
-                    if (_previewPhotoIndex! >= capturedPhotos.length) {
-                      _previewPhotoIndex = capturedPhotos.length - 1;
-                    }
-                    if (capturedPhotos.isEmpty) {
-                      _previewPhotoIndex = null;
-                    }
-                  });
+                  _showDeleteConfirmationDialog(_previewPhotoIndex!);
                 },
                 child: Container(
                   padding: const EdgeInsets.all(8),
@@ -3297,68 +3432,89 @@ Widget _buildSummaryItem(String label, String value) {
           ),
         ),
 
-        // Bottom navigation buttons
-        if (capturedPhotos.length > 1)
-          Positioned(
-            bottom: 40,
-            left: 20,
-            right: 20,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Previous button
-                if (_previewPhotoIndex! > 0)
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _previewPhotoIndex = _previewPhotoIndex! - 1;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        shape: BoxShape.circle,
+        // Bottom thumbnails
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 100,
+          child: Container(
+            color: Colors.black.withOpacity(0.7),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+              itemCount: capturedPhotos.length,
+              itemBuilder: (context, index) {
+                final isSelected = index == _previewPhotoIndex;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _previewPhotoIndex = index;
+                    });
+                  },
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: isSelected ? Colors.white : Colors.transparent,
+                        width: 2,
                       ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.white,
-                        size: 24,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.file(
+                        File(capturedPhotos[index].path),
+                        fit: BoxFit.cover,
                       ),
                     ),
-                  )
-                else
-                  const SizedBox(width: 40),
-
-                // Next button
-                if (_previewPhotoIndex! < capturedPhotos.length - 1)
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _previewPhotoIndex = _previewPhotoIndex! + 1;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  )
-                else
-                  const SizedBox(width: 40),
-              ],
+                  ),
+                );
+              },
             ),
           ),
+        ),
       ],
-    );
-  }
+    ),
+  );
+}
+// Add this new method to show delete confirmation dialog
+void _showDeleteConfirmationDialog(int index) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Delete Photo'),
+        content: const Text('Are you sure you want to delete this photo?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                capturedPhotos.removeAt(index);
+                if (_previewPhotoIndex! >= capturedPhotos.length) {
+                  _previewPhotoIndex = capturedPhotos.length - 1;
+                }
+                if (capturedPhotos.isEmpty) {
+                  _previewPhotoIndex = null;
+                }
+              });
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   Widget _buildActionButtons() {
   final isEditing = _editingDesignIndex != null;
