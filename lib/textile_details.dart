@@ -56,13 +56,15 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   Timer? _hideEyeIconTimer;
 
   bool _isCapturingMultiple = false;
-List<XFile> _pendingPhotos = [];
-bool _isProcessingPhotos = false;
-  
+  List<XFile> _pendingPhotos = [];
+  bool _isProcessingPhotos = false;
+
   FilterType currentFilterType = FilterType.mode;
   TextEditingController defaultMetersController = TextEditingController(
     text: '100',
   );
+
+  Map<String, dynamic>? _savedFormState;
   // Form state
   List<XFile> capturedPhotos = []; // Changed to list for multiple photos
   String selectedMode = 'Design';
@@ -125,36 +127,36 @@ bool _isProcessingPhotos = false;
   int? _previewPhotoIndex;
 
   @override
-void initState() {
-  super.initState();
-  // Initialize with values from new_order_setup_page
-  selectedOFType = widget.textileType;
-  selectedWidth = widget.selectedWidth;
-  defaultChoices = widget.defaultChoices;
-  defaultMeters = widget.defaultMeters;
-  sampleRequired = widget.sampleRequired;
-  selectedSampleMtr = widget.selectedSampleMtr;
-  defaultMetersController = TextEditingController(
-    text: defaultMeters.toString(),
-  );
+  void initState() {
+    super.initState();
+    // Initialize with values from new_order_setup_page
+    selectedOFType = widget.textileType;
+    selectedWidth = widget.selectedWidth;
+    defaultChoices = widget.defaultChoices;
+    defaultMeters = widget.defaultMeters;
+    sampleRequired = widget.sampleRequired;
+    selectedSampleMtr = widget.selectedSampleMtr;
+    defaultMetersController = TextEditingController(
+      text: defaultMeters.toString(),
+    );
 
-   _scrollController = ScrollController();
+    _scrollController = ScrollController();
     _scrollController.addListener(_scrollListener);
 
-  // Initialize choices, meters and party design controllers
-  _choicesController = TextEditingController(text: defaultChoices.toString());
-  defaultMetersController = TextEditingController(
-    text: defaultMeters.toString(),
-  );
-  _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
-  // Initialize current default values
-  currentDefaultOFType = widget.textileType;
-  currentDefaultWidth = widget.selectedWidth;
-  currentDefaultChoices = widget.defaultChoices;
-  currentDefaultMeters = widget.defaultMeters;
+    // Initialize choices, meters and party design controllers
+    _choicesController = TextEditingController(text: defaultChoices.toString());
+    defaultMetersController = TextEditingController(
+      text: defaultMeters.toString(),
+    );
+    _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
+    // Initialize current default values
+    currentDefaultOFType = widget.textileType;
+    currentDefaultWidth = widget.selectedWidth;
+    currentDefaultChoices = widget.defaultChoices;
+    currentDefaultMeters = widget.defaultMeters;
 
-  _initializeHiveAndLoadData();
-}
+    _initializeHiveAndLoadData();
+  }
 
   Future<void> _initializeHiveAndLoadData() async {
     try {
@@ -664,6 +666,7 @@ void initState() {
           'photos': photoBase64List,
         };
         _editingDesignIndex = null;
+        _savedFormState = null; // Clear the saved state
       } else {
         // Add new design with all fields and set S.No to current length + 1
         capturedDesigns.add({
@@ -715,6 +718,19 @@ void initState() {
   }
 
   void _selectDesignForEditing(Map<String, dynamic> design, int index) async {
+    // Save current form state before editing
+    _savedFormState = {
+      'partyDesignNo': partyDesignNo,
+      'selectedMode': selectedMode,
+      'selectedQuality': selectedQuality,
+      'selectedWeave': selectedWeave,
+      'selectedOFType': selectedOFType,
+      'selectedWidth': selectedWidth,
+      'defaultChoices': defaultChoices,
+      'defaultMeters': defaultMeters,
+      'capturedPhotos': capturedPhotos,
+    };
+
     setState(() {
       _editingDesignIndex = index;
 
@@ -759,48 +775,155 @@ void initState() {
   }
 
   void _clearEditingState() {
-    setState(() {
-      _editingDesignIndex = null;
+    if (_savedFormState != null) {
+      setState(() {
+        // Restore the saved form state
+        partyDesignNo = _savedFormState!['partyDesignNo'];
+        _partyDesignController.text = partyDesignNo ?? '';
+        selectedMode = _savedFormState!['selectedMode'];
+        selectedQuality = _savedFormState!['selectedQuality'];
+        selectedWeave = _savedFormState!['selectedWeave'];
+        selectedOFType = _savedFormState!['selectedOFType'];
+        selectedWidth = _savedFormState!['selectedWidth'];
+        defaultChoices = _savedFormState!['defaultChoices'];
+        defaultMeters = _savedFormState!['defaultMeters'];
+        _choicesController.text = defaultChoices.toString();
+        defaultMetersController.text = defaultMeters.toStringAsFixed(0);
+        capturedPhotos = _savedFormState!['capturedPhotos'];
 
-      // Clear only the party design controller, quality, and weave
-      _partyDesignController.clear();
-      partyDesignNo = null;
-      selectedQuality = null;
-      selectedWeave = null;
-
-      // Keep Mode, O/F Type, Width, Choices, and Meters unchanged
-      // Only clear the captured photos
-      capturedPhotos = [];
-    });
+        _editingDesignIndex = null;
+        _savedFormState = null; // Clear the saved state
+      });
+    } else {
+      // If there's no saved state, just clear the editing state as before
+      setState(() {
+        _editingDesignIndex = null;
+        _partyDesignController.clear();
+        partyDesignNo = null;
+        selectedQuality = null;
+        selectedWeave = null;
+        capturedPhotos = [];
+      });
+    }
   }
 
-@override
-void dispose() {
-  _weaveTypeController.dispose();
-  _qualityController.dispose();
-  _partyDesignController.dispose();
-  defaultMetersController.dispose();
+  // Update _addOrUpdateDesign to clear saved state after updating
+  // void _addOrUpdateDesign({
+  //   required int? choices,
+  //   required double? meters,
+  //   required String? designNo,
+  //   required String mode,
+  // }) async {
+  //   // Get the meters value from the defaultMetersController if not provided
+  //   final metersValue = meters ?? double.tryParse(defaultMetersController.text) ?? 100;
+  //   if (choices == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('Please select Choices'),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //     return;
+  //   }
+
+  //   // Generate the next reference number for the selected O/F type
+  //   int typeCount = capturedDesigns.length + 1; // Use current length + 1
+  //   String refPrefix = selectedOFType.toUpperCase().substring(0, 3);
+  //   String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
+
+  //   // Convert captured photos to base64 strings for storage
+  //   List<String> photoBase64List = [];
+  //   for (XFile photo in capturedPhotos) {
+  //     String base64 = await _xFileToBase64(photo);
+  //     photoBase64List.add(base64);
+  //   }
+
+  //   setState(() {
+  //     if (_editingDesignIndex != null) {
+  //       // Update existing design with all fields, but keep the original S.No
+  //       capturedDesigns[_editingDesignIndex!] = {
+  //         'sNo': capturedDesigns[_editingDesignIndex!]['sNo'], // Keep original S.No
+  //         'designNo': designNo ?? '-',
+  //         'choices': choices,
+  //         'meters': metersValue,
+  //         'mode': mode,
+  //         'timestamp': DateTime.now().toIso8601String(),
+  //         'ofType': selectedOFType,
+  //         'weave': selectedWeave,
+  //         'quality': selectedQuality,
+  //         'width': selectedWidth,
+  //         'ref': ref,
+  //         'photos': photoBase64List,
+  //       };
+  //       _editingDesignIndex = null;
+  //       _savedFormState = null; // Clear the saved state
+  //     } else {
+  //       // Add new design with all fields and set S.No to current length + 1
+  //       capturedDesigns.add({
+  //         'sNo': capturedDesigns.length + 1, // Set S.No to current length + 1
+  //         'designNo': designNo ?? '-',
+  //         'choices': choices,
+  //         'meters': metersValue,
+  //         'mode': mode,
+  //         'timestamp': DateTime.now().toIso8601String(),
+  //         'ofType': selectedOFType,
+  //         'weave': selectedWeave,
+  //         'quality': selectedQuality,
+  //         'width': selectedWidth,
+  //         'ref': ref,
+  //         'photos': photoBase64List,
+  //       });
+  //     }
+  //   });
+
+  //   _updateSummaryValues();
+  //   // Only clear party design number, quality, and weave
+  //   _clearSelectedFields();
+
+  //   // Clear captured photos after saving
+  //   setState(() {
+  //     capturedPhotos = [];
+  //   });
+
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(
+  //       content: Text(
+  //         _editingDesignIndex != null
+  //             ? 'Design updated successfully'
+  //             : 'Design added successfully',
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  @override
+  void dispose() {
+    _weaveTypeController.dispose();
+    _qualityController.dispose();
+    _partyDesignController.dispose();
+    defaultMetersController.dispose();
     _hideEyeIconTimer?.cancel();
     _scrollController.dispose();
-     _isCapturingMultiple = false;
-  super.dispose();
-}
+    _isCapturingMultiple = false;
+    super.dispose();
+  }
 
-void _scrollListener() {
+  void _scrollListener() {
     // Cancel any existing timer
     _hideEyeIconTimer?.cancel();
-    
+
     // Check if we're at the top of the scroll view
     if (_scrollController.offset <= 0) {
       // Hide the eye icon and show the summary card when at the top
       setState(() {
         _showEyeIcon = false;
         _isScrolling = false;
-        _isSummaryVisible = true; // Make sure summary card is visible at the top
+        _isSummaryVisible =
+            true; // Make sure summary card is visible at the top
       });
       return;
     }
-    
+
     // Show eye icon when scrolling starts
     if (!_showEyeIcon) {
       setState(() {
@@ -809,7 +932,7 @@ void _scrollListener() {
         _isSummaryVisible = false; // Hide summary card when scrolling down
       });
     }
-    
+
     // Set a timer to hide the eye icon after scrolling stops
     _hideEyeIconTimer = Timer(const Duration(milliseconds: 1500), () {
       if (mounted) {
@@ -819,138 +942,150 @@ void _scrollListener() {
       }
     });
   }
- @override
-Widget build(BuildContext context) {
-  final isTablet = MediaQuery.of(context).size.width > 600;
-  final isPreviewActive = _previewPhotoIndex != null;
 
-  return Scaffold(
-    key: _scaffoldKey,
-    // Hide app bar when preview is active
-    appBar: isPreviewActive 
-        ? null 
-        : AppBar(
-            toolbarHeight: 55,
-            backgroundColor: primaryColor,
-            title: Text(
-              widget.partyName,
-              style: const TextStyle(
+  @override
+  Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isPreviewActive = _previewPhotoIndex != null;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      // Hide app bar when preview is active
+      appBar: isPreviewActive
+          ? null
+          : AppBar(
+              toolbarHeight: 55,
+              backgroundColor: primaryColor,
+              title: Text(
+                widget.partyName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              iconTheme: const IconThemeData(color: Colors.white),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              titleTextStyle: const TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
               ),
+              actions: [
+                // Hamburger menu button
+                IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white),
+                  onPressed: () {
+                    _scaffoldKey.currentState?.openEndDrawer();
+                  },
+                ),
+              ],
             ),
-            iconTheme: const IconThemeData(color: Colors.white),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-            titleTextStyle: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-            actions: [
-              // Hamburger menu button
-              IconButton(
-                icon: const Icon(Icons.menu, color: Colors.white),
-                onPressed: () {
-                  _scaffoldKey.currentState?.openEndDrawer();
-                },
-              ),
-            ],
-          ),
-    endDrawer: Drawer(child: _buildCapturedDesignsSection()),
-    backgroundColor: const Color(0xFFF9FAFB),
-    body: Stack(
-      children: [
-        // Main content
-        _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  // Sticky summary card at the top - conditionally visible
-                  if (_isSummaryVisible && !isPreviewActive)
-                    Container(
-                      color: const Color(0xFFF9FAFB), // Same as background color
-                      child: _buildSummaryCard(),
+      // Modified endDrawer to control width
+      endDrawer: Container(
+        width:
+            MediaQuery.of(context).size.width *
+            0.7, // Set width to 70% of screen width
+        child: Drawer(child: _buildCapturedDesignsSection()),
+      ),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: Stack(
+        children: [
+          // Main content
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    // Sticky summary card at the top - conditionally visible
+                    if (_isSummaryVisible && !isPreviewActive)
+                      Container(
+                        color: const Color(
+                          0xFFF9FAFB,
+                        ), // Same as background color
+                        child: _buildSummaryCard(),
+                      ),
+
+                    // Scrollable content in the middle
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          // Use the scroll controller in both views
+                          (isTablet
+                              ? _buildTabletView(_scrollController)
+                              : _buildMobileView(_scrollController)),
+                          if (_showAddWeaveDialog) _buildAddWeaveDialog(),
+                          if (_showAddQualityDialog) _buildAddQualityDialog(),
+                          if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
+                          if (_showAddWidthDialog) _buildAddWidthDialog(),
+                        ],
+                      ),
                     ),
 
-                  // Scrollable content in the middle
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        // Use the scroll controller in both views
-                        (isTablet
-                            ? _buildTabletView(_scrollController)
-                            : _buildMobileView(_scrollController)),
-                        if (_showAddWeaveDialog) _buildAddWeaveDialog(),
-                        if (_showAddQualityDialog) _buildAddQualityDialog(),
-                        if (_showAddOFTypeDialog) _buildAddOFTypeDialog(),
-                        if (_showAddWidthDialog) _buildAddWidthDialog(),
-                      ],
-                    ),
-                  ),
+                    // Sticky action buttons at the bottom - hide when preview is active
+                    if (!isPreviewActive)
+                      Container(
+                        color: const Color(
+                          0xFFF9FAFB,
+                        ), // Same as background color
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildActionButtons(),
+                      ),
+                  ],
+                ),
 
-                  // Sticky action buttons at the bottom - hide when preview is active
-                  if (!isPreviewActive)
-                    Container(
-                      color: const Color(0xFFF9FAFB), // Same as background color
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _buildActionButtons(),
+          // Full screen preview overlay
+          if (isPreviewActive) _buildFullScreenPreview(),
+        ],
+      ),
+      // Only show the floating action button when scrolling and not in preview
+      floatingActionButton: (_showEyeIcon && !isPreviewActive)
+          ? Padding(
+              padding: const EdgeInsets.only(top: 60), // Reduced padding
+              child: Container(
+                width: 36, // Smaller width
+                height: 36, // Smaller height
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                ],
-              ),
-        
-        // Full screen preview overlay
-        if (isPreviewActive) _buildFullScreenPreview(),
-      ],
-    ),
-    // Only show the floating action button when scrolling and not in preview
-    floatingActionButton: (_showEyeIcon && !isPreviewActive)
-        ? Padding(
-            padding: const EdgeInsets.only(top: 60), // Reduced padding
-            child: Container(
-              width: 36, // Smaller width
-              height: 36, // Smaller height
-              decoration: BoxDecoration(
-                color: primaryColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                  ],
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _isSummaryVisible = !_isSummaryVisible;
+                    });
+                  },
+                  icon: Icon(
+                    _isSummaryVisible ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.white,
+                    size: 18, // Smaller icon size
                   ),
-                ],
-              ),
-              child: IconButton(
-                onPressed: () {
-                  setState(() {
-                    _isSummaryVisible = !_isSummaryVisible;
-                  });
-                },
-                icon: Icon(
-                  _isSummaryVisible ? Icons.visibility : Icons.visibility_off,
-                  color: Colors.white,
-                  size: 18, // Smaller icon size
-                ),
-                padding: EdgeInsets.zero, // Remove default padding
-                constraints: const BoxConstraints(
-                  minWidth: 36, // Match container width
-                  minHeight: 36, // Match container height
+                  padding: EdgeInsets.zero, // Remove default padding
+                  constraints: const BoxConstraints(
+                    minWidth: 36, // Match container width
+                    minHeight: 36, // Match container height
+                  ),
                 ),
               ),
-            ),
-          )
-        : null,
-    floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
-  );
-}  
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+    );
+  }
+
   Future<String> _xFileToBase64(XFile file) async {
     List<int> imageBytes = await file.readAsBytes();
     return base64Encode(imageBytes);
@@ -967,7 +1102,7 @@ Widget build(BuildContext context) {
     return XFile(tempFile.path);
   }
 
-    Widget _buildMobileView(ScrollController controller) {
+  Widget _buildMobileView(ScrollController controller) {
     return SingleChildScrollView(
       controller: controller,
       child: Column(
@@ -1049,258 +1184,265 @@ Widget build(BuildContext context) {
       ),
     );
   }
-  
- Widget _buildSummaryCard() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      // INCREASED vertical padding from 8 to 12
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Row(
-        children: [
-          // Designs column
-          Expanded(
-            child: _buildSummaryItem(
-              'Designs',
-              textileData['d']?.toString() ?? '0',
-            ),
-          ),
 
-          // Vertical line 1
-          Container(
-            // INCREASED height from 30 to 40 to match new card height
-            height: 40,
-            width: 1,
-            color: Colors.grey.withOpacity(0.3),
-          ),
-
-          // Colors column
-          Expanded(
-            child: _buildSummaryItem(
-              'Choices',
-              textileData['ch']?.toString() ?? '0',
-            ),
-          ),
-
-          // Vertical line 2
-          Container(
-            // INCREASED height from 30 to 40 to match new card height
-            height: 40,
-            width: 1,
-            color: Colors.grey.withOpacity(0.3),
-          ),
-
-          // Meters column
-          Expanded(
-            child: _buildSummaryItem(
-              'Meters',
-              textileData['mtr']?.toString() ?? '0',
-            ),
-          ),
-        ],
+  Widget _buildSummaryCard() {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
       ),
-    ),
-  );
-}
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        // INCREASED vertical padding from 8 to 12
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Row(
+          children: [
+            // Designs column
+            Expanded(
+              child: _buildSummaryItem(
+                'Designs',
+                textileData['d']?.toString() ?? '0',
+              ),
+            ),
+
+            // Vertical line 1
+            Container(
+              // INCREASED height from 30 to 40 to match new card height
+              height: 40,
+              width: 1,
+              color: Colors.grey.withOpacity(0.3),
+            ),
+
+            // Colors column
+            Expanded(
+              child: _buildSummaryItem(
+                'Choices',
+                textileData['ch']?.toString() ?? '0',
+              ),
+            ),
+
+            // Vertical line 2
+            Container(
+              // INCREASED height from 30 to 40 to match new card height
+              height: 40,
+              width: 1,
+              color: Colors.grey.withOpacity(0.3),
+            ),
+
+            // Meters column
+            Expanded(
+              child: _buildSummaryItem(
+                'Meters',
+                textileData['mtr']?.toString() ?? '0',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextileDetailsCard() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row with clickable text in top right corner
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Empty container to push the text to the right
-              const SizedBox(),
-              // Clickable text in top right corner
-              GestureDetector(
-                onTap: () async {
-                  // Navigate back to NewOrderSetupPage in edit mode with current values
-                  final result = await Navigator.push<Map<String, dynamic>>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => NewOrderSetupPage(
-                        isEditMode: true,
-                        partyName: widget.partyName,
-                        ofType: selectedOFType,
-                        selectedWidth: selectedWidth,
-                        defaultChoices: defaultChoices,
-                        defaultMeters: defaultMeters,
-                        sampleRequired: sampleRequired,
-                        selectedSampleMtr: selectedSampleMtr,
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row with clickable text in top right corner
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Empty container to push the text to the right
+                const SizedBox(),
+                // Clickable text in top right corner
+                GestureDetector(
+                  onTap: () async {
+                    // Navigate back to NewOrderSetupPage in edit mode with current values
+                    final result = await Navigator.push<Map<String, dynamic>>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => NewOrderSetupPage(
+                          isEditMode: true,
+                          partyName: widget.partyName,
+                          ofType: selectedOFType,
+                          selectedWidth: selectedWidth,
+                          defaultChoices: defaultChoices,
+                          defaultMeters: defaultMeters,
+                          sampleRequired: sampleRequired,
+                          selectedSampleMtr: selectedSampleMtr,
+                        ),
                       ),
+                    );
+
+                    // Update values if returned
+                    if (result != null) {
+                      setState(() {
+                        selectedOFType = result['ofType'] ?? selectedOFType;
+                        selectedWidth =
+                            result['selectedWidth'] ?? selectedWidth;
+                        defaultChoices =
+                            result['defaultChoices'] ?? defaultChoices;
+                        defaultMeters =
+                            result['defaultMeters'] ?? defaultMeters;
+                        sampleRequired =
+                            result['sampleRequired'] ?? sampleRequired;
+                        selectedSampleMtr = result['selectedSampleMtr'];
+
+                        // Update the controller text to match the new defaultMeters value
+                        defaultMetersController.text = defaultMeters
+                            .toStringAsFixed(0);
+
+                        // Update current default values
+                        currentDefaultOFType = selectedOFType;
+                        currentDefaultWidth = selectedWidth;
+                        currentDefaultChoices = defaultChoices;
+                        currentDefaultMeters = defaultMeters;
+                      });
+                    }
+                  },
+                  child: Text(
+                    'Click here to edit',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF2563EB),
+                      fontWeight: FontWeight.w500,
                     ),
-                  );
-
-                  // Update values if returned
-                  if (result != null) {
-                    setState(() {
-                      selectedOFType = result['ofType'] ?? selectedOFType;
-                      selectedWidth = result['selectedWidth'] ?? selectedWidth;
-                      defaultChoices = result['defaultChoices'] ?? defaultChoices;
-                      defaultMeters = result['defaultMeters'] ?? defaultMeters;
-                      sampleRequired = result['sampleRequired'] ?? sampleRequired;
-                      selectedSampleMtr = result['selectedSampleMtr'];
-
-                      // Update the controller text to match the new defaultMeters value
-                      defaultMetersController.text = defaultMeters.toStringAsFixed(0);
-
-                      // Update current default values
-                      currentDefaultOFType = selectedOFType;
-                      currentDefaultWidth = selectedWidth;
-                      currentDefaultChoices = defaultChoices;
-                      currentDefaultMeters = defaultMeters;
-                    });
-                  }
-                },
-                child: Text(
-                  'Click here to edit',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF2563EB),
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-            ],
-          ),
-          
-          // Added space below the clickable text
-          const SizedBox(height: 8),
-          
-          // Single row with all fields
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // O/F TYPE column
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      'O/F TYPE',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF6B7280),
-                        fontWeight: FontWeight.w500,
+              ],
+            ),
+
+            // Added space below the clickable text
+            const SizedBox(height: 8),
+
+            // Single row with all fields
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // O/F TYPE column
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        'O/F TYPE',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6B7280),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      selectedOFType,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2563EB),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Vertical line 1
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.grey.withOpacity(0.3),
-              ),
-
-              // WIDTH column
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildDetailHeading('WIDTH'),
-                    const SizedBox(height: 4),
-                    _buildDetailValue(selectedWidth),
-                  ],
-                ),
-              ),
-
-              // Vertical line 2
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.grey.withOpacity(0.3),
-              ),
-
-              // CHOICES column
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildDetailHeading('CHOICES'),
-                    const SizedBox(height: 4),
-                    _buildDetailValue(defaultChoices.toString()),
-                  ],
-                ),
-              ),
-
-              // Vertical line 3
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.grey.withOpacity(0.3),
-              ),
-
-              // METERS column
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildDetailHeading('METERS'),
-                    const SizedBox(height: 4),
-                    _buildDetailValue(defaultMeters.toStringAsFixed(0)),
-                  ],
-                ),
-              ),
-
-              // Vertical line 4
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.grey.withOpacity(0.3),
-              ),
-
-              // SAMPLE column
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildDetailHeading('SAMPLE'),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        _formatSampleDisplay(),
+                      const SizedBox(height: 4),
+                      Text(
+                        selectedOFType,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2563EB),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+
+                // Vertical line 1
+                Container(
+                  height: 40,
+                  width: 1,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+
+                // WIDTH column
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildDetailHeading('WIDTH'),
+                      const SizedBox(height: 4),
+                      _buildDetailValue(selectedWidth),
+                    ],
+                  ),
+                ),
+
+                // Vertical line 2
+                Container(
+                  height: 40,
+                  width: 1,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+
+                // CHOICES column
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildDetailHeading('CHOICES'),
+                      const SizedBox(height: 4),
+                      _buildDetailValue(defaultChoices.toString()),
+                    ],
+                  ),
+                ),
+
+                // Vertical line 3
+                Container(
+                  height: 40,
+                  width: 1,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+
+                // METERS column
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildDetailHeading('METERS'),
+                      const SizedBox(height: 4),
+                      _buildDetailValue(defaultMeters.toStringAsFixed(0)),
+                    ],
+                  ),
+                ),
+
+                // Vertical line 4
+                Container(
+                  height: 40,
+                  width: 1,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+
+                // SAMPLE column
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildDetailHeading('SAMPLE'),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _formatSampleDisplay(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   Widget _buildOFTypeSection() {
     return Card(
       elevation: 0,
@@ -1342,8 +1484,8 @@ Widget build(BuildContext context) {
                       ),
                     ),
                   ),
-            ],
-          ),
+              ],
+            ),
 
             const SizedBox(height: 12),
 
@@ -1752,6 +1894,9 @@ Widget build(BuildContext context) {
                               0xFF2563EB,
                             ), // Blue background
                             foregroundColor: Colors.white, // White text
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ), // Reduced vertical padding
                           ),
                           child: const Text(
                             'Cancel',
@@ -1782,11 +1927,14 @@ Widget build(BuildContext context) {
                               0xFF10B981,
                             ), // Green background
                             foregroundColor: Colors.white, // White text
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ), // Reduced vertical padding
                           ),
                           child: const Text(
                             'Save to Master',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 13, // Slightly smaller font size
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1977,6 +2125,9 @@ Widget build(BuildContext context) {
                               0xFF2563EB,
                             ), // Blue background
                             foregroundColor: Colors.white, // White text
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ), // Reduced vertical padding
                           ),
                           child: const Text(
                             'Cancel',
@@ -2007,11 +2158,14 @@ Widget build(BuildContext context) {
                               0xFF10B981,
                             ), // Green background
                             foregroundColor: Colors.white, // White text
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ), // Reduced vertical padding
                           ),
                           child: const Text(
                             'Save to Master',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 13, // Slightly smaller font size
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -2504,166 +2658,174 @@ Widget build(BuildContext context) {
   }
 
   // Update your _buildSummaryItem method to make it shorter
-Widget _buildSummaryItem(String label, String value) {
-  return Column(
-    children: [
-      Text(
-        label,
-        style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)), // Reduced font size
-      ),
-      const SizedBox(height: 2), // Reduced spacing
-      Text(
-        value,
-        style: const TextStyle(
-          fontSize: 16, // Reduced font size
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF2563EB),
+  Widget _buildSummaryItem(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Color(0xFF6B7280),
+          ), // Reduced font size
         ),
-      ),
-    ],
-  );
-}
+        const SizedBox(height: 2), // Reduced spacing
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16, // Reduced font size
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2563EB),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildCapturePhotoSection() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(12), // Reduced padding from 16 to 12
-      child: Column(
-        children: [
-          const Text(
-            'Capture Photo:',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 12), // Reduced height from 16 to 12
-
-          // Photo capture area
-          if (capturedPhotos.isEmpty && _pendingPhotos.isEmpty)
-            _buildEmptyCaptureArea()
-          else
-            _buildPhotoGrid(),
-
-          const SizedBox(height: 12), // Reduced height from 16 to 12
-
-          // Capture button
-          InkWell(
-            onTap: () async {
-              setState(() {
-                _isCapturingMultiple = true;
-                _pendingPhotos.clear();
-              });
-              
-              await _captureMultiplePhotos();
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10), // Reduced padding from 12 to 10
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF2563EB).withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.camera_alt, color: Colors.white, size: 20), // Reduced icon size from 24 to 20
-                  SizedBox(width: 8),
-                  Text(
-                    'Capture Photos',
-                    style: TextStyle(
-                      fontSize: 14, // Reduced font size from 16 to 14
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
       ),
-    ),
-  );
-}
-// Add this new method to handle multiple photo capture
-Future<void> _captureMultiplePhotos() async {
-  try {
-    while (_isCapturingMultiple) {
-      final XFile? pickedFile = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
-      );
-      
-      if (pickedFile != null) {
-        setState(() {
-          _pendingPhotos.add(pickedFile);
-          _isProcessingPhotos = true;
-        });
-        
-        // Process the photo in background
-        await _processPendingPhoto(pickedFile);
-      } else {
-        // User cancelled or closed camera
-        setState(() {
-          _isCapturingMultiple = false;
-        });
-        break;
-      }
-    }
-  } catch (e) {
-    print('Error capturing photos: $e');
-    setState(() {
-      _isCapturingMultiple = false;
-      _isProcessingPhotos = false;
-    });
-  }
-}
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(12), // Reduced padding from 16 to 12
+        child: Column(
+          children: [
+            const Text(
+              'Capture Photo:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 12), // Reduced height from 16 to 12
+            // Photo capture area
+            if (capturedPhotos.isEmpty && _pendingPhotos.isEmpty)
+              _buildEmptyCaptureArea()
+            else
+              _buildPhotoGrid(),
 
-// Add this method to process pending photos
-Future<void> _processPendingPhoto(XFile photo) async {
-  try {
-    // Simulate processing time
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    setState(() {
-      capturedPhotos.add(photo);
-      _pendingPhotos.remove(photo);
-      
-      if (_pendingPhotos.isEmpty) {
-        _isProcessingPhotos = false;
-      }
-    });
-  } catch (e) {
-    print('Error processing photo: $e');
-    setState(() {
-      _pendingPhotos.remove(photo);
-      if (_pendingPhotos.isEmpty) {
-        _isProcessingPhotos = false;
-      }
-    });
+            const SizedBox(height: 12), // Reduced height from 16 to 12
+            // Capture button
+            InkWell(
+              onTap: () async {
+                setState(() {
+                  _isCapturingMultiple = true;
+                  _pendingPhotos.clear();
+                });
+
+                await _captureMultiplePhotos();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                ), // Reduced padding from 12 to 10
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 20,
+                    ), // Reduced icon size from 24 to 20
+                    SizedBox(width: 8),
+                    Text(
+                      'Capture Photos',
+                      style: TextStyle(
+                        fontSize: 14, // Reduced font size from 16 to 14
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-}
+
+  // Add this new method to handle multiple photo capture
+  Future<void> _captureMultiplePhotos() async {
+    try {
+      while (_isCapturingMultiple) {
+        final XFile? pickedFile = await _imagePicker.pickImage(
+          source: ImageSource.camera,
+          preferredCameraDevice: CameraDevice.rear,
+        );
+
+        if (pickedFile != null) {
+          setState(() {
+            _pendingPhotos.add(pickedFile);
+            _isProcessingPhotos = true;
+          });
+
+          // Process the photo in background
+          await _processPendingPhoto(pickedFile);
+        } else {
+          // User cancelled or closed camera
+          setState(() {
+            _isCapturingMultiple = false;
+          });
+          break;
+        }
+      }
+    } catch (e) {
+      print('Error capturing photos: $e');
+      setState(() {
+        _isCapturingMultiple = false;
+        _isProcessingPhotos = false;
+      });
+    }
+  }
+
+  // Add this method to process pending photos
+  Future<void> _processPendingPhoto(XFile photo) async {
+    try {
+      // Simulate processing time
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      setState(() {
+        capturedPhotos.add(photo);
+        _pendingPhotos.remove(photo);
+
+        if (_pendingPhotos.isEmpty) {
+          _isProcessingPhotos = false;
+        }
+      });
+    } catch (e) {
+      print('Error processing photo: $e');
+      setState(() {
+        _pendingPhotos.remove(photo);
+        if (_pendingPhotos.isEmpty) {
+          _isProcessingPhotos = false;
+        }
+      });
+    }
+  }
 
   Widget _buildWillCaptureItem(String label, String value) {
     return Padding(
@@ -2956,105 +3118,104 @@ Future<void> _processPendingPhoto(XFile photo) async {
 
   // Modified _buildChoicesOverrideSection to reduce spacing between icons
   Widget _buildChoicesOverrideSection() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Choices: (Override)',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Choices: (Override)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    defaultChoices = currentDefaultChoices;
-                  });
-                },
-                child: const Text(
-                  'Reset',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF2563EB),
-                    fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      defaultChoices = currentDefaultChoices;
+                    });
+                  },
+                  child: const Text(
+                    'Reset',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF2563EB),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: IconButton(
-                  onPressed: () {
-                    if (defaultChoices > 0) {
-                      setState(() {
-                        defaultChoices--;
-                      });
-                    }
-                  },
-                  icon: const Icon(Icons.remove),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    defaultChoices.toString(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 18),
+                  child: IconButton(
+                    onPressed: () {
+                      if (defaultChoices > 0) {
+                        setState(() {
+                          defaultChoices--;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.remove),
                   ),
                 ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      defaultChoices.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                  ),
                 ),
-                child: IconButton(
-                  onPressed: () {
-                    setState(() {
-                      defaultChoices++;
-                    });
-                  },
-                  icon: const Icon(Icons.add),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        defaultChoices++;
+                      });
+                    },
+                    icon: const Icon(Icons.add),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Default: $currentDefaultChoices',
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Default: $currentDefaultChoices',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   Widget _buildMetersOverrideSection() {
     return Card(
       elevation: 0,
@@ -3132,172 +3293,125 @@ Future<void> _processPendingPhoto(XFile photo) async {
   }
 
   Widget _buildEmptyCaptureArea() {
-  return InkWell(
-    onTap: () async {
-      // Start multiple photo capture process instead of single photo
-      setState(() {
-        _isCapturingMultiple = true;
-        _pendingPhotos.clear();
-      });
-      
-      await _captureMultiplePhotos();
-    },
-    borderRadius: BorderRadius.circular(8),
-    child: Container(
-      width: double.infinity,
-      height: 140, // Reduced height from 200 to 160
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.3),
-          style: BorderStyle.solid,
-          width: 2,
-        ),
-        borderRadius: BorderRadius.circular(8),
-        color: const Color(0xFFF9FAFB),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Modern camera icon with gradient background - made smaller
-          Container(
-            width: 36, // Reduced width from 45 to 36
-            height: 36, // Reduced height from 45 to 36
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12), // Reduced from 16 to 12
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2563EB).withOpacity(0.3),
-                  blurRadius: 8, // Reduced blur radius from 10 to 8
-                  offset: const Offset(0, 2), // Reduced offset from 3 to 2
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.camera_alt,
-              color: Colors.white,
-              size: 20, // Reduced icon size from 28 to 20
-            ),
-          ),
-          const SizedBox(height: 12), // Reduced height from 16 to 12
-          const Text(
-            'Tap to Capture Photos',
-            style: TextStyle(
-              fontSize: 14, // Reduced font size from 16 to 14
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2563EB),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Ready to capture photos',
-            style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)), // Reduced font size from 12 to 11
-          ),
-        ],
-      ),
-    ),
-  );
-}
-  
-  Widget _buildPhotoGrid() {
-  final isTablet = MediaQuery.of(context).size.width > 600;
-  final allPhotos = [...capturedPhotos, ..._pendingPhotos];
+    return InkWell(
+      onTap: () async {
+        // Start multiple photo capture process instead of single photo
+        setState(() {
+          _isCapturingMultiple = true;
+          _pendingPhotos.clear();
+        });
 
-  if (isTablet) {
-    // Tablet view - Grid layout with smaller images
-    return Container(
-      height: 200, // Reduced height
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: GridView.builder(
-        padding: const EdgeInsets.all(4), // Reduced padding from 6 to 4
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4, // Increased count for smaller images
-          crossAxisSpacing: 2, // Reduced spacing from 4 to 2
-          mainAxisSpacing: 2, // Reduced spacing from 4 to 2
+        await _captureMultiplePhotos();
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        height: 140, // Reduced height from 200 to 160
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.grey.withOpacity(0.3),
+            style: BorderStyle.solid,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFFF9FAFB),
         ),
-        itemCount: allPhotos.length,
-        itemBuilder: (context, index) {
-          final isPending = index >= capturedPhotos.length;
-          return GestureDetector(
-            onTap: isPending ? null : () {
-              setState(() {
-                _previewPhotoIndex = index;
-              });
-            },
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6), // Slightly smaller border radius
-                  child: Container(
-                    color: Colors.grey[200],
-                    child: isPending
-                        ? const Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          )
-                        : Image.file(
-                            File(allPhotos[index].path),
-                            fit: BoxFit.cover,
-                          ),
-                  ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Modern camera icon with gradient background - made smaller
+            Container(
+              width: 36, // Reduced width from 45 to 36
+              height: 36, // Reduced height from 45 to 36
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                if (isPending)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
+                borderRadius: BorderRadius.circular(
+                  12,
+                ), // Reduced from 16 to 12
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withOpacity(0.3),
+                    blurRadius: 8, // Reduced blur radius from 10 to 8
+                    offset: const Offset(0, 2), // Reduced offset from 3 to 2
                   ),
-              ],
+                ],
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 20, // Reduced icon size from 28 to 20
+              ),
             ),
-          );
-        },
+            const SizedBox(height: 12), // Reduced height from 16 to 12
+            const Text(
+              'Tap to Capture Photos',
+              style: TextStyle(
+                fontSize: 14, // Reduced font size from 16 to 14
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2563EB),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Ready to capture photos',
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF9CA3AF),
+              ), // Reduced font size from 12 to 11
+            ),
+          ],
+        ),
       ),
     );
-  } else {
-    // Mobile view - Horizontal list with smaller images
-    return SizedBox(
-      height: 80, // Reduced height
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: allPhotos.length,
-        itemBuilder: (context, index) {
-          final isPending = index >= capturedPhotos.length;
-          return GestureDetector(
-            onTap: isPending ? null : () {
-              setState(() {
-                _previewPhotoIndex = index;
-              });
-            },
-            child: Container(
-              width: 80, // Reduced width
-              margin: const EdgeInsets.only(right: 2), // Reduced margin from 4 to 2
+  }
+
+  Widget _buildPhotoGrid() {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    final allPhotos = [...capturedPhotos, ..._pendingPhotos];
+
+    if (isTablet) {
+      // Tablet view - Grid layout with smaller images
+      return Container(
+        height: 200, // Reduced height
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: GridView.builder(
+          padding: const EdgeInsets.all(4), // Reduced padding from 6 to 4
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4, // Increased count for smaller images
+            crossAxisSpacing: 2, // Reduced spacing from 4 to 2
+            mainAxisSpacing: 2, // Reduced spacing from 4 to 2
+          ),
+          itemCount: allPhotos.length,
+          itemBuilder: (context, index) {
+            final isPending = index >= capturedPhotos.length;
+            return GestureDetector(
+              onTap: isPending
+                  ? null
+                  : () {
+                      setState(() {
+                        _previewPhotoIndex = index;
+                      });
+                    },
               child: Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(6), // Slightly smaller border radius
+                    borderRadius: BorderRadius.circular(
+                      6,
+                    ), // Slightly smaller border radius
                     child: Container(
                       color: Colors.grey[200],
                       child: isPending
                           ? const Center(
                               child: SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 24,
+                                height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: Color(0xFF2563EB),
@@ -3321,274 +3435,349 @@ Future<void> _processPendingPhoto(XFile photo) async {
                     ),
                 ],
               ),
-            ),
-          );
-        },
-      ),
-    );
+            );
+          },
+        ),
+      );
+    } else {
+      // Mobile view - Horizontal list with smaller images
+      return SizedBox(
+        height: 80, // Reduced height
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: allPhotos.length,
+          itemBuilder: (context, index) {
+            final isPending = index >= capturedPhotos.length;
+            return GestureDetector(
+              onTap: isPending
+                  ? null
+                  : () {
+                      setState(() {
+                        _previewPhotoIndex = index;
+                      });
+                    },
+              child: Container(
+                width: 80, // Reduced width
+                margin: const EdgeInsets.only(
+                  right: 2,
+                ), // Reduced margin from 4 to 2
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        6,
+                      ), // Slightly smaller border radius
+                      child: Container(
+                        color: Colors.grey[200],
+                        child: isPending
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF2563EB),
+                                  ),
+                                ),
+                              )
+                            : Image.file(
+                                File(allPhotos[index].path),
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                    ),
+                    if (isPending)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
   }
-}
-  
+
   // Update the _buildFullScreenPreview method to properly handle full screen
-Widget _buildFullScreenPreview() {
-  if (_previewPhotoIndex == null || capturedPhotos.isEmpty) {
-    return const SizedBox.shrink();
-  }
+  Widget _buildFullScreenPreview() {
+    if (_previewPhotoIndex == null || capturedPhotos.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-  return WillPopScope(
-    onWillPop: () async {
-      // When back button is pressed, just close the preview
-      setState(() {
-        _previewPhotoIndex = null;
-      });
-      return false; // Prevent default back navigation
-    },
-    child: Stack(
-      children: [
-        // Full screen black background
-        Positioned.fill(
-          child: Container(
-            color: Colors.black,
-          ),
-        ),
+    return WillPopScope(
+      onWillPop: () async {
+        // When back button is pressed, just close the preview
+        setState(() {
+          _previewPhotoIndex = null;
+        });
+        return false; // Prevent default back navigation
+      },
+      child: Stack(
+        children: [
+          // Full screen black background
+          Positioned.fill(child: Container(color: Colors.black)),
 
-        // Main photo preview - now covers entire screen
-        Positioned.fill(
-          top: 0, // Start from top of screen
-          bottom: 100, // Leave space for thumbnails at bottom
-          child: InteractiveViewer(
-            panEnabled: true,
-            minScale: 0.5,
-            maxScale: 3,
-            child: Center(
-              child: Image.file(
-                File(capturedPhotos[_previewPhotoIndex!].path),
-                fit: BoxFit.contain,
+          // Main photo preview - now covers entire screen
+          Positioned.fill(
+            top: 0, // Start from top of screen
+            bottom: 100, // Leave space for thumbnails at bottom
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 3,
+              child: Center(
+                child: Image.file(
+                  File(capturedPhotos[_previewPhotoIndex!].path),
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
           ),
-        ),
 
-        // Top bar with close button - positioned below status bar
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 16, // Account for status bar
-          left: 16,
-          right: 16,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Close button
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _previewPhotoIndex = null;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 24),
-                ),
-              ),
-
-              // Photo counter
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  '${_previewPhotoIndex! + 1} / ${capturedPhotos.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
-              ),
-
-              // Delete button
-              GestureDetector(
-                onTap: () {
-                  _showDeleteConfirmationDialog(_previewPhotoIndex!);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.delete,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Bottom thumbnails
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 100,
-          child: Container(
-            color: Colors.black.withOpacity(0.7),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-              itemCount: capturedPhotos.length,
-              itemBuilder: (context, index) {
-                final isSelected = index == _previewPhotoIndex;
-                return GestureDetector(
+          // Top bar with close button - positioned below status bar
+          Positioned(
+            top:
+                MediaQuery.of(context).padding.top +
+                16, // Account for status bar
+            left: 16,
+            right: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Close button
+                GestureDetector(
                   onTap: () {
                     setState(() {
-                      _previewPhotoIndex = index;
+                      _previewPhotoIndex = null;
                     });
                   },
                   child: Container(
-                    width: 70,
-                    height: 70,
-                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      border: Border.all(
-                        color: isSelected ? Colors.white : Colors.transparent,
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image.file(
-                        File(capturedPhotos[index].path),
-                        fit: BoxFit.cover,
-                      ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-// Add this new method to show delete confirmation dialog
-void _showDeleteConfirmationDialog(int index) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Delete Photo'),
-        content: const Text('Are you sure you want to delete this photo?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                capturedPhotos.removeAt(index);
-                if (_previewPhotoIndex! >= capturedPhotos.length) {
-                  _previewPhotoIndex = capturedPhotos.length - 1;
-                }
-                if (capturedPhotos.isEmpty) {
-                  _previewPhotoIndex = null;
-                }
-              });
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-  Widget _buildActionButtons() {
-  final isEditing = _editingDesignIndex != null;
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () async {
-              // Capture current form values
-              int choices =
-                  int.tryParse(_choicesController.text) ?? defaultChoices;
-              double meters =
-                  double.tryParse(defaultMetersController.text) ??
-                  defaultMeters;
-
-              // Add or update design
-              _addOrUpdateDesign(
-                choices: choices,
-                meters: meters,
-                designNo: _partyDesignController.text.isNotEmpty
-                    ? _partyDesignController.text
-                    : null,
-                mode: selectedMode,
-              );
-
-              // Save to Hive
-              await _saveCapturedDesignToHive();
-              // Also save summary values
-              await _saveSummaryValuesToHive();
-
-              // Only clear specific fields
-              _clearSelectedFields();
-            },
-            icon: const Icon(Icons.check),
-            label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isEditing
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OrderFormFinishPage(
-                    partyName: widget.partyName,
-                    totalDesigns: textileData['d'] ?? 0,
-                    totalChoices: textileData['ch'] ?? 0,
-                    totalMeters: textileData['mtr'] ?? 0,
                   ),
                 ),
-              );
-            },
-            child: const Text('Finish Order →'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF2563EB),
-              side: const BorderSide(color: Color(0xFF2563EB)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+
+                // Photo counter
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '${_previewPhotoIndex! + 1} / ${capturedPhotos.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                ),
+
+                // Delete button
+                GestureDetector(
+                  onTap: () {
+                    _showDeleteConfirmationDialog(_previewPhotoIndex!);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+
+          // Bottom thumbnails
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 100,
+            child: Container(
+              color: Colors.black.withOpacity(0.7),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 10,
+                ),
+                itemCount: capturedPhotos.length,
+                itemBuilder: (context, index) {
+                  final isSelected = index == _previewPhotoIndex;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _previewPhotoIndex = index;
+                      });
+                    },
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.file(
+                          File(capturedPhotos[index].path),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add this new method to show delete confirmation dialog
+  void _showDeleteConfirmationDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Photo'),
+          content: const Text('Are you sure you want to delete this photo?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  capturedPhotos.removeAt(index);
+                  if (_previewPhotoIndex! >= capturedPhotos.length) {
+                    _previewPhotoIndex = capturedPhotos.length - 1;
+                  }
+                  if (capturedPhotos.isEmpty) {
+                    _previewPhotoIndex = null;
+                  }
+                });
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildActionButtons() {
+    final isEditing = _editingDesignIndex != null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                // Capture current form values
+                int choices =
+                    int.tryParse(_choicesController.text) ?? defaultChoices;
+                double meters =
+                    double.tryParse(defaultMetersController.text) ??
+                    defaultMeters;
+
+                // Add or update design
+                _addOrUpdateDesign(
+                  choices: choices,
+                  meters: meters,
+                  designNo: _partyDesignController.text.isNotEmpty
+                      ? _partyDesignController.text
+                      : null,
+                  mode: selectedMode,
+                );
+
+                // Save to Hive
+                await _saveCapturedDesignToHive();
+                // Also save summary values
+                await _saveSummaryValuesToHive();
+
+                // Only clear specific fields
+                _clearSelectedFields();
+              },
+              icon: const Icon(Icons.check),
+              label: Text(isEditing ? 'Update & Continue' : 'Save & Continue'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isEditing
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: isEditing
+                  ? () {
+                      // Cancel editing: restore previous form state
+                      _clearEditingState();
+                    }
+                  : () {
+                      // Navigate to finish order
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OrderFormFinishPage(
+                            partyName: widget.partyName,
+                            totalDesigns: textileData['d'] ?? 0,
+                            totalChoices: textileData['ch'] ?? 0,
+                            totalMeters: textileData['mtr'] ?? 0,
+                          ),
+                        ),
+                      );
+                    },
+              child: Text(isEditing ? 'Cancel' : 'Finish Order →'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF2563EB),
+                side: const BorderSide(color: Color(0xFF2563EB)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCapturedDesignsSection() {
   // Determine which filter options to show based on currentFilterType
   List<String> filterOptions = [];
@@ -3599,12 +3788,15 @@ void _showDeleteConfirmationDialog(int index) {
   }
 
   // Filter designs based on selected tab and filter type
-  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((design) {
+  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
+    design,
+  ) {
     if (currentFilterType == FilterType.mode) {
       if (selectedFilter == 'All') return true;
       if (selectedFilter == 'Design') return design['mode'] == 'Design';
       if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
-    } else { // FilterType.ofType
+    } else {
+      // FilterType.ofType
       if (selectedFilter == 'All') return true;
       return design['ofType'] == selectedFilter;
     }
@@ -3616,9 +3808,14 @@ void _showDeleteConfirmationDialog(int index) {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header with close button
+        // Header with close button - ADD TOP PADDING HERE
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(
+            left: 12, 
+            right: 12, 
+            top: 30, // Add top padding to move header down
+            bottom: 12, // Keep bottom padding
+          ), 
           decoration: BoxDecoration(color: primaryColor),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3626,7 +3823,7 @@ void _showDeleteConfirmationDialog(int index) {
               Text(
                 'All Captured Designs:', // Show the current O/F Type
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14, // Reduced font size
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
@@ -3641,34 +3838,36 @@ void _showDeleteConfirmationDialog(int index) {
           ),
         ),
 
+        // Rest of the widget remains the same
         // Filter type selector (Mode or O/F Type)
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12), // Reduced padding
           child: Row(
             children: [
               Text(
                 'Filter by:',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12, // Reduced font size
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[700],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8), // Reduced spacing
               // Mode filter button
               GestureDetector(
                 onTap: () {
                   setState(() {
                     currentFilterType = FilterType.mode;
-                    selectedFilter = 'All'; // Reset to All when switching filter types
+                    selectedFilter =
+                        'All'; // Reset to All when switching filter types
                   });
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 8, // Reduced padding
+                    vertical: 4, // Reduced padding
                   ),
-                  margin: const EdgeInsets.only(right: 8),
+                  margin: const EdgeInsets.only(right: 6), // Reduced margin
                   decoration: BoxDecoration(
                     color: currentFilterType == FilterType.mode
                         ? const Color(0xFF2563EB)
@@ -3683,7 +3882,7 @@ void _showDeleteConfirmationDialog(int index) {
                   child: Text(
                     'Mode',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12, // Reduced font size
                       color: currentFilterType == FilterType.mode
                           ? Colors.white
                           : const Color(0xFF1F2937),
@@ -3697,13 +3896,14 @@ void _showDeleteConfirmationDialog(int index) {
                 onTap: () {
                   setState(() {
                     currentFilterType = FilterType.ofType;
-                    selectedFilter = 'All'; // Reset to All when switching filter types
+                    selectedFilter =
+                        'All'; // Reset to All when switching filter types
                   });
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 8, // Reduced padding
+                    vertical: 4, // Reduced padding
                   ),
                   decoration: BoxDecoration(
                     color: currentFilterType == FilterType.ofType
@@ -3719,7 +3919,7 @@ void _showDeleteConfirmationDialog(int index) {
                   child: Text(
                     'O/F Type',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12, // Reduced font size
                       color: currentFilterType == FilterType.ofType
                           ? Colors.white
                           : const Color(0xFF1F2937),
@@ -3734,7 +3934,7 @@ void _showDeleteConfirmationDialog(int index) {
 
         // Filter tabs
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12), // Reduced padding
           child: Wrap(
             children: filterOptions.map((filter) {
               bool isSelected = selectedFilter == filter;
@@ -3746,10 +3946,13 @@ void _showDeleteConfirmationDialog(int index) {
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 8, // Reduced padding
+                    vertical: 4, // Reduced padding
                   ),
-                  margin: const EdgeInsets.only(left: 8, bottom: 8),
+                  margin: const EdgeInsets.only(
+                    left: 6,
+                    bottom: 6,
+                  ), // Reduced margin
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFFFEE2E2)
@@ -3764,7 +3967,7 @@ void _showDeleteConfirmationDialog(int index) {
                   child: Text(
                     filter,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12, // Reduced font size
                       color: isSelected
                           ? const Color(0xFFEF4444)
                           : const Color(0xFF1F2937),
@@ -3781,11 +3984,11 @@ void _showDeleteConfirmationDialog(int index) {
         if (filteredDesigns.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(32),
-            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16), // Reduced padding
+            margin: const EdgeInsets.all(12), // Reduced margin
             decoration: BoxDecoration(
               color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6), // Reduced border radius
               border: Border.all(color: Colors.grey.withOpacity(0.2)),
             ),
             child: Text(
@@ -3793,124 +3996,154 @@ void _showDeleteConfirmationDialog(int index) {
                   ? 'No ${selectedFilter.toLowerCase()} designs captured yet. Start capturing photos!'
                   : 'No ${selectedFilter} designs captured yet. Start capturing photos!',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9CA3AF),
+              ), // Reduced font size
             ),
           )
         else
-          // MODIFIED PART: Use LayoutBuilder to make table full width
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: constraints.maxWidth, // Take full available width
+          // Card view for designs
+          Expanded(
+            child: ListView.builder(
+              // Updated padding with more space on the right
+              padding: const EdgeInsets.only(
+                left: 15.0, // Keep left padding
+                top: 20.0, // Keep top padding
+                bottom: 20.0, // Keep bottom padding
+                right: 40.0, // Reduced right padding to match left
+              ),
+              itemCount: filteredDesigns.length,
+              itemBuilder: (context, index) {
+                final design = filteredDesigns[index];
+                final originalIndex = capturedDesigns.indexOf(design);
+                final isEditing =
+                    _editingDesignIndex != null &&
+                    originalIndex == _editingDesignIndex;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8), // Reduced margin
+                  elevation: 1, // Reduced elevation
+                  // Updated card color to match the theme in the image
+                  color: const Color.fromARGB(
+                    255,
+                    238,
+                    245,
+                    251,
+                  ), // Light blue background
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      6,
+                    ), // Reduced border radius
+                    side: BorderSide(
+                      color: isEditing
+                          ? const Color(0xFF2563EB)
+                          : Colors.grey.withOpacity(0.3),
+                      width: isEditing ? 1.5 : 1, // Reduced border width
                     ),
-                    child: DataTable(
-                      columnSpacing: 24, // Increase spacing between columns
-                      horizontalMargin: 12, // Add horizontal margin
-                      columns: [
-                        const DataColumn(
-                          label: Text(
-                            'S.No',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const DataColumn(
-                          label: Text(
-                            'Design No',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const DataColumn(
-                          label: Text(
-                            'Choices',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const DataColumn(
-                          label: Text(
-                            'Meters',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        if (currentFilterType == FilterType.mode) // Only show O/F Type column when filtering by mode
-                          const DataColumn(
-                            label: Text(
-                              'O/F Type',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                      ],
-                      rows: filteredDesigns.asMap().entries.map((entry) {
-                        final display = entry.value;
-                        final originalIndex = capturedDesigns.indexOf(display);
-                        return DataRow(
-                          color: MaterialStateProperty.resolveWith<Color?>(
-                            (Set<MaterialState> states) {
-                              // Highlight the row that is being edited
-                              if (_editingDesignIndex != null &&
-                                  originalIndex == _editingDesignIndex) {
-                                return const Color(0xFFE3F2FD);
-                              }
-                              return null;
-                            },
-                          ),
-                          onSelectChanged: (selected) {
-                            if (selected ?? false) {
-                              Navigator.of(context).pop(); // Close the drawer first
-                              _selectDesignForEditing(display, originalIndex);
-                            }
-                          },
-                          cells: [
-                            DataCell(
-                              Text(
-                                (display['sNo'] ?? (originalIndex + 1))
-                                    .toString(),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                display['designNo']?.toString() ?? '-',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                display['choices']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                (display['meters'] is num)
-                                    ? (display['meters'] as num)
-                                          .toDouble()
-                                          .toStringAsFixed(0)
-                                    : display['meters']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            if (currentFilterType == FilterType.mode) // Only show O/F Type cell when filtering by mode
-                              DataCell(
-                                Text(
-                                  display['ofType']?.toString() ?? '',
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.of(context).pop(); // Close the drawer first
+                      _selectDesignForEditing(design, originalIndex);
+                    },
+                    borderRadius: BorderRadius.circular(
+                      6,
+                    ), // Reduced border radius
+                    child: Padding(
+                      padding: const EdgeInsets.all(8), // Reduced padding
+                      child: Column(
+                        children: [
+                          // First row: Design Number (left) and Choices (right)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Design Number on the left
+                              Tooltip(
+                                message: 'Design Number',
+                                child: Text(
+                                  design['designNo']?.toString() ?? '-',
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12, // Reduced font size
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(
+                                      0xFF1F2937,
+                                    ), // Dark text for better contrast
                                   ),
                                 ),
                               ),
+                              // Choices on the right
+                              Tooltip(
+                                message: 'Choices',
+                                child: Text(
+                                  design['choices']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 12, // Reduced font size
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(
+                                      0xFF1F2937,
+                                    ), // Dark text for better contrast
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 6), // Reduced spacing
+                          // Second row: Meters on the right
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Tooltip(
+                                message: 'Meters',
+                                child: Text(
+                                  (design['meters'] is num)
+                                      ? (design['meters'] as num)
+                                            .toDouble()
+                                            .toStringAsFixed(0)
+                                      : design['meters']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 12, // Reduced font size
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(
+                                      0xFF1F2937,
+                                    ), // Dark text for better contrast
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Show editing indicator if needed
+                          if (isEditing) ...[
+                            const SizedBox(height: 6), // Reduced spacing
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6, // Reduced padding
+                                vertical: 2, // Reduced padding
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFFDBEAFE,
+                                ), // Light blue background for editing indicator
+                                borderRadius: BorderRadius.circular(
+                                  3,
+                                ), // Reduced border radius
+                              ),
+                              child: const Text(
+                                'Currently Editing',
+                                style: TextStyle(
+                                  fontSize: 10, // Reduced font size
+                                  color: Color(
+                                    0xFF1E40AF,
+                                  ), // Dark blue text for editing indicator
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ],
-                        );
-                      }).toList(),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -3922,100 +4155,104 @@ void _showDeleteConfirmationDialog(int index) {
   );
 }
   Future<void> _saveCapturedDesignToHive() async {
-  try {
-    if (!Hive.isBoxOpen('designs')) {
-      await Hive.openBox('designs');
-    }
-
-    final box = Hive.box('designs');
-    final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
-
-    // Get existing designs for this textile type
-    List<Map<String, dynamic>> existingDesigns = [];
-    if (box.containsKey(designsKey)) {
-      final savedDesigns = box.get(designsKey);
-      if (savedDesigns is List) {
-        existingDesigns = List<Map<String, dynamic>>.from(
-          savedDesigns.map((d) => Map<String, dynamic>.from(d as Map))
-        );
-      }
-    }
-
-    // Merge new designs with existing ones
-    List<Map<String, dynamic>> mergedDesigns = [...existingDesigns];
-    
-    // Add new designs or update existing ones
-    for (var newDesign in capturedDesigns) {
-      final designNo = newDesign['designNo']?.toString();
-      final ref = newDesign['ref']?.toString();
-      
-      // Check if design already exists
-      final existingIndex = mergedDesigns.indexWhere((d) => 
-        (designNo != null && designNo != '-' && d['designNo'] == designNo) ||
-        (ref != null && ref != '-' && d['ref'] == ref)
-      );
-      
-      if (existingIndex >= 0) {
-        // Update existing design
-        mergedDesigns[existingIndex] = newDesign;
-      } else {
-        // Add new design
-        mergedDesigns.add(newDesign);
-      }
-    }
-
-    // Save merged designs
-    await box.put(designsKey, mergedDesigns);
-    await box.flush();
-
-    print('Captured designs saved to Hive with key: $designsKey');
-    print('Designs: $mergedDesigns');
-
-    // Update orders count in the orders box for this party
     try {
-      if (!Hive.isBoxOpen('orders')) {
-        await Hive.openBox('orders');
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
       }
-      final ordersBox = Hive.box('orders');
 
-      // Calculate total designs across all textile types for this party
-      int totalDesignsForParty = 0;
-      for (var key in box.keys) {
-        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-          final list = box.get(key);
-          if (list is List) totalDesignsForParty += list.length;
+      final box = Hive.box('designs');
+      final designsKey = 'designs_${widget.partyName}_${widget.textileType}';
+
+      // Get existing designs for this textile type
+      List<Map<String, dynamic>> existingDesigns = [];
+      if (box.containsKey(designsKey)) {
+        final savedDesigns = box.get(designsKey);
+        if (savedDesigns is List) {
+          existingDesigns = List<Map<String, dynamic>>.from(
+            savedDesigns.map((d) => Map<String, dynamic>.from(d as Map)),
+          );
         }
       }
 
-      final orderEntry = {
-        'party': widget.partyName,
-        'orders': totalDesignsForParty,
-        'date': DateTime.now().toIso8601String(),
-        'status': 'pending',
-      };
+      // Merge new designs with existing ones
+      List<Map<String, dynamic>> mergedDesigns = [...existingDesigns];
 
-      await ordersBox.put(widget.partyName, orderEntry);
-      await ordersBox.flush();
+      // Add new designs or update existing ones
+      for (var newDesign in capturedDesigns) {
+        final designNo = newDesign['designNo']?.toString();
+        final ref = newDesign['ref']?.toString();
 
-      // notify listeners so purchase_list_page reloads
+        // Check if design already exists
+        final existingIndex = mergedDesigns.indexWhere(
+          (d) =>
+              (designNo != null &&
+                  designNo != '-' &&
+                  d['designNo'] == designNo) ||
+              (ref != null && ref != '-' && d['ref'] == ref),
+        );
+
+        if (existingIndex >= 0) {
+          // Update existing design
+          mergedDesigns[existingIndex] = newDesign;
+        } else {
+          // Add new design
+          mergedDesigns.add(newDesign);
+        }
+      }
+
+      // Save merged designs
+      await box.put(designsKey, mergedDesigns);
+      await box.flush();
+
+      print('Captured designs saved to Hive with key: $designsKey');
+      print('Designs: $mergedDesigns');
+
+      // Update orders count in the orders box for this party
       try {
-        OrderService().notifyOrderUpdated();
+        if (!Hive.isBoxOpen('orders')) {
+          await Hive.openBox('orders');
+        }
+        final ordersBox = Hive.box('orders');
+
+        // Calculate total designs across all textile types for this party
+        int totalDesignsForParty = 0;
+        for (var key in box.keys) {
+          if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+            final list = box.get(key);
+            if (list is List) totalDesignsForParty += list.length;
+          }
+        }
+
+        final orderEntry = {
+          'party': widget.partyName,
+          'orders': totalDesignsForParty,
+          'date': DateTime.now().toIso8601String(),
+          'status': 'pending',
+        };
+
+        await ordersBox.put(widget.partyName, orderEntry);
+        await ordersBox.flush();
+
+        // notify listeners so purchase_list_page reloads
+        try {
+          OrderService().notifyOrderUpdated();
+        } catch (e) {
+          print('OrderService notify error: $e');
+        }
       } catch (e) {
-        print('OrderService notify error: $e');
+        print('Error updating orders box: $e');
       }
     } catch (e) {
-      print('Error updating orders box: $e');
+      print('Error saving captured designs: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving designs: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-  } catch (e) {
-    print('Error saving captured designs: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error saving designs: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
+
   // Method to calculate summary values from captured designs
   Map<String, dynamic> _calculateSummaryValues() {
     // Count each saved row as one design so the summary shows raw saved items
