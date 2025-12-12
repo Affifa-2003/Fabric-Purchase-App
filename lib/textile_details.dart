@@ -1062,12 +1062,13 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
                     });
                   }
                 },
-                icon: const Icon(Icons.edit, size: 20),
+                icon: const Icon(Icons.edit, size: 16),
                 style: IconButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.all(8),
-                  minimumSize: const Size(36, 36),
+                  padding: const EdgeInsets.all(4),
+                  minimumSize: const Size(28, 28),
+                  shape: const CircleBorder(),
                 ),
               ),
             ],
