@@ -6,6 +6,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'order_form_finish_page.dart';
 import 'new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
@@ -210,6 +212,190 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     }
   }
 
+  Future<String> _saveImageToDevice(XFile image) async {
+  try {
+    // Get the Download directory path
+    Directory? downloadDirectory;
+    
+    // Try to get the Download directory
+    try {
+      // For Android 10 and above
+      downloadDirectory = Directory('/storage/emulated/0/Download');
+      
+      // If the directory doesn't exist, try alternative paths
+      if (!await downloadDirectory.exists()) {
+        downloadDirectory = await getExternalStorageDirectory();
+        if (downloadDirectory != null) {
+          downloadDirectory = Directory('${downloadDirectory.path}/Download');
+        }
+      }
+      
+      // Create the directory if it doesn't exist
+      if (downloadDirectory != null && !await downloadDirectory.exists()) {
+        await downloadDirectory.create(recursive: true);
+      }
+      
+      if (downloadDirectory != null) {
+        // Generate a unique filename using timestamp and app identifier
+        final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        final String fileName = 'PurchaseApp_$timestamp.jpg';
+        final String filePath = path.join(downloadDirectory.path, fileName);
+        
+        // Save the image file
+        await image.saveTo(filePath);
+        
+        print("Image saved to Download directory: $filePath");
+        return filePath;
+      }
+    } catch (e) {
+      print("Error accessing Download directory: $e");
+    }
+    
+    // Fallback to app documents directory if Download directory is not accessible
+    final appDirectory = await getApplicationDocumentsDirectory();
+    final fallbackDir = Directory('${appDirectory.path}/ManishTextiles');
+    if (!await fallbackDir.exists()) {
+      await fallbackDir.create(recursive: true);
+    }
+    
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final String fileName = 'PurchaseApp_$timestamp.jpg';
+    final String filePath = path.join(fallbackDir.path, fileName);
+    
+    // Save the image file
+    await image.saveTo(filePath);
+    
+    print("Image saved to app directory: $filePath");
+    return filePath;
+  } catch (e) {
+    print('Error saving image to device: $e');
+    rethrow;
+  }
+}
+
+// Add this function to check saved images
+Future<void> _checkSavedImages() async {
+  try {
+    Directory? directory;
+    String location = "";
+    
+    // Try Download directory first
+    try {
+      directory = Directory('/storage/emulated/0/Download');
+      if (await directory.exists()) {
+        // Look for files with our app prefix
+        final List<FileSystemEntity> allFiles = await directory.list().toList();
+        final List<FileSystemEntity> appFiles = allFiles
+            .where((file) => path.basename(file.path).startsWith('PurchaseApp_'))
+            .toList();
+        
+        if (appFiles.isNotEmpty) {
+          location = "Download Directory";
+          _showImageListDialog(appFiles, location);
+          return;
+        }
+      }
+    } catch (e) {
+      print("Error checking Download directory: $e");
+    }
+    
+    // Try alternative Download directory paths
+    try {
+      final externalDir = await getExternalStorageDirectory();
+      if (externalDir != null) {
+        directory = Directory('${externalDir.path}/Download');
+        if (await directory.exists()) {
+          // Look for files with our app prefix
+          final List<FileSystemEntity> allFiles = await directory.list().toList();
+          final List<FileSystemEntity> appFiles = allFiles
+              .where((file) => path.basename(file.path).startsWith('PurchaseApp_'))
+              .toList();
+          
+          if (appFiles.isNotEmpty) {
+            location = "Download Directory";
+            _showImageListDialog(appFiles, location);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      print("Error checking alternative Download directory: $e");
+    }
+    
+    // Fallback to app documents directory
+    directory = await getApplicationDocumentsDirectory();
+    final appDir = Directory('${directory.path}/ManishTextiles');
+    
+    if (await appDir.exists()) {
+      final List<FileSystemEntity> files = await appDir.list().toList();
+      location = "App Documents";
+      _showImageListDialog(files, location);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No saved images found')),
+      );
+    }
+  } catch (e) {
+    print('Error checking saved images: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: $e')),
+    );
+  }
+}
+  // Add this function to display the list of saved images
+  void _showImageListDialog(List<FileSystemEntity> files, String location) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Saved Images in $location'),
+        content: Container(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: files.length,
+            itemBuilder: (context, index) {
+              final file = files[index];
+              return ListTile(
+                title: Text(path.basename(file.path)),
+                subtitle: Text(file.path),
+                trailing: IconButton(
+                  icon: Icon(Icons.visibility),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _viewImage(file.path);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Add this function to view a single image
+  void _viewImage(String imagePath) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text('Image Preview'),
+          ),
+          body: Center(
+            child: Image.file(File(imagePath)),
+          ),
+        ),
+      ),
+    );
+  }
+  
   // Updated method to load data from both JSON and Hive
   Future<void> _loadDataFromSources() async {
     try {
@@ -551,161 +737,234 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     );
   }
 
-  Future<void> _loadCapturedDesigns() async {
-    try {
-      if (!Hive.isBoxOpen('designs')) {
-        await Hive.openBox('designs');
-      }
-
-      final box = Hive.box('designs');
-      List<Map<String, dynamic>> allDesigns = [];
-
-      // Load all designs for all textile types of this party
-      for (var key in box.keys) {
-        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-          final designs = box.get(key);
-          if (designs is List) {
-            allDesigns.addAll(
-              designs.map((d) => Map<String, dynamic>.from(d as Map)),
-            );
-          }
-        }
-      }
-
-      // Filter designs by the current textileType (O/F Type)
-      List<Map<String, dynamic>> filteredDesigns = allDesigns
-          .where((design) => design['ofType'] == widget.textileType)
-          .toList();
-
-      // Reset S.No to start from 1 for each textile type
-      for (int i = 0; i < filteredDesigns.length; i++) {
-        filteredDesigns[i]['sNo'] = i + 1;
-      }
-
-      setState(() {
-        capturedDesigns = filteredDesigns;
-      });
-
-      // Update summary values based on filtered designs
-      _updateSummaryValues();
-
-      // If an initial design was provided, select it for editing
-      if (widget.initialDesign != null) {
-        try {
-          final init = widget.initialDesign!;
-          // Find matching design by ref or designNo
-          int foundIndex = -1;
-          for (int i = 0; i < capturedDesigns.length; i++) {
-            final d = capturedDesigns[i];
-            if ((init['ref'] != null && d['ref'] == init['ref']) ||
-                (init['designNo'] != null &&
-                    d['designNo'] == init['designNo'])) {
-              foundIndex = i;
-              break;
-            }
-          }
-          if (foundIndex != -1) {
-            _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
-          }
-        } catch (e) {
-          print('Error applying initial design: $e');
-        }
-      }
-    } catch (e) {
-      print('Error loading designs: $e');
-    }
-  }
-
-  void _addOrUpdateDesign({
-    required int? choices,
-    required double? meters,
-    required String? designNo,
-    required String mode,
-  }) async {
-    // Get the meters value from the defaultMetersController if not provided
-    final metersValue =
-        meters ?? double.tryParse(defaultMetersController.text) ?? 100;
-    if (choices == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select Choices'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+   Future<void> _loadCapturedDesigns() async {
+  try {
+    if (!Hive.isBoxOpen('designs')) {
+      await Hive.openBox('designs');
     }
 
-    // Generate the next reference number for the selected O/F type
-    int typeCount = capturedDesigns.length + 1; // Use current length + 1
-    String refPrefix = selectedOFType.toUpperCase().substring(0, 3);
-    String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
+    final box = Hive.box('designs');
+    List<Map<String, dynamic>> allDesigns = [];
 
-    // Convert captured photos to base64 strings for storage
-    List<String> photoBase64List = [];
-    for (XFile photo in capturedPhotos) {
-      String base64 = await _xFileToBase64(photo);
-      photoBase64List.add(base64);
+    // Load all designs for all textile types of this party
+    for (var key in box.keys) {
+      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+        final designs = box.get(key);
+        if (designs is List) {
+          allDesigns.addAll(
+            designs.map((d) => Map<String, dynamic>.from(d as Map)),
+          );
+        }
+      }
+    }
+
+    // Filter designs by the current textileType (O/F Type)
+    List<Map<String, dynamic>> filteredDesigns = allDesigns
+        .where((design) => design['ofType'] == widget.textileType)
+        .toList();
+
+    // Reset S.No to start from 1 for each textile type
+    for (int i = 0; i < filteredDesigns.length; i++) {
+      filteredDesigns[i]['sNo'] = i + 1;
+      
+      // Ensure weave and quality fields exist
+      if (filteredDesigns[i]['weave'] == null) {
+        filteredDesigns[i]['weave'] = '';
+        print('Added missing weave field to design ${filteredDesigns[i]['sNo']}');
+      }
+      
+      if (filteredDesigns[i]['quality'] == null) {
+        filteredDesigns[i]['quality'] = '';
+        print('Added missing quality field to design ${filteredDesigns[i]['sNo']}');
+      }
+      
+      // Handle migration from Base64 to file paths if needed
+      if (filteredDesigns[i]['photos'] != null && filteredDesigns[i]['photoPaths'] == null) {
+        List<String> photoPaths = [];
+        List<String> photoBase64List = List<String>.from(filteredDesigns[i]['photos']);
+        
+        for (String base64 in photoBase64List) {
+          try {
+            // Convert Base64 to XFile
+            XFile photo = await _base64ToXFile(base64);
+            // Save to device storage
+            String filePath = await _saveImageToDevice(photo);
+            photoPaths.add(filePath);
+          } catch (e) {
+            print('Error migrating photo from Base64: $e');
+          }
+        }
+        
+        // Update the design with file paths and remove Base64
+        filteredDesigns[i]['photoPaths'] = photoPaths;
+        filteredDesigns[i].remove('photos');
+        
+        // Save the updated design back to Hive
+        await _saveCapturedDesignToHive();
+      }
     }
 
     setState(() {
-      if (_editingDesignIndex != null) {
-        // Update existing design with all fields, but keep the original S.No
-        capturedDesigns[_editingDesignIndex!] = {
-          'sNo':
-              capturedDesigns[_editingDesignIndex!]['sNo'], // Keep original S.No
-          'designNo': designNo ?? '-',
-          'choices': choices,
-          'meters': metersValue,
-          'mode': mode,
-          'timestamp': DateTime.now().toIso8601String(),
-          'ofType': selectedOFType,
-          'weave': selectedWeave,
-          'quality': selectedQuality,
-          'width': selectedWidth,
-          'ref': ref,
-          'photos': photoBase64List,
-        };
-        _editingDesignIndex = null;
-        _savedFormState = null; // Clear the saved state
-      } else {
-        // Add new design with all fields and set S.No to current length + 1
-        capturedDesigns.add({
-          'sNo': capturedDesigns.length + 1, // Set S.No to current length + 1
-          'designNo': designNo ?? '-',
-          'choices': choices,
-          'meters': metersValue,
-          'mode': mode,
-          'timestamp': DateTime.now().toIso8601String(),
-          'ofType': selectedOFType,
-          'weave': selectedWeave,
-          'quality': selectedQuality,
-          'width': selectedWidth,
-          'ref': ref,
-          'photos': photoBase64List,
-        });
-      }
+      capturedDesigns = filteredDesigns;
     });
 
+    // Update summary values based on filtered designs
     _updateSummaryValues();
-    // Only clear party design number, quality, and weave
-    _clearSelectedFields();
 
-    // Clear captured photos after saving
-    setState(() {
-      capturedPhotos = [];
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _editingDesignIndex != null
-              ? 'Design updated successfully'
-              : 'Design added successfully',
-        ),
+    // If an initial design was provided, select it for editing
+    if (widget.initialDesign != null) {
+      try {
+        final init = widget.initialDesign!;
+        // Find matching design by ref or designNo
+        int foundIndex = -1;
+        for (int i = 0; i < capturedDesigns.length; i++) {
+          final d = capturedDesigns[i];
+          if ((init['ref'] != null && d['ref'] == init['ref']) ||
+              (init['designNo'] != null &&
+                  d['designNo'] == init['designNo'])) {
+            foundIndex = i;
+            break;
+          }
+        }
+        if (foundIndex != -1) {
+          _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
+        }
+      } catch (e) {
+        print('Error applying initial design: $e');
+      }
+    }
+  } catch (e) {
+    print('Error loading designs: $e');
+  }
+}
+    Widget _buildCheckImagesButton() {
+    return ElevatedButton.icon(
+      onPressed: _checkSavedImages,
+      icon: Icon(Icons.image),
+      label: Text('Check Saved Images'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
     );
   }
 
+
+   void _addOrUpdateDesign({
+  required int? choices,
+  required double? meters,
+  required String? designNo,
+  required String mode,
+}) async {
+  // Get the meters value from the defaultMetersController if not provided
+  final metersValue =
+      meters ?? double.tryParse(defaultMetersController.text) ?? 100;
+      
+  // Validate required fields
+  if (choices == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please select Choices'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+  
+  // Ensure weave and quality are selected - Fixed null safety
+  if (selectedWeave == null || selectedWeave!.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please select Weave Type'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+  
+  if (selectedQuality == null || selectedQuality!.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please select Quality'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  // Generate the next reference number for the selected O/F type
+  int typeCount = capturedDesigns.length + 1; // Use current length + 1
+  String refPrefix = selectedOFType.toUpperCase().substring(0, 3);
+  String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
+
+  // Save captured photos to device storage and get file paths
+  List<String> photoPaths = [];
+  for (XFile photo in capturedPhotos) {
+    String filePath = await _saveImageToDevice(photo);
+    photoPaths.add(filePath);
+  }
+
+  setState(() {
+    if (_editingDesignIndex != null) {
+      // Update existing design with all fields, but keep the original S.No
+      capturedDesigns[_editingDesignIndex!] = {
+        'sNo':
+            capturedDesigns[_editingDesignIndex!]['sNo'], // Keep original S.No
+        'designNo': designNo ?? '-',
+        'choices': choices,
+        'meters': metersValue,
+        'mode': mode,
+        'timestamp': DateTime.now().toIso8601String(),
+        'ofType': selectedOFType,
+        'weave': selectedWeave, // Ensure weave is saved
+        'quality': selectedQuality, // Ensure quality is saved
+        'width': selectedWidth,
+        'ref': ref,
+        'photoPaths': photoPaths, // Store file paths instead of Base64
+      };
+      _editingDesignIndex = null;
+      _savedFormState = null; // Clear the saved state
+    } else {
+      // Add new design with all fields and set S.No to current length + 1
+      capturedDesigns.add({
+        'sNo': capturedDesigns.length + 1, // Set S.No to current length + 1
+        'designNo': designNo ?? '-',
+        'choices': choices,
+        'meters': metersValue,
+        'mode': mode,
+        'timestamp': DateTime.now().toIso8601String(),
+        'ofType': selectedOFType,
+        'weave': selectedWeave, // Ensure weave is saved
+        'quality': selectedQuality, // Ensure quality is saved
+        'width': selectedWidth,
+        'ref': ref,
+        'photoPaths': photoPaths, // Store file paths instead of Base64
+      });
+    }
+  });
+
+  _updateSummaryValues();
+  // Only clear party design number, quality, and weave
+  _clearSelectedFields();
+
+  // Clear captured photos after saving
+  setState(() {
+    capturedPhotos = [];
+  });
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        _editingDesignIndex != null
+            ? 'Design updated successfully'
+            : 'Design added successfully',
+      ),
+    ),
+  );
+}
+  
+  
+  
   // Update the _clearSelectedFields method to clear only party design number, quality, and weave
   void _clearSelectedFields() {
     setState(() {
@@ -718,62 +977,132 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   void _selectDesignForEditing(Map<String, dynamic> design, int index) async {
-    // Save current form state before editing
-    _savedFormState = {
-      'partyDesignNo': partyDesignNo,
-      'selectedMode': selectedMode,
-      'selectedQuality': selectedQuality,
-      'selectedWeave': selectedWeave,
-      'selectedOFType': selectedOFType,
-      'selectedWidth': selectedWidth,
-      'defaultChoices': defaultChoices,
-      'defaultMeters': defaultMeters,
-      'capturedPhotos': capturedPhotos,
-    };
+  // Add debug prints
+  print('Loading design for editing: $design');
+  print('Weave from design: ${design['weave']}');
+  print('Quality from design: ${design['quality']}');
+  
+  // Save current form state before editing
+  _savedFormState = {
+    'partyDesignNo': partyDesignNo,
+    'selectedMode': selectedMode,
+    'selectedQuality': selectedQuality,
+    'selectedWeave': selectedWeave,
+    'selectedOFType': selectedOFType,
+    'selectedWidth': selectedWidth,
+    'defaultChoices': defaultChoices,
+    'defaultMeters': defaultMeters,
+    'capturedPhotos': capturedPhotos,
+  };
 
-    setState(() {
-      _editingDesignIndex = index;
-
-      // Populate all form fields with the selected design's data
-      partyDesignNo = design['designNo'].toString() != '-'
-          ? design['designNo'].toString()
-          : null;
-      _partyDesignController.text = design['designNo'].toString() != '-'
-          ? design['designNo'].toString()
-          : '';
-      selectedMode = design['mode'].toString();
-
-      // Update controllers with proper values
-      _choicesController.text = design['choices'].toString();
-      defaultMetersController.text = design['meters'].toStringAsFixed(0);
-
-      // Update defaultMeters to match the design
-      defaultMeters = design['meters'] as double;
-
-      // Now populate all the additional fields from the design data
-      selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
-      selectedWeave = design['weave']?.toString();
-      selectedQuality = design['quality']?.toString();
-      selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
-
-      // Update default values if needed
-      defaultChoices = design['choices'] as int;
-    });
-
-    // Load photos if available
-    if (design['photos'] != null && design['photos'] is List) {
-      List<String> photoBase64List = List<String>.from(design['photos']);
-      List<XFile> photos = [];
-      for (String base64 in photoBase64List) {
-        XFile photo = await _base64ToXFile(base64);
-        photos.add(photo);
+  // Load photos if available
+  List<XFile> photos = [];
+  if (design['photoPaths'] != null && design['photoPaths'] is List) {
+    List<String> photoPaths = List<String>.from(design['photoPaths']);
+    for (String filePath in photoPaths) {
+      try {
+        // Check if the file exists before creating XFile
+        final file = File(filePath);
+        if (await file.exists()) {
+          photos.add(XFile(filePath));
+        } else {
+          print('File not found: $filePath');
+        }
+      } catch (e) {
+        print('Error loading photo from path: $e');
       }
-      setState(() {
-        capturedPhotos = photos;
-      });
     }
+  } else if (design['photos'] != null && design['photos'] is List) {
+    // Handle legacy Base64 format for backward compatibility
+    List<String> photoBase64List = List<String>.from(design['photos']);
+    for (String base64 in photoBase64List) {
+      try {
+        XFile photo = await _base64ToXFile(base64);
+        // Save to device storage and update the design
+        String filePath = await _saveImageToDevice(photo);
+        photos.add(XFile(filePath));
+        
+        // Update the design to use file paths instead of Base64
+        if (design['photoPaths'] == null) {
+          design['photoPaths'] = [];
+        }
+        design['photoPaths'].add(filePath);
+      } catch (e) {
+        print('Error converting Base64 to file: $e');
+      }
+    }
+    
+    // Remove Base64 data and save updated design
+    design.remove('photos');
+    await _saveCapturedDesignToHive();
   }
 
+  // Now update the state with all the values in a single setState call
+  setState(() {
+    _editingDesignIndex = index;
+
+    // Populate all form fields with the selected design's data
+    partyDesignNo = design['designNo'].toString() != '-'
+        ? design['designNo'].toString()
+        : null;
+    _partyDesignController.text = design['designNo'].toString() != '-'
+        ? design['designNo'].toString()
+        : '';
+    selectedMode = design['mode'].toString();
+
+    // Update controllers with proper values
+    _choicesController.text = design['choices'].toString();
+    defaultMetersController.text = design['meters'].toStringAsFixed(0);
+
+    // Update defaultMeters to match the design
+    defaultMeters = design['meters'] as double;
+
+    // Now populate all the additional fields from the design data
+    selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
+    
+    // Fix for weave type - ensure it's properly set
+    final weaveValue = design['weave']?.toString();
+    print('Setting weave to: $weaveValue');
+    if (weaveValue != null && weaveValue.isNotEmpty && weaves.contains(weaveValue)) {
+      selectedWeave = weaveValue;
+    } else {
+      // If weave is not in the list, add it to the list first
+      if (weaveValue != null && weaveValue.isNotEmpty) {
+        weaves.add(weaveValue);
+        _saveWeavesToHive(); // Save the updated weaves list to Hive
+      }
+      selectedWeave = weaveValue ?? (weaves.isNotEmpty ? weaves.first : null);
+      print('Weave not found in list, setting to: $selectedWeave');
+    }
+    
+    // Fix for quality - ensure it's properly set
+    final qualityValue = design['quality']?.toString();
+    print('Setting quality to: $qualityValue');
+    if (qualityValue != null && qualityValue.isNotEmpty && qualities.contains(qualityValue)) {
+      selectedQuality = qualityValue;
+    } else {
+      // If quality is not in the list, add it to the list first
+      if (qualityValue != null && qualityValue.isNotEmpty) {
+        qualities.add(qualityValue);
+        _saveQualitiesToHive(); // Save the updated qualities list to Hive
+      }
+      selectedQuality = qualityValue ?? (qualities.isNotEmpty ? qualities.first : null);
+      print('Quality not found in list, setting to: $selectedQuality');
+    }
+    
+    selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
+
+    // Update default values if needed
+    defaultChoices = design['choices'] as int;
+    
+    // Update captured photos
+    capturedPhotos = photos;
+  });
+  
+  // Add a final debug print to confirm the values
+  print('Final values - Weave: $selectedWeave, Quality: $selectedQuality');
+}
+  
   void _clearEditingState() {
     if (_savedFormState != null) {
       setState(() {
@@ -2682,92 +3011,90 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   Widget _buildCapturePhotoSection() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(12), // Reduced padding from 16 to 12
-        child: Column(
-          children: [
-            const Text(
-              'Capture Photo:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
-              ),
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          const Text(
+            'Capture Photo:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1F2937),
             ),
-            const SizedBox(height: 12), // Reduced height from 16 to 12
-            // Photo capture area
-            if (capturedPhotos.isEmpty && _pendingPhotos.isEmpty)
-              _buildEmptyCaptureArea()
-            else
-              _buildPhotoGrid(),
+          ),
+          const SizedBox(height: 12),
+          
+          // Photo capture area
+          if (capturedPhotos.isEmpty && _pendingPhotos.isEmpty)
+            _buildEmptyCaptureArea()
+          else
+            _buildPhotoGrid(),
 
-            const SizedBox(height: 12), // Reduced height from 16 to 12
-            // Capture button
-            InkWell(
-              onTap: () async {
-                setState(() {
-                  _isCapturingMultiple = true;
-                  _pendingPhotos.clear();
-                });
-
-                await _captureMultiplePhotos();
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                ), // Reduced padding from 12 to 10
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          const SizedBox(height: 12),
+          
+          // Capture button
+          InkWell(
+            onTap: () async {
+              setState(() {
+                _isCapturingMultiple = true;
+                _pendingPhotos.clear();
+              });
+              await _captureMultiplePhotos();
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2563EB).withOpacity(0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.camera_alt,
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Capture Photos',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
-                      size: 20,
-                    ), // Reduced icon size from 24 to 20
-                    SizedBox(width: 8),
-                    Text(
-                      'Capture Photos',
-                      style: TextStyle(
-                        fontSize: 14, // Reduced font size from 16 to 14
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          
+          // ADD THIS SECTION - The "Check Saved Images" button
+          // const SizedBox(height: 12),
+          // _buildCheckImagesButton(), // <-- ADD THIS LINE
+        ],
       ),
-    );
-  }
-
+    ),
+  );
+}
   // Add this new method to handle multiple photo capture
   Future<void> _captureMultiplePhotos() async {
     try {
