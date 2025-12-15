@@ -214,68 +214,62 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   Future<String> _saveImageToDevice(XFile image) async {
   try {
-    // Get the Download directory path
-    Directory? downloadDirectory;
-    
-    // Try to get the Download directory
-    try {
-      // For Android 10 and above
-      downloadDirectory = Directory('/storage/emulated/0/Download');
-      
-      // If the directory doesn't exist, try alternative paths
-      if (!await downloadDirectory.exists()) {
-        downloadDirectory = await getExternalStorageDirectory();
-        if (downloadDirectory != null) {
-          downloadDirectory = Directory('${downloadDirectory.path}/Download');
+    Directory? directory;
+    String location = "";
+
+    // --- Platform-specific logic to determine the save directory ---
+    if (Platform.isIOS) {
+      // For iOS, use the app's private documents directory.
+      // This is the standard and recommended location for app-specific files.
+      final appDirectory = await getApplicationDocumentsDirectory();
+      directory = Directory('${appDirectory.path}/ManishTextiles');
+      location = "App Documents";
+      print("iOS detected. Saving to app's documents directory.");
+    } else if (Platform.isAndroid) {
+      // For Android, use the existing logic to save to the Downloads directory.
+      try {
+        // For Android 10 and above
+        directory = Directory('/storage/emulated/0/Download');
+        
+        if (await directory.exists()) {
+          location = "Download Directory";
         }
+      } catch (e) {
+        print("Error accessing primary Download directory on Android: $e");
       }
       
-      // Create the directory if it doesn't exist
-      if (downloadDirectory != null && !await downloadDirectory.exists()) {
-        await downloadDirectory.create(recursive: true);
-      }
-      
-      if (downloadDirectory != null) {
-        // Check if the image is already saved in the Download directory
-        final List<FileSystemEntity> files = await downloadDirectory.list().toList();
-        for (var file in files) {
-          if (file is File && path.basename(file.path).startsWith('PurchaseApp_')) {
-            // Compare file sizes to check if it's the same image
-            final int savedFileSize = await file.length();
-            final int newFileSize = await image.length();
-            
-            if (savedFileSize == newFileSize) {
-              // It's likely the same image, return the existing path
-              print("Image already exists in Download directory: ${file.path}");
-              return file.path;
+      // If the primary directory doesn't exist or is not accessible, try an alternative path.
+      if (directory == null || !await directory.exists()) {
+        try {
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            directory = Directory('${externalDir.path}/Download');
+            if (await directory.exists()) {
+              location = "Download Directory";
             }
           }
+        } catch (e) {
+          print("Error accessing alternative Download directory on Android: $e");
         }
-        
-        // Generate a unique filename using timestamp and app identifier
-        final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-        final String fileName = 'PurchaseApp_$timestamp.jpg';
-        final String filePath = path.join(downloadDirectory.path, fileName);
-        
-        // Save the image file
-        await image.saveTo(filePath);
-        
-        print("Image saved to Download directory: $filePath");
-        return filePath;
       }
-    } catch (e) {
-      print("Error accessing Download directory: $e");
+    }
+
+    // --- Fallback for all platforms if the above fails ---
+    if (directory == null || !await directory.exists()) {
+      print("Using fallback directory: App Documents");
+      final appDirectory = await getApplicationDocumentsDirectory();
+      directory = Directory('${appDirectory.path}/ManishTextiles');
+      location = "App Documents";
+    }
+
+    // Create the directory if it doesn't exist
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
     }
     
-    // Fallback to app documents directory if Download directory is not accessible
-    final appDirectory = await getApplicationDocumentsDirectory();
-    final fallbackDir = Directory('${appDirectory.path}/ManishTextiles');
-    if (!await fallbackDir.exists()) {
-      await fallbackDir.create(recursive: true);
-    }
-    
-    // Check if the image is already saved in the app directory
-    final List<FileSystemEntity> files = await fallbackDir.list().toList();
+    // --- The rest of the logic remains UNCHANGED ---
+    // Check if the image is already saved to avoid duplicates
+    final List<FileSystemEntity> files = await directory.list().toList();
     for (var file in files) {
       if (file is File && path.basename(file.path).startsWith('PurchaseApp_')) {
         // Compare file sizes to check if it's the same image
@@ -284,82 +278,97 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
         
         if (savedFileSize == newFileSize) {
           // It's likely the same image, return the existing path
-          print("Image already exists in app directory: ${file.path}");
+          print("Image already exists in $location: ${file.path}");
           return file.path;
         }
       }
     }
     
+    // Generate a unique filename using timestamp and app identifier
     final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final String fileName = 'PurchaseApp_$timestamp.jpg';
-    final String filePath = path.join(fallbackDir.path, fileName);
+    final String filePath = path.join(directory.path, fileName);
     
     // Save the image file
     await image.saveTo(filePath);
     
-    print("Image saved to app directory: $filePath");
+    print("Image saved to $location: $filePath");
     return filePath;
   } catch (e) {
     print('Error saving image to device: $e');
     rethrow;
   }
 }
-// Add this function to check saved images
+
+/// Checks for saved images on the device, handling both Android and iOS.
+/// On Android, it checks the Downloads folder.
+/// On iOS, it checks the app's private documents directory.
 Future<void> _checkSavedImages() async {
   try {
     Directory? directory;
     String location = "";
-    
-    // Try Download directory first
-    try {
-      directory = Directory('/storage/emulated/0/Download');
-      if (await directory.exists()) {
-        // Look for files with our app prefix
-        final List<FileSystemEntity> allFiles = await directory.list().toList();
-        final List<FileSystemEntity> appFiles = allFiles
-            .where((file) => path.basename(file.path).startsWith('PurchaseApp_'))
-            .toList();
-        
-        if (appFiles.isNotEmpty) {
-          location = "Download Directory";
-          _showImageListDialog(appFiles, location);
-          return;
-        }
-      }
-    } catch (e) {
-      print("Error checking Download directory: $e");
-    }
-    
-    // Try alternative Download directory paths
-    try {
-      final externalDir = await getExternalStorageDirectory();
-      if (externalDir != null) {
-        directory = Directory('${externalDir.path}/Download');
+
+    // --- Platform-specific logic to find the directory with images ---
+    if (Platform.isIOS) {
+      // For iOS, only check the app's documents directory.
+      final appDirectory = await getApplicationDocumentsDirectory();
+      directory = Directory('${appDirectory.path}/ManishTextiles');
+      location = "App Documents";
+      print("iOS detected. Checking for images in app's documents directory.");
+    } else if (Platform.isAndroid) {
+      // For Android, use the existing logic to check the Downloads folder.
+      // Try primary Downloads directory first
+      try {
+        directory = Directory('/storage/emulated/0/Download');
         if (await directory.exists()) {
-          // Look for files with our app prefix
           final List<FileSystemEntity> allFiles = await directory.list().toList();
           final List<FileSystemEntity> appFiles = allFiles
               .where((file) => path.basename(file.path).startsWith('PurchaseApp_'))
               .toList();
-          
+        
           if (appFiles.isNotEmpty) {
             location = "Download Directory";
             _showImageListDialog(appFiles, location);
             return;
           }
         }
+      } catch (e) {
+        print("Error checking primary Download directory on Android: $e");
       }
-    } catch (e) {
-      print("Error checking alternative Download directory: $e");
+      
+      // Try alternative Downloads directory paths
+      try {
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          directory = Directory('${externalDir.path}/Download');
+          if (await directory.exists()) {
+            final List<FileSystemEntity> allFiles = await directory.list().toList();
+            final List<FileSystemEntity> appFiles = allFiles
+                .where((file) => path.basename(file.path).startsWith('PurchaseApp_'))
+                .toList();
+          
+            if (appFiles.isNotEmpty) {
+              location = "Download Directory";
+              _showImageListDialog(appFiles, location);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        print("Error checking alternative Download directory on Android: $e");
+      }
+    }
+
+    // --- Fallback for all platforms ---
+    if (directory == null || !await directory.exists()) {
+      print("Using fallback directory to check for images: App Documents");
+      final appDirectory = await getApplicationDocumentsDirectory();
+      directory = Directory('${appDirectory.path}/ManishTextiles');
+      location = "App Documents";
     }
     
-    // Fallback to app documents directory
-    directory = await getApplicationDocumentsDirectory();
-    final appDir = Directory('${directory.path}/ManishTextiles');
-    
-    if (await appDir.exists()) {
-      final List<FileSystemEntity> files = await appDir.list().toList();
-      location = "App Documents";
+    if (await directory.exists()) {
+      final List<FileSystemEntity> files = await directory.list().toList();
       _showImageListDialog(files, location);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -373,6 +382,7 @@ Future<void> _checkSavedImages() async {
     );
   }
 }
+  
   // Add this function to display the list of saved images
   void _showImageListDialog(List<FileSystemEntity> files, String location) {
     showDialog(
