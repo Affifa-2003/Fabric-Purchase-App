@@ -15,7 +15,7 @@ class NewOrderSetupPage extends StatefulWidget {
   final String? ofType;
   final String? selectedWidth;
   final int? defaultChoices;
-  final double? defaultMeters;
+  final int? defaultMeters;
   final String? sampleRequired;
   final String? selectedSampleMtr;
 
@@ -2183,7 +2183,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                 'selectedWidth': selectedWidth,
                 'defaultChoices': defaultChoices,
                 'defaultMeters':
-                    double.tryParse(defaultMetersController.text) ?? 100,
+                    int.tryParse(defaultMetersController.text) ?? 100,
                 'sampleRequired': sampleRequired,
                 'selectedSampleMtr': selectedSampleMtr,
               });
@@ -2205,7 +2205,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                     selectedWidth: selectedWidth,
                     defaultChoices: defaultChoices,
                     defaultMeters:
-                        double.tryParse(defaultMetersController.text) ?? 100,
+                        int.tryParse(defaultMetersController.text) ?? 100,
                     sampleRequired: sampleRequired,
                     selectedSampleMtr: selectedSampleMtr,
                   ),
@@ -2218,9 +2218,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                   ofType = result['ofType'] ?? ofType;
                   selectedWidth = result['selectedWidth'] ?? selectedWidth;
                   defaultChoices = result['defaultChoices'] ?? defaultChoices;
-                  double metersValue =
+                  int metersValue =
                       result['defaultMeters'] ??
-                      double.tryParse(defaultMetersController.text) ??
+                      int.tryParse(defaultMetersController.text) ??
                       100;
                   sampleRequired = result['sampleRequired'] ?? sampleRequired;
                   selectedSampleMtr =

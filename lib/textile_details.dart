@@ -20,7 +20,7 @@ class TextileDetailsPage extends StatefulWidget {
   final String textileType;
   final String selectedWidth;
   final int defaultChoices;
-  final double defaultMeters;
+  final int defaultMeters;
   final String sampleRequired;
   final String? selectedSampleMtr;
   final Map<String, dynamic>? initialDesign;
@@ -75,7 +75,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   String? partyDesignNo;
   late String selectedWidth;
   late int defaultChoices;
-  late double defaultMeters;
+  late int defaultMeters;
   late String sampleRequired;
   late String? selectedSampleMtr;
   late String selectedOFType;
@@ -83,7 +83,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   late String currentDefaultOFType;
   late String currentDefaultWidth;
   late int currentDefaultChoices;
-  late double currentDefaultMeters;
+  late int currentDefaultMeters;
 
   List<String> qualities = ['PC', 'Cotton', 'CP', 'Linen'];
   List<String> weaves = ['Twill', 'Oxford', 'Dobby', 'Flannel', 'Satin'];
@@ -852,13 +852,13 @@ Future<void> _checkSavedImages() async {
 
    void _addOrUpdateDesign({
   required int? choices,
-  required double? meters,
+  required int? meters,
   required String? designNo,
   required String mode,
 }) async {
   // Get the meters value from the defaultMetersController if not provided
   final metersValue =
-      meters ?? double.tryParse(defaultMetersController.text) ?? 100;
+      meters ?? int.tryParse(defaultMetersController.text) ?? 100;
       
   // Validate required fields
   if (choices == null) {
@@ -1055,7 +1055,7 @@ Future<void> _checkSavedImages() async {
     defaultMetersController.text = design['meters'].toStringAsFixed(0);
 
     // Update defaultMeters to match the design
-    defaultMeters = design['meters'] as double;
+    defaultMeters = design['meters'] as int;
 
     // Now populate all the additional fields from the design data
     selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
@@ -3604,7 +3604,7 @@ Future<void> _checkSavedImages() async {
               ),
               onChanged: (value) {
                 setState(() {
-                  defaultMeters = double.tryParse(value) ?? 100;
+                  defaultMeters = int.tryParse(value) ?? 100;
                 });
               },
             ),
@@ -4037,8 +4037,8 @@ Future<void> _checkSavedImages() async {
                 // Capture current form values
                 int choices =
                     int.tryParse(_choicesController.text) ?? defaultChoices;
-                double meters =
-                    double.tryParse(defaultMetersController.text) ??
+                int meters =
+                    int.tryParse(defaultMetersController.text) ??
                     defaultMeters;
 
                 // Add or update design
@@ -4585,7 +4585,7 @@ Future<void> _checkSavedImages() async {
     // Count each saved row as one design so the summary shows raw saved items
     int totalDesigns = capturedDesigns.length;
     int totalChoices = 0;
-    double totalMeters = 0.0;
+    double totalMeters = 0;
 
     for (var design in capturedDesigns) {
       final choicesVal = (design['choices'] is int)
@@ -4601,7 +4601,7 @@ Future<void> _checkSavedImages() async {
       totalMeters += metersVal;
     }
 
-    return {'d': totalDesigns, 'ch': totalChoices, 'mtr': totalMeters.round()};
+    return {'d': totalDesigns, 'ch': totalChoices, 'mtr': totalMeters};
   }
 
   // Method to update the textileData with calculated values
