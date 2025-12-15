@@ -116,34 +116,6 @@ void initState() {
   }
 }
 
-  // Helper function to get the next reference number for a type
-  // String _getNextReference(String type) {
-  //   // Get the prefix for the type
-  //   String prefix;
-  //   switch (type.toLowerCase()) {
-  //     case 'regular':
-  //       prefix = 'REG';
-  //       break;
-  //     case 'mix':
-  //       prefix = 'MIX';
-  //       break;
-  //     case 'plain':
-  //       prefix = 'PLAIN';
-  //       break;
-  //     default:
-  //       prefix = type.substring(0, 3).toUpperCase();
-  //   }
-    
-  //   // Count existing designs of this type for this party
-  //   int existingCount = 0;
-  //   if (groupedDesigns.containsKey(type)) {
-  //     existingCount = groupedDesigns[type]!.length;
-  //   }
-    
-  //   // Format as 3-digit number with leading zeros
-  //   return '$prefix-${(existingCount + 1).toString().padLeft(3, '0')}';
-  // }
-
   Future<void> _loadCapturedDesigns() async {
     try {
       if (!Hive.isBoxOpen('designs')) {
@@ -339,8 +311,8 @@ void initState() {
                                           partyName: widget.partyName,
                                           textileType: d['ofType'] ?? '',
                                           selectedWidth: d['width'] ?? '58"',
-                                          defaultChoices: d['choices'] ?? 2,
-                                          defaultMeters: d['meters'] ?? 100,
+                                          defaultChoices: (d['choices'] is num) ? (d['choices'] as num).toInt() : 2, // Safe cast
+                                          defaultMeters: (d['meters'] is num) ? (d['meters'] as num).toInt() : 100, // Safe cast
                                           sampleRequired: 'Yes',
                                           selectedSampleMtr: null,
                                           lockOFType: true,
@@ -389,33 +361,6 @@ void initState() {
                                                       ),
                                                     ),
                                                   ),
-                                                  // if (designs.length > 1) ...[
-                                                  //   const SizedBox(width: 8),
-                                                  //   Container(
-                                                  //     padding:
-                                                  //         const EdgeInsets.symmetric(
-                                                  //           horizontal: 6,
-                                                  //           vertical: 2,
-                                                  //         ),
-                                                  //     decoration: BoxDecoration(
-                                                  //       color: Colors.blue
-                                                  //           .withOpacity(0.1),
-                                                  //       borderRadius:
-                                                  //           BorderRadius.circular(
-                                                  //             10,
-                                                  //           ),
-                                                  //     ),
-                                                  //     child: Text(
-                                                  //       '+${designs.length - 1} more',
-                                                  //       style:
-                                                  //           const TextStyle(
-                                                  //             fontSize: 12,
-                                                  //             color:
-                                                  //                 Colors.blue,
-                                                  //           ),
-                                                  //     ),
-                                                  //   ),
-                                                  // ],
                                                 ],
                                               ),
                                               Text(
@@ -442,14 +387,14 @@ void initState() {
                                   ...(() {
                                     int totalDesigns = 0;
                                     int totalChoices = 0;
-                                    double totalMeters = 0.0;
+                                    int totalMeters = 0;
 
                                     for (var d in designs) {
                                       totalDesigns += 1;
-                                      totalChoices += (d['choices'] as int);
-                                      totalMeters += ((d['meters'] is int)
-                                          ? (d['meters'] as int).toDouble()
-                                          : (d['meters'] as double));
+                                      // Safe cast for choices
+                                      totalChoices += (d['choices'] is num) ? (d['choices'] as num).toInt() : 0;
+                                      // Safe cast for meters
+                                      totalMeters += (d['meters'] is num) ? (d['meters'] as num).toInt() : 0;
                                     }
 
                                     return [
@@ -538,21 +483,21 @@ void initState() {
     // Only use Hive data for summary
     int totalDesigns = 0;
     int totalChoices = 0;
-    double totalMeters = 0.0;
+    int totalMeters = 0;
 
     // Add totals from captured designs
     for (var d in capturedDesigns) {
       totalDesigns += 1;
-      totalChoices += (d['choices'] is int)
-          ? d['choices'] as int
-          : int.tryParse(d['choices']?.toString() ?? '0') ?? 0;
+      // Safe cast for choices
+      totalChoices += (d['choices'] is num) ? (d['choices'] as num).toInt() : 0;
+      // Safe cast for meters
       final m = d['meters'];
       if (m is int) {
-        totalMeters += m.toDouble();
-      } else if (m is double) {
         totalMeters += m;
+      } else if (m is double) { // Corrected condition
+        totalMeters += m.toInt();
       } else {
-        totalMeters += double.tryParse(m?.toString() ?? '0') ?? 0.0;
+        totalMeters += int.tryParse(m?.toString() ?? '0') ?? 0;
       }
     }
 
@@ -578,14 +523,13 @@ void initState() {
           ),
           _buildSummaryItem(
             'Mtr',
-            totalMeters.toStringAsFixed(0),
+            totalMeters.toString(), // Use .toString() for an integer
             showRightDivider: false,
           ),
         ],
       ),
     );
   }
-
   Widget _buildSummaryItem(
     String label,
     String value, {

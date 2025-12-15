@@ -236,6 +236,22 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       }
       
       if (downloadDirectory != null) {
+        // Check if the image is already saved in the Download directory
+        final List<FileSystemEntity> files = await downloadDirectory.list().toList();
+        for (var file in files) {
+          if (file is File && path.basename(file.path).startsWith('PurchaseApp_')) {
+            // Compare file sizes to check if it's the same image
+            final int savedFileSize = await file.length();
+            final int newFileSize = await image.length();
+            
+            if (savedFileSize == newFileSize) {
+              // It's likely the same image, return the existing path
+              print("Image already exists in Download directory: ${file.path}");
+              return file.path;
+            }
+          }
+        }
+        
         // Generate a unique filename using timestamp and app identifier
         final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
         final String fileName = 'PurchaseApp_$timestamp.jpg';
@@ -258,6 +274,22 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       await fallbackDir.create(recursive: true);
     }
     
+    // Check if the image is already saved in the app directory
+    final List<FileSystemEntity> files = await fallbackDir.list().toList();
+    for (var file in files) {
+      if (file is File && path.basename(file.path).startsWith('PurchaseApp_')) {
+        // Compare file sizes to check if it's the same image
+        final int savedFileSize = await file.length();
+        final int newFileSize = await image.length();
+        
+        if (savedFileSize == newFileSize) {
+          // It's likely the same image, return the existing path
+          print("Image already exists in app directory: ${file.path}");
+          return file.path;
+        }
+      }
+    }
+    
     final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final String fileName = 'PurchaseApp_$timestamp.jpg';
     final String filePath = path.join(fallbackDir.path, fileName);
@@ -272,7 +304,6 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     rethrow;
   }
 }
-
 // Add this function to check saved images
 Future<void> _checkSavedImages() async {
   try {
@@ -850,100 +881,112 @@ Future<void> _checkSavedImages() async {
   }
 
 
-   void _addOrUpdateDesign({
+     void _addOrUpdateDesign({
   required int? choices,
   required int? meters,
   required String? designNo,
   required String mode,
 }) async {
-  // Get the meters value from the defaultMetersController if not provided
-  final metersValue =
-      meters ?? int.tryParse(defaultMetersController.text) ?? 100;
-      
-  // Validate required fields
-  if (choices == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please select Choices'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-  
-  // Ensure weave and quality are selected - Fixed null safety
-  if (selectedWeave == null || selectedWeave!.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please select Weave Type'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-  
-  if (selectedQuality == null || selectedQuality!.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please select Quality'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
+  // Get all current values from the form state and controllers
+  // This ensures we are using the latest user input
+  final currentChoices = choices ?? int.tryParse(_choicesController.text) ?? defaultChoices;
+  final currentMeters = meters ?? int.tryParse(defaultMetersController.text) ?? defaultMeters;
+  final currentDesignNo = designNo?.isNotEmpty == true ? designNo : _partyDesignController.text;
+  final currentMode = selectedMode;
+  final currentWeave = selectedWeave; // Get from state
+  final currentQuality = selectedQuality; // Get from state
+  final currentWidth = selectedWidth;
+  final currentOFType = selectedOFType;
 
-  // Generate the next reference number for the selected O/F type
-  int typeCount = capturedDesigns.length + 1; // Use current length + 1
-  String refPrefix = selectedOFType.toUpperCase().substring(0, 3);
-  String ref = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
+  // For updates, use the original ref if not a new design
+  String currentRef;
+  if (_editingDesignIndex != null) {
+    // Use the ref of the design being edited
+    currentRef = capturedDesigns[_editingDesignIndex!]['ref'] ?? '';
+  } else {
+    // Generate a new ref
+    int typeCount = capturedDesigns.length + 1;
+    String refPrefix = currentOFType.toUpperCase().substring(0, 3);
+    currentRef = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
+  }
 
   // Save captured photos to device storage and get file paths
   List<String> photoPaths = [];
-  for (XFile photo in capturedPhotos) {
-    String filePath = await _saveImageToDevice(photo);
-    photoPaths.add(filePath);
+  
+  // Check if we're editing an existing design
+  if (_editingDesignIndex != null) {
+    // For existing designs, check if the photos are already saved
+    final existingDesign = capturedDesigns[_editingDesignIndex!];
+    if (existingDesign['photoPaths'] != null) {
+      // Use existing photo paths
+      photoPaths = List<String>.from(existingDesign['photoPaths']);
+    }
   }
+  
+  // Only save new photos that aren't already in the photoPaths list
+  for (XFile photo in capturedPhotos) {
+    bool alreadySaved = false;
+    
+    // Check if this photo is already saved by comparing file sizes
+    for (String path in photoPaths) {
+      try {
+        final File savedFile = File(path);
+        if (await savedFile.exists()) {
+          final int savedFileSize = await savedFile.length();
+          final int newFileSize = await photo.length();
+          
+          if (savedFileSize == newFileSize) {
+            alreadySaved = true;
+            break;
+          }
+        }
+      } catch (e) {
+        print('Error checking saved file: $e');
+      }
+    }
+    
+    if (!alreadySaved) {
+      String filePath = await _saveImageToDevice(photo);
+      if (!photoPaths.contains(filePath)) {
+        photoPaths.add(filePath);
+      }
+    }
+  }
+
+  // Create the design map with all the captured values
+  final updatedDesign = {
+    'sNo': _editingDesignIndex != null ? capturedDesigns[_editingDesignIndex!]['sNo'] : capturedDesigns.length + 1,
+    'designNo': currentDesignNo!.isNotEmpty ? currentDesignNo : '-',
+    'choices': currentChoices,
+    'meters': currentMeters,
+    'mode': currentMode,
+    'timestamp': DateTime.now().toIso8601String(),
+    'ofType': currentOFType,
+    'weave': currentWeave, // Explicitly use the captured value
+    'quality': currentQuality, // Explicitly use the captured value
+    'width': currentWidth,
+    'ref': currentRef,
+    'photoPaths': photoPaths,
+  };
 
   setState(() {
     if (_editingDesignIndex != null) {
-      // Update existing design with all fields, but keep the original S.No
-      capturedDesigns[_editingDesignIndex!] = {
-        'sNo':
-            capturedDesigns[_editingDesignIndex!]['sNo'], // Keep original S.No
-        'designNo': designNo ?? '-',
-        'choices': choices,
-        'meters': metersValue,
-        'mode': mode,
-        'timestamp': DateTime.now().toIso8601String(),
-        'ofType': selectedOFType,
-        'weave': selectedWeave, // Ensure weave is saved
-        'quality': selectedQuality, // Ensure quality is saved
-        'width': selectedWidth,
-        'ref': ref,
-        'photoPaths': photoPaths, // Store file paths instead of Base64
-      };
+      // Update existing design with the new map
+      capturedDesigns[_editingDesignIndex!] = updatedDesign;
       _editingDesignIndex = null;
       _savedFormState = null; // Clear the saved state
     } else {
-      // Add new design with all fields and set S.No to current length + 1
-      capturedDesigns.add({
-        'sNo': capturedDesigns.length + 1, // Set S.No to current length + 1
-        'designNo': designNo ?? '-',
-        'choices': choices,
-        'meters': metersValue,
-        'mode': mode,
-        'timestamp': DateTime.now().toIso8601String(),
-        'ofType': selectedOFType,
-        'weave': selectedWeave, // Ensure weave is saved
-        'quality': selectedQuality, // Ensure quality is saved
-        'width': selectedWidth,
-        'ref': ref,
-        'photoPaths': photoPaths, // Store file paths instead of Base64
-      });
+      // Add new design with the new map
+      capturedDesigns.add(updatedDesign);
     }
   });
 
   _updateSummaryValues();
+  
+  // Save to Hive AFTER the state has been updated
+  await _saveCapturedDesignToHive();
+  await _saveSummaryValuesToHive();
+
   // Only clear party design number, quality, and weave
   _clearSelectedFields();
 
@@ -962,9 +1005,6 @@ Future<void> _checkSavedImages() async {
     ),
   );
 }
-  
-  
-  
   // Update the _clearSelectedFields method to clear only party design number, quality, and weave
   void _clearSelectedFields() {
     setState(() {
@@ -4426,7 +4466,7 @@ Future<void> _checkSavedImages() async {
                                 child: Text(
                                   (design['meters'] is num)
                                       ? (design['meters'] as num)
-                                            .toDouble()
+                                            .toInt()
                                             .toStringAsFixed(0)
                                       : design['meters']?.toString() ?? '',
                                   style: const TextStyle(
@@ -4585,7 +4625,7 @@ Future<void> _checkSavedImages() async {
     // Count each saved row as one design so the summary shows raw saved items
     int totalDesigns = capturedDesigns.length;
     int totalChoices = 0;
-    double totalMeters = 0;
+    int totalMeters = 0;
 
     for (var design in capturedDesigns) {
       final choicesVal = (design['choices'] is int)
@@ -4594,11 +4634,9 @@ Future<void> _checkSavedImages() async {
       totalChoices += choicesVal;
 
       final metersVal = (design['meters'] is int)
-          ? (design['meters'] as int).toDouble()
-          : (design['meters'] is double
-                ? design['meters'] as double
-                : double.tryParse(design['meters']?.toString() ?? '0') ?? 0.0);
-      totalMeters += metersVal;
+        ? design['meters'] as int
+        : int.tryParse(design['meters']?.toString() ?? '0') ?? 0; // Simplified logic
+    totalMeters += metersVal;
     }
 
     return {'d': totalDesigns, 'ch': totalChoices, 'mtr': totalMeters};
