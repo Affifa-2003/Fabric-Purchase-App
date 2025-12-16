@@ -25,9 +25,10 @@ class QualityService {
               // Ensure all values have the correct types
               Map<String, dynamic> qualityMap = Map<String, dynamic>.from(item);
               
-              // Ensure product is a string
-              if (qualityMap['product'] is! String) {
-                qualityMap['product'] = qualityMap['product']?.toString() ?? 'General';
+              // Ensure product is a string and not empty
+              if (qualityMap['product'] is! String || qualityMap['product'].toString().trim().isEmpty) {
+                // Skip items without a valid product name
+                return null;
               }
               
               // Ensure quality is a string
@@ -37,8 +38,9 @@ class QualityService {
               
               return qualityMap;
             }
-            return <String, dynamic>{'product': 'General', 'quality': ''};
-          }).toList();
+            // Skip invalid items
+            return null;
+          }).where((item) => item != null).cast<Map<String, dynamic>>().toList();
         }
       }
       
