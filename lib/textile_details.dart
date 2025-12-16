@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:purchase_app/service/weave_type_service.dart';
+import 'package:purchase_app/widgets/weave_type_dialog.dart';
 import 'order_form_finish_page.dart';
 import 'new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
@@ -66,6 +68,9 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   TextEditingController defaultMetersController = TextEditingController(
     text: '100',
   );
+
+  List<Map<String, dynamic>> products = [];
+  List<Map<String, dynamic>> activeProducts = [];
 
   Map<String, dynamic>? _savedFormState;
   // Form state
@@ -130,44 +135,85 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   int? _previewPhotoIndex;
 
   @override
-  void initState() {
-    super.initState();
-    // Initialize with values from new_order_setup_page
-    selectedOFType = widget.textileType;
-    selectedWidth = widget.selectedWidth;
-    defaultChoices = widget.defaultChoices;
-    defaultMeters = widget.defaultMeters;
-    sampleRequired = widget.sampleRequired;
-    selectedSampleMtr = widget.selectedSampleMtr;
-    defaultMetersController = TextEditingController(
-      text: defaultMeters.toString(),
-    );
+void initState() {
+  super.initState();
+  // Initialize with values from new_order_setup_page
+  selectedOFType = widget.textileType;
+  selectedWidth = widget.selectedWidth;
+  defaultChoices = widget.defaultChoices;
+  defaultMeters = widget.defaultMeters;
+  sampleRequired = widget.sampleRequired;
+  selectedSampleMtr = widget.selectedSampleMtr;
+  defaultMetersController = TextEditingController(
+    text: defaultMeters.toString(),
+  );
 
-    _scrollController = ScrollController();
-    _scrollController.addListener(_scrollListener);
+  _scrollController = ScrollController();
+  _scrollController.addListener(_scrollListener);
 
-    // Initialize choices, meters and party design controllers
-    _choicesController = TextEditingController(text: defaultChoices.toString());
-    defaultMetersController = TextEditingController(
-      text: defaultMeters.toString(),
-    );
-    _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
-    // Initialize current default values
-    currentDefaultOFType = widget.textileType;
-    currentDefaultWidth = widget.selectedWidth;
-    currentDefaultChoices = widget.defaultChoices;
-    currentDefaultMeters = widget.defaultMeters;
+  // Initialize choices, meters and party design controllers
+  _choicesController = TextEditingController(text: defaultChoices.toString());
+  defaultMetersController = TextEditingController(
+    text: defaultMeters.toString(),
+  );
+  _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
+  // Initialize current default values
+  currentDefaultOFType = widget.textileType;
+  currentDefaultWidth = widget.selectedWidth;
+  currentDefaultChoices = widget.defaultChoices;
+  currentDefaultMeters = widget.defaultMeters;
 
- _initializeHiveAndLoadData().then((_) {
+  _initializeHiveAndLoadData().then((_) {
     // Load other data from sources (we will modify this method next)
-    _loadDataFromSources();
+    _loadDataFromSources().then((_) {
+      // Load weave types from service AFTER loading data from sources
+      _loadWeaveTypesFromService();
+    });
     
     // Load widths from the service to get the latest list
     _loadWidthsFromService(); 
-  });
-    _initializeHiveAndLoadData();
-  }
 
+    _loadProducts();
+  });
+  _initializeHiveAndLoadData();
+}
+  Future<void> _loadProducts() async {
+  try {
+    // Load data from Hive
+    List<Map<String, dynamic>> hiveProducts = [];
+    
+    // Ensure the box is open
+    if (!Hive.isBoxOpen('appData')) {
+      await Hive.openBox('appData');
+    }
+
+    final box = Hive.box('appData');
+    
+    final productsData = box.get('products');
+    if (productsData != null) {
+      // Handle different types of data
+      if (productsData is List) {
+        hiveProducts = productsData.map((item) {
+          if (item is Map) {
+            return Map<String, dynamic>.from(item);
+          }
+          return <String, dynamic>{};
+        }).toList();
+      }
+    }
+    
+    setState(() {
+      products = hiveProducts;
+      // Filter only active products
+      activeProducts = products.where((product) => 
+        product['status'] == 'Active').toList();
+    });
+    
+    print('Loaded ${products.length} products (${activeProducts.length} active)');
+  } catch (e) {
+    print('Error loading products: $e');
+  }
+}
   Future<void> _initializeHiveAndLoadData() async {
     try {
       // Get the boxes (they should already be open from main.dart)
@@ -1982,89 +2028,159 @@ Future<void> _checkSavedImages() async {
     );
   }
 
-  // New Weave Type section
-  Widget _buildWeaveTypeSection() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Weave Type: *',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _showAddWeaveDialog = true;
-                      _weaveTypeController.clear();
-                    });
-                  },
-                  child: const Text(
-                    '+',
-                    style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: weaves.map((weave) {
-                bool isSelected = selectedWeave == weave;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedWeave = weave;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF2563EB)
-                          : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(6),
-                      border: isSelected
-                          ? Border.all(color: const Color(0xFF2563EB))
-                          : Border.all(color: Colors.grey.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      weave,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _loadWeaveTypesFromService() async {
+  try {
+    // Use the WeaveTypeService to get weave types
+    List<Map<String, dynamic>> weaveTypesData = await WeaveTypeService().getWeaveTypes();
+    
+    // Extract unique weave type names from service
+    Set<String> serviceWeaveTypes = {};
+    for (var weaveTypeData in weaveTypesData) {
+      if (weaveTypeData['weaveType'] != null && weaveTypeData['weaveType'].toString().isNotEmpty) {
+        serviceWeaveTypes.add(weaveTypeData['weaveType'].toString());
+      }
+    }
+    
+    setState(() {
+      // Create a new set with existing weaves
+      Set<String> combinedWeaveTypes = Set.from(weaves);
+      
+      // Add service weave types to the set
+      combinedWeaveTypes.addAll(serviceWeaveTypes);
+      
+      // Convert back to list and sort
+      weaves = combinedWeaveTypes.toList();
+      weaves.sort();
+    });
+    
+    print('Loaded ${weaves.length} total weave types (${serviceWeaveTypes.length} from service)');
+  } catch (e) {
+    print('Error loading weave types from service: $e');
+    // Don't replace existing weave types, just ensure we have defaults
+    if (weaves.isEmpty) {
+      setState(() {
+        weaves = ['Twill', 'Oxford', 'Dobby', 'Flannel', 'Satin']; // Fallback to defaults
+      });
+    }
   }
+}
+  // In textile_details.dart, update the _buildWeaveTypeSection method
 
+Widget _buildWeaveTypeSection() {
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Weave Type: *',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return WeaveTypeDialog(
+                        activeProducts: activeProducts, // Pass the active products
+                      );
+                    },
+                  ).then((result) {
+                    if (result != null) {
+                      // Add the weave type using the service
+                      WeaveTypeService().addWeaveType(result['product'], result['weaveType']).then((_) {
+                        // Reload the weave types
+                        _loadWeaveTypesFromService();
+                        
+                        // Set the selected weave type to the newly added one
+                        setState(() {
+                          selectedWeave = result['weaveType'];
+                        });
+                        
+                        // Show success message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Weave type added successfully'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }).catchError((error) {
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error adding weave type: $error'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      });
+                    }
+                  });
+                },
+                child: const Text(
+                  '+',
+                  style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: weaves.map((weave) {
+              bool isSelected = selectedWeave == weave;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedWeave = weave;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF2563EB)
+                        : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(6),
+                    border: isSelected
+                        ? Border.all(color: const Color(0xFF2563EB))
+                        : Border.all(color: Colors.grey.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    weave,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+  
   // Updated Quality section with + button functionality
   Widget _buildQualitySection() {
     return Card(

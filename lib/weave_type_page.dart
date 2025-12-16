@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:purchase_app/service/weave_type_service.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
+import 'package:purchase_app/widgets/weave_type_dialog.dart';
 
 class WeaveTypePage extends StatefulWidget {
   const WeaveTypePage({Key? key}) : super(key: key);
@@ -91,55 +93,23 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
   }
 
   Future<void> _loadWeaveTypes() async {
-    try {
-      // Load data from Hive only
-      List<Map<String, dynamic>> hiveWeaveTypes = [];
-      try {
-        // Ensure the box is open
-        if (!Hive.isBoxOpen('appData')) {
-          await Hive.openBox('appData');
-        }
-
-        appDataBox = Hive.box('appData');
-        
-        
-        final weaveTypesData = appDataBox.get('weaveTypes');
-        if (weaveTypesData != null) {
-          // Handle different types of data
-          if (weaveTypesData is List) {
-            hiveWeaveTypes = weaveTypesData.map((item) {
-              if (item is Map) {
-                return Map<String, dynamic>.from(item);
-              }
-              // If it's a LinkedMap or other map type
-              if (item is Map<dynamic, dynamic>) {
-                return Map<String, dynamic>.from(item);
-              }
-              return <String, dynamic>{'product': 'Unknown', 'weaveType': ''};
-            }).toList();
-          }
-        }
-        
-        print('Loaded ${hiveWeaveTypes.length} weave types from Hive');
-      } catch (e) {
-        print('Error loading Hive weave types: $e');
-      }
-
-      // Use only Hive data
-      setState(() {
-        weaveTypes = hiveWeaveTypes;
-        filteredWeaveTypes = List.from(weaveTypes);
-      });
-      
-      print('Weave types list: $weaveTypes');
-    } catch (e) {
-      print('Error loading weave types: $e');
-      setState(() {
-        weaveTypes = [];
-        filteredWeaveTypes = [];
-      });
-    }
+  try {
+    // Use the WeaveTypeService to get weave types
+    weaveTypes = await WeaveTypeService().getWeaveTypes();
+    
+    setState(() {
+      filteredWeaveTypes = List.from(weaveTypes);
+    });
+    
+    print('Loaded ${weaveTypes.length} weave types from service');
+  } catch (e) {
+    print('Error loading weave types: $e');
+    setState(() {
+      weaveTypes = [];
+      filteredWeaveTypes = [];
+    });
   }
+}
 
   Future<void> _saveWeaveTypesToStorage() async {
     try {
@@ -223,602 +193,82 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
   }
 
   void _showAddNewWeaveTypeDialog() {
-    TextEditingController weaveTypeController = TextEditingController();
-    // TextEditingController descriptionController = TextEditingController();
-    String? selectedProductValue;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: const Color(0xFFFFFFFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Add Weave Type',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(Icons.close, color: Color(0xFF767676)),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Product Name Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Product Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: selectedProductValue,
-                                decoration: const InputDecoration(
-                                  hintText: 'Select a product',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                items: activeProducts.map((product) {
-                                  return DropdownMenuItem<String>(
-                                    value: product['name'],
-                                    child: Text(product['name']),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    selectedProductValue = value;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Weave Type Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Weave Type Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: weaveTypeController,
-                                inputFormatters: [
-                                  NoLeadingOrMultipleSpacesFormatter(),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g., Jacquard, Canvas',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Information text with icon in a box
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEBF8FF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF3182CE)),
-                          ),
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Color(0xFF3182CE),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'This will be added to master and available for future orders.',
-                                  style: TextStyle(color: Color(0xFF3182CE)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                  
-                  // Buttons
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Validate required fields
-                                if (selectedProductValue == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Please select a product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                if (weaveTypeController.text.trim().isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Weave type name is required'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Check if this weave type already exists for this product
-                                bool exists = weaveTypes.any((w) => 
-                                  w['product'] == selectedProductValue && 
-                                  w['weaveType'] == weaveTypeController.text.trim());
-                                
-                                if (exists) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('This weave type already exists for the selected product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Create new weave type
-                                Map<String, dynamic> newWeaveType = {
-                                  'product': selectedProductValue,
-                                  'weaveType': weaveTypeController.text.trim(),
-                                  // 'description': descriptionController.text.trim(),
-                                };
-                                
-                                // Update local state immediately
-                                setState(() {
-                                  // Add to the beginning of the list
-                                  weaveTypes.insert(0, newWeaveType);
-                                  _filterWeaveTypes(); // Update filtered list
-                                });
-
-                                // Save to Hive
-                                await _saveWeaveTypesToStorage();
-
-                                Navigator.pop(context);
-
-                                // Show success message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Weave type added successfully'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Save to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+  showDialog(
+    context: context,
+    builder: (context) {
+      return WeaveTypeDialog(
+        activeProducts: activeProducts,
+      );
+    },
+  ).then((result) {
+    if (result != null) {
+      // Add the weave type using the service
+      WeaveTypeService().addWeaveType(result['product'], result['weaveType']).then((_) {
+        // Reload the weave types
+        _loadWeaveTypes();
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Weave type added successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
-      },
-    );
-  }
+      }).catchError((error) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding weave type: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    }
+  });
+}
 
   void _showEditWeaveTypeDialog(Map<String, dynamic> weaveType, int index) {
-    TextEditingController weaveTypeController = TextEditingController(text: weaveType['weaveType']);
-    // TextEditingController descriptionController = TextEditingController(text: weaveType['description'] ?? '');
-    String? selectedProductValue = weaveType['product'];
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: const Color(0xFFFFFFFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Edit Weave Type',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(Icons.close, color: Color(0xFF767676)),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Product Name Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Product Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: selectedProductValue,
-                                decoration: const InputDecoration(
-                                  hintText: 'Select a product',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                items: activeProducts.map((product) {
-                                  return DropdownMenuItem<String>(
-                                    value: product['name'],
-                                    child: Text(product['name']),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    selectedProductValue = value;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Weave Type Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Weave Type Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: weaveTypeController,
-                                inputFormatters: [
-                                  NoLeadingOrMultipleSpacesFormatter(),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g., Jacquard, Canvas',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEBF8FF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF3182CE)),
-                          ),
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Color(0xFF3182CE),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'This will update the weave type in master and all associated records.',
-                                  style: TextStyle(color: Color(0xFF3182CE)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                  
-                  // Buttons
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Validate required fields
-                                if (selectedProductValue == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Please select a product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                if (weaveTypeController.text.trim().isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Weave type name is required'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Check if this weave type already exists for this product (excluding current entry)
-                                bool exists = weaveTypes.any((w) => 
-                                  w['product'] == selectedProductValue && 
-                                  w['weaveType'] == weaveTypeController.text.trim() && 
-                                  w != weaveType);
-                                
-                                if (exists) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('This weave type already exists for the selected product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Check if product or weave type is being changed
-                                bool productChanged = selectedProductValue != weaveType['product'];
-                                bool weaveTypeChanged = weaveTypeController.text.trim() != weaveType['weaveType'];
-                                
-                                // Create updated weave type
-                                Map<String, dynamic> updatedWeaveType = {
-                                  'product': selectedProductValue,
-                                  'weaveType': weaveTypeController.text.trim(),
-                                  // 'description': descriptionController.text.trim(),
-                                };
-                                
-                                // Update local state immediately
-                                setState(() {
-                                  // Remove the old weave type
-                                  weaveTypes.removeAt(index);
-                                  // Add the updated weave type at the beginning
-                                  weaveTypes.insert(0, updatedWeaveType);
-                                  _filterWeaveTypes(); // Update filtered list
-                                });
-
-                                // Save to Hive
-                                await _saveWeaveTypesToStorage();
-
-                                // If product or weave type changed, update all related records
-                                if (productChanged || weaveTypeChanged) {
-                                  await _updateWeaveTypeInAllRecords(weaveType['product'], weaveType['weaveType'], updatedWeaveType);
-                                }
-
-                                Navigator.pop(context);
-
-                                // Show success message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Weave type updated successfully'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Update to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+  showDialog(
+    context: context,
+    builder: (context) {
+      return WeaveTypeDialog(
+        isEditMode: true,
+        initialProduct: weaveType['product'],
+        initialWeaveType: weaveType['weaveType'],
+        activeProducts: activeProducts,
+      );
+    },
+  ).then((result) {
+    if (result != null) {
+      // Update the weave type using the service
+      WeaveTypeService().updateWeaveType(
+        weaveType['product'], 
+        weaveType['weaveType'], 
+        result['product'], 
+        result['weaveType']
+      ).then((_) {
+        // Reload the weave types
+        _loadWeaveTypes();
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Weave type updated successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
-      },
-    );
-  }
+      }).catchError((error) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating weave type: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    }
+  });
+}
 
   Future<void> _updateWeaveTypeInAllRecords(String oldProduct, String oldWeaveType, Map<String, dynamic> updatedWeaveType) async {
     try {
@@ -1023,62 +473,61 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> weaveType, bool isMapped) {
-    // Check if the product is still active
-    bool isProductActive = activeProducts.any((p) => p['name'] == weaveType['product']);
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: !isProductActive
-              ? Text('This weave type belongs to an inactive product "${weaveType['product']}" and cannot be deleted.')
-              : isMapped 
-                  ? const Text('This weave type is already mapped with orders and cannot be deleted.')
-                  : Text('Are you sure you want to delete "${weaveType['product']} - ${weaveType['weaveType']}"?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
+  // Check if the product is still active
+  bool isProductActive = activeProducts.any((p) => p['name'] == weaveType['product']);
+  
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: !isProductActive
+            ? Text('This weave type belongs to an inactive product "${weaveType['product']}" and cannot be deleted.')
+            : isMapped 
+                ? const Text('This weave type is already mapped with orders and cannot be deleted.')
+                : Text('Are you sure you want to delete "${weaveType['product']} - ${weaveType['weaveType']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.red),
             ),
-            if (isProductActive && !isMapped)
-              TextButton(
-                onPressed: () async {
-                  // Find the original index in the weave types list
-                  int originalIndex = weaveTypes.indexWhere((w) => 
-                    w['product'] == weaveType['product'] && 
-                    w['weaveType'] == weaveType['weaveType']);
-                  if (originalIndex != -1) {
-                    // Update local state immediately
-                    setState(() {
-                      weaveTypes.removeAt(originalIndex);
-                      _filterWeaveTypes(); // Update filtered list
-                    });
-                    
-                    // Save to Hive
-                    await _saveWeaveTypesToStorage();
-                    
-                    Navigator.of(context).pop(); // Close dialog
-                    
-                    // Show success message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Weave type deleted successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Delete'),
-              ),
-          ],
-        );
-      },
-    );
-  }
+          ),
+          if (isProductActive && !isMapped)
+            TextButton(
+              onPressed: () async {
+                // Delete the weave type using the service
+                WeaveTypeService().deleteWeaveType(weaveType['product'], weaveType['weaveType']).then((_) {
+                  // Reload the weave types
+                  _loadWeaveTypes();
+                  
+                  Navigator.of(context).pop(); // Close dialog
+                  
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Weave type deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }).catchError((error) {
+                  // Show error message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error deleting weave type: $error'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                });
+              },
+              child: const Text('Delete'),
+            ),
+        ],
+      );
+    },
+  );
+}
 }
