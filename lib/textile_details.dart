@@ -15,6 +15,8 @@ import 'new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
 import 'dart:async';
 import 'package:purchase_app/service/width_service.dart';
+import 'package:purchase_app/service/quality_service.dart';
+import 'package:purchase_app/widgets/quality_dialog.dart';
 
 enum FilterType { mode, ofType }
 
@@ -134,7 +136,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   // Full screen photo preview state
   int? _previewPhotoIndex;
 
-  @override
+ @override
 void initState() {
   super.initState();
   // Initialize with values from new_order_setup_page
@@ -164,10 +166,13 @@ void initState() {
   currentDefaultMeters = widget.defaultMeters;
 
   _initializeHiveAndLoadData().then((_) {
-    // Load other data from sources (we will modify this method next)
+    // Load other data from sources
     _loadDataFromSources().then((_) {
       // Load weave types from service AFTER loading data from sources
       _loadWeaveTypesFromService();
+      
+      // Load qualities from service AFTER loading data from sources
+      _loadQualitiesFromService();
     });
     
     // Load widths from the service to get the latest list
@@ -175,8 +180,8 @@ void initState() {
 
     _loadProducts();
   });
-  _initializeHiveAndLoadData();
 }
+  
   Future<void> _loadProducts() async {
   try {
     // Load data from Hive
@@ -2180,90 +2185,158 @@ Widget _buildWeaveTypeSection() {
     ),
   );
 }
-  
-  // Updated Quality section with + button functionality
-  Widget _buildQualitySection() {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Quality: *',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _showAddQualityDialog = true;
-                      _qualityController.clear();
-                    });
-                  },
-                  child: const Text(
-                    '+',
-                    style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: qualities.map((quality) {
-                bool isSelected = selectedQuality == quality;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedQuality = quality;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF2563EB)
-                          : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(6),
-                      border: isSelected
-                          ? Border.all(color: const Color(0xFF2563EB))
-                          : Border.all(color: Colors.grey.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      quality,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
+Future<void> _loadQualitiesFromService() async {
+  try {
+    // Use the QualityService to get qualities
+    List<Map<String, dynamic>> qualitiesData = await QualityService().getQualities();
+    
+    // Extract unique quality names
+    Set<String> uniqueQualities = {};
+    for (var qualityData in qualitiesData) {
+      if (qualityData['quality'] != null && qualityData['quality'].toString().isNotEmpty) {
+        uniqueQualities.add(qualityData['quality'].toString());
+      }
+    }
+    
+    setState(() {
+      // Create a new set with existing qualities
+      Set<String> combinedQualities = Set.from(qualities);
+      
+      // Add service qualities to the set
+      combinedQualities.addAll(uniqueQualities);
+      
+      // Convert back to list and sort
+      qualities = combinedQualities.toList();
+      qualities.sort();
+    });
+    
+    print('Loaded ${qualities.length} total qualities (${uniqueQualities.length} from service)');
+  } catch (e) {
+    print('Error loading qualities from service: $e');
+    // Don't replace existing qualities, just ensure we have defaults
+    if (qualities.isEmpty) {
+      setState(() {
+        qualities = ['PC', 'Cotton', 'CP', 'Linen']; // Fallback to defaults
+      });
+    }
+  }
+}
+  
+  Widget _buildQualitySection() {
+  return Card(
+    elevation: 0,
+    color: const Color(0xFFFFFFFF),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Quality: *',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return QualityDialog(
+                        activeProducts: activeProducts, // Pass the active products
+                      );
+                    },
+                  ).then((result) {
+                    if (result != null) {
+                      // Add the quality using the service
+                      QualityService().addQuality(result['product'], result['quality']).then((_) {
+                        // Reload the qualities
+                        _loadQualitiesFromService();
+                        
+                        // Set the selected quality to the newly added one
+                        setState(() {
+                          selectedQuality = result['quality'];
+                        });
+                        
+                        // Show success message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Quality added successfully'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }).catchError((error) {
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error adding quality: $error'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      });
+                    }
+                  });
+                },
+                child: const Text(
+                  '+',
+                  style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: qualities.map((quality) {
+              bool isSelected = selectedQuality == quality;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedQuality = quality;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF2563EB)
+                        : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(6),
+                    border: isSelected
+                        ? Border.all(color: const Color(0xFF2563EB))
+                        : Border.all(color: Colors.grey.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    quality,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   // Add Weave Type Dialog
   Widget _buildAddWeaveDialog() {
     return Stack(
