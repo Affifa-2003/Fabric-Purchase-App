@@ -24,9 +24,10 @@ class WidthService {
               // Ensure all values have the correct types
               Map<String, dynamic> widthMap = Map<String, dynamic>.from(item);
               
-              // Ensure product is a string
-              if (widthMap['product'] is! String) {
-                widthMap['product'] = widthMap['product']?.toString() ?? 'General';
+              // Ensure product is a string and not empty
+              if (widthMap['product'] is! String || widthMap['product'].toString().trim().isEmpty) {
+                // Skip items without a valid product name
+                return null;
               }
               
               // Ensure width is a double
@@ -40,18 +41,14 @@ class WidthService {
               
               return widthMap;
             }
-            // If it's a string (old format), convert to map
+            // If it's a string (old format), skip it since it doesn't have a product name
             if (item is String) {
-              // Remove the " at the end if it exists
-              String widthStr = item.endsWith('"') ? item.substring(0, item.length - 1) : item;
-              double? widthValue = double.tryParse(widthStr);
-              return {
-                'product': 'General',
-                'width': widthValue ?? 0.0,
-              };
+              // Skip string items without product names
+              return null;
             }
-            return <String, dynamic>{'product': 'General', 'width': 0.0};
-          }).toList();
+            // Skip invalid items
+            return null;
+          }).where((item) => item != null).cast<Map<String, dynamic>>().toList();
         }
       }
       

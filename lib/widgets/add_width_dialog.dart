@@ -4,14 +4,14 @@ import 'package:purchase_app/utils/input_formatters.dart';
 
 class AddWidthDialog extends StatefulWidget {
   final String? initialWidth;
-  final String? initialProduct; // Add this parameter
+  final String? initialProduct;
   final bool isEditMode;
   final List<Map<String, dynamic>>? activeProducts;
 
   const AddWidthDialog({
     Key? key,
     this.initialWidth,
-    this.initialProduct, // Add this parameter
+    this.initialProduct,
     this.isEditMode = false,
     this.activeProducts,
   }) : super(key: key);
@@ -110,7 +110,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Product Name Field (always show)
+                // Product Name Field (always show as dropdown)
                 Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFFFF),
@@ -130,44 +130,43 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // Show dropdown if products are provided, otherwise show text field
-                      widget.activeProducts != null && widget.activeProducts!.isNotEmpty
-                          ? DropdownButtonFormField<String>(
-                              value: selectedProductValue,
-                              decoration: const InputDecoration(
-                                hintText: 'Select a product',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                              ),
-                              items: widget.activeProducts!.map((product) {
+                      // Always show dropdown, but disable when no products
+                      DropdownButtonFormField<String>(
+                        value: selectedProductValue,
+                        decoration: InputDecoration(
+                          hintText: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                              ? 'Select a product'
+                              : 'No products available',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          filled: true,
+                          fillColor: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                              ? Colors.white
+                              : Colors.grey[100],
+                        ),
+                        items: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            ? widget.activeProducts!.map((product) {
                                 return DropdownMenuItem<String>(
                                   value: product['name'],
                                   child: Text(product['name']),
                                 );
-                              }).toList(),
-                              onChanged: (value) {
+                              }).toList()
+                            : [], // Empty list when no products
+                        onChanged: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            ? (value) {
                                 setState(() {
                                   selectedProductValue = value;
                                 });
-                              },
-                            )
-                          : TextField(
-                              controller: productController,
-                              inputFormatters: [
-                                NoLeadingOrMultipleSpacesFormatter(),
-                              ],
-                              decoration: const InputDecoration(
-                                hintText: 'Enter product name',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                              ),
-                            ),
+                              }
+                            : null, // Disable when no products
+                        isExpanded: true,
+                        icon: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            ? const Icon(Icons.arrow_drop_down)
+                            : null, // Hide dropdown icon when disabled
+                      ),
                     ],
                   ),
                 ),
@@ -273,56 +272,57 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                          ? const Color(0xFF10B981)
+                          : Colors.grey[400], // Grey out button when no products
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: TextButton(
-                      onPressed: () async {
-                        // Get product name from dropdown or text field
-                        String productName = selectedProductValue ?? 
-                                       (widget.activeProducts != null && widget.activeProducts!.isNotEmpty 
-                                           ? '' 
-                                           : productController.text.trim());
-                        
-                        // Validate required fields
-                        if (productName.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter a product name'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        
-                        if (widthController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Width is required'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        
-                        // Parse width value
-                        double? widthValue = double.tryParse(widthController.text.trim());
-                        if (widthValue == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter a valid width value'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        
-                        // Return the width data to caller
-                        Navigator.pop(context, {
-                          'product': productName,
-                          'width': widthValue,
-                        });
-                      },
+                      onPressed: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                          ? () async {
+                              // Get product name from dropdown
+                              String productName = selectedProductValue ?? '';
+                              
+                              // Validate required fields
+                              if (productName.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please select a product'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              if (widthController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Width is required'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Parse width value
+                              double? widthValue = double.tryParse(widthController.text.trim());
+                              if (widthValue == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enter a valid width value'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Return the width data to caller
+                              Navigator.pop(context, {
+                                'product': productName,
+                                'width': widthValue,
+                              });
+                            }
+                          : null, // Disable button when no products
                       child: Text(
                         widget.isEditMode ? 'Update' : 'Save to Master',
                         style: const TextStyle(
