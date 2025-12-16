@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:purchase_app/service/order_service.dart';
+import 'package:purchase_app/service/width_service.dart';
 import 'package:purchase_app/textile_details.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
+import 'package:purchase_app/widgets/add_width_dialog.dart';
 
 class NewOrderSetupPage extends StatefulWidget {
   final bool isEditMode;
@@ -55,12 +57,14 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   List<String> sampleOptions = [];
   List<String> agents = [];
   List<String> sampleMtrOptions = [];
+  List<Map<String, dynamic>> products = [];
+  List<Map<String, dynamic>> activeProducts = [];
 
   bool _isLoading = true;
   late Box appDataBox;
   late Box ordersBox;
 
-  @override
+    @override
   void initState() {
     super.initState();
     // If in edit mode, set the values from parameters
@@ -74,17 +78,22 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       sampleRequired = widget.sampleRequired ?? 'Yes';
       selectedSampleMtr = widget.selectedSampleMtr ?? '2.5';
     }
-    _initializeHiveAndLoadData();
+    
+    _initializeHiveAndLoadData().then((_) {
+      // Load widths from the service after other data is loaded
+      _loadWidths();
+      // Load products after other data is loaded
+      _loadProducts();
+    });
     
     // Update party data from Hive to get latest changes
     _updatePartyDataFromHive();
 
     // Add a delay to verify data after loading
-    Future.delayed(Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () {
       _verifyDataPersistence();
     });
   }
-
   Future<void> _initializeHiveAndLoadData() async {
     try {
       // Get the boxes (they should already be open from main.dart)
@@ -100,6 +109,45 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       print('Error initializing Hive: $e');
       // Try to recover by reinitializing
       await _reinitializeHive();
+    }
+  }
+
+    // Add this method to _NewOrderSetupPageState
+  Future<void> _loadProducts() async {
+    try {
+      // Load data from Hive
+      List<Map<String, dynamic>> hiveProducts = [];
+      
+      // Ensure the box is open
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      final box = Hive.box('appData');
+      
+      final productsData = box.get('products');
+      if (productsData != null) {
+        // Handle different types of data
+        if (productsData is List) {
+          hiveProducts = productsData.map((item) {
+            if (item is Map) {
+              return Map<String, dynamic>.from(item);
+            }
+            return <String, dynamic>{};
+          }).toList();
+        }
+      }
+      
+      setState(() {
+        products = hiveProducts;
+        // Filter only active products
+        activeProducts = products.where((product) => 
+          product['status'] == 'Active').toList();
+      });
+      
+      print('Loaded ${products.length} products (${activeProducts.length} active)');
+    } catch (e) {
+      print('Error loading products: $e');
     }
   }
 
@@ -1671,225 +1719,84 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     );
   }
 
-  void _showAddNewWidthDialog() {
-  TextEditingController newWidthController = TextEditingController();
-
-  showDialog(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            backgroundColor: const Color(0xFFFFFFFF),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            // Set only width constraint, keep original height
-            insetPadding: const EdgeInsets.all(16),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.9,
-                // Remove maxHeight to keep original dialog height
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min, // This keeps the dialog compact
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Add Width',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(Icons.close, color: Color(0xFF767676)),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Content without Expanded to keep compact
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Width Field in a card
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Width (in inches): *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: newWidthController,
-                                inputFormatters: [
-                                  NoLeadingOrMultipleSpacesFormatter(),
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g. 72',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                keyboardType: TextInputType.number,
-                                onEditingComplete: () {
-                                  // Trim trailing spaces when editing is complete
-                                  newWidthController.text = newWidthController.text.trim();
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Information text with icon in a box
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEBF8FF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF3182CE)),
-                          ),
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Color(0xFF3182CE),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'This will be added to master and available for future orders.',
-                                  style: TextStyle(color: Color(0xFF3182CE)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Buttons - Fixed at bottom
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Trim any trailing spaces before saving
-                                String widthValue = newWidthController.text.trim();
-                                if (widthValue.isNotEmpty) {
-                                  setState(() {
-                                    widths.add(widthValue + '"');
-                                    selectedWidth = widthValue + '"';
-                                  });
-
-                                  // Save to Hive
-                                  await _saveDataToStorage();
-
-                                  Navigator.pop(context);
-
-                                  // Show success message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Width added successfully'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'Save to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+    void _showAddNewWidthDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AddWidthDialog(
+          // Pass the loaded active products to the dialog
+          activeProducts: activeProducts,
+        );
+      },
+    ).then((result) {
+      if (result != null) {
+        // Add the width using the service
+        WidthService().addWidth(result['product'], result['width']).then((_) {
+          // Reload the widths
+          _loadWidths();
+          
+          // Set the selected width to the newly added one
+          setState(() {
+            selectedWidth = result['width'].toString() + '"';
+          });
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Width added successfully'),
+              backgroundColor: Colors.green,
             ),
           );
-        },
-      );
-    },
-  );
+        }).catchError((error) {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error adding width: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+      }
+    });
+  }
+
+Future<void> _loadWidths() async {
+  try {
+    // Use the WidthService to get widths
+    List<Map<String, dynamic>> widthsData = await WidthService().getWidths();
+    
+    // Convert WidthService widths to strings with " at the end
+    List<String> serviceWidths = widthsData.map((width) => width['width'].toString() + '"').toList();
+    
+    // Combine existing widths with service widths
+    setState(() {
+      // Create a set to avoid duplicates
+      Set<String> combinedWidths = Set.from(widths);
+      
+      // Add service widths to the set
+      combinedWidths.addAll(serviceWidths);
+      
+      // Convert back to list and sort
+      widths = combinedWidths.toList();
+      widths.sort((a, b) {
+        // Extract numeric value for comparison
+        double aNum = double.tryParse(a.replaceAll('"', '')) ?? 0;
+        double bNum = double.tryParse(b.replaceAll('"', '')) ?? 0;
+        return aNum.compareTo(bNum);
+      });
+    });
+    
+    print('Loaded ${widths.length} widths from combined sources');
+  } catch (e) {
+    print('Error loading widths: $e');
+    // Don't replace existing widths, just ensure we have defaults
+    if (widths.isEmpty) {
+      setState(() {
+        widths = ['44"', '54"', '58"', '60"']; // Fallback to defaults
+      });
+    }
+  }
 }
-  
   Widget _buildDefaultChoicesField() {
     return Card(
       elevation: 0,

@@ -12,6 +12,7 @@ import 'order_form_finish_page.dart';
 import 'new_order_setup_page.dart';
 import 'package:purchase_app/service/order_service.dart';
 import 'dart:async';
+import 'package:purchase_app/service/width_service.dart';
 
 enum FilterType { mode, ofType }
 
@@ -87,7 +88,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   List<String> qualities = ['PC', 'Cotton', 'CP', 'Linen'];
   List<String> weaves = ['Twill', 'Oxford', 'Dobby', 'Flannel', 'Satin'];
-  List<String> widthOptions = ['44"', '54"', '58"', '60"', '72"'];
+  List<String> widthOptions = ['44"', '54"', '58"', '60"'];
   List<Map<String, dynamic>> capturedDesigns = [];
 
   // For O/F Type override
@@ -157,6 +158,13 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
     currentDefaultChoices = widget.defaultChoices;
     currentDefaultMeters = widget.defaultMeters;
 
+ _initializeHiveAndLoadData().then((_) {
+    // Load other data from sources (we will modify this method next)
+    _loadDataFromSources();
+    
+    // Load widths from the service to get the latest list
+    _loadWidthsFromService(); 
+  });
     _initializeHiveAndLoadData();
   }
 
@@ -190,6 +198,44 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
       await _reinitializeHive();
     }
   }
+
+  // Add this method inside your _TextileDetailsPageState class
+Future<void> _loadWidthsFromService() async {
+  try {
+    // Use the WidthService to get widths
+    List<Map<String, dynamic>> widthsData = await WidthService().getWidths();
+    
+    // Convert WidthService widths to strings with " at the end
+    List<String> serviceWidths = widthsData.map((width) => width['width'].toString() + '"').toList();
+    
+    setState(() {
+      // Create a set to avoid duplicates
+      Set<String> combinedWidths = Set.from(widthOptions); // Start with existing widths
+      
+      // Add service widths to the set
+      combinedWidths.addAll(serviceWidths);
+      
+      // Convert back to list and sort
+      widthOptions = combinedWidths.toList();
+      widthOptions.sort((a, b) {
+        // Extract numeric value for comparison
+        double aNum = double.tryParse(a.replaceAll('"', '')) ?? 0;
+        double bNum = double.tryParse(b.replaceAll('"', '')) ?? 0;
+        return aNum.compareTo(bNum);
+      });
+    });
+    
+    print('Loaded ${widthOptions.length} widths from WidthService');
+  } catch (e) {
+    print('Error loading widths from service: $e');
+    // Don't replace existing widths, just ensure we have defaults
+    if (widthOptions.isEmpty) {
+      setState(() {
+        widthOptions = ['44"', '54"', '58"', '60"']; // Fallback to defaults
+      });
+    }
+  }
+}
 
   Future<void> _reinitializeHive() async {
     try {
@@ -514,18 +560,21 @@ Future<void> _checkSavedImages() async {
         // Remove the ofTypes.sort() line to maintain the original order
 
         // Combine Widths from order_data.json + Hive (both app-level and textile-specific keys)
-        final jsonWidths = jsonOrderData['widths'] != null
-            ? List<String>.from(jsonOrderData['widths'])
-            : [];
-        final hiveAppWidths = hiveData['widths'] != null
-            ? List<String>.from(hiveData['widths'])
-            : [];
-        final hiveTextileWidths = hiveData['textileWidths'] != null
-            ? List<String>.from(hiveData['textileWidths'])
-            : [];
-        widthOptions = [...jsonWidths, ...hiveAppWidths, ...hiveTextileWidths];
-        widthOptions = widthOptions.toSet().toList(); // Remove duplicates
-        widthOptions.sort();
+        // final jsonWidths = jsonOrderData['widths'] != null
+        //     ? List<String>.from(jsonOrderData['widths'])
+        //     : [];
+        // final hiveAppWidths = hiveData['widths'] != null
+        //     ? List<String>.from(hiveData['widths'])
+        //     : [];
+        // final hiveTextileWidths = hiveData['textileWidths'] != null
+        //     ? List<String>.from(hiveData['textileWidths'])
+        //     : [];
+        // widthOptions = [...jsonWidths, ...hiveAppWidths, ...hiveTextileWidths];
+        // widthOptions = widthOptions.toSet().toList(); // Remove duplicates
+        // widthOptions.sort();
+        if (widthOptions.isEmpty) {
+      widthOptions = ['44"', '54"', '58"', '60"'];
+    }
 
         // Combine Qualities from order_data.json + textile_designs.json + Hive
         final jsonQualities = jsonOrderData['qualities'] != null
@@ -2784,225 +2833,264 @@ Future<void> _checkSavedImages() async {
 
   // Add Width Dialog
   Widget _buildAddWidthDialog() {
-    return Stack(
-      children: [
-        // Background overlay
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _showAddWidthDialog = false;
-            });
-          },
-          child: Container(
-            color: Colors.black.withOpacity(0.5),
-            width: double.infinity,
-            height: double.infinity,
-          ),
+  return Stack(
+    children: [
+      // Background overlay
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _showAddWidthDialog = false;
+          });
+        },
+        child: Container(
+          color: Colors.black.withOpacity(0.5),
+          width: double.infinity,
+          height: double.infinity,
         ),
+      ),
 
-        // Dialog content
-        Center(
-          child: Container(
-            width: MediaQuery.of(context).size.width > 600
-                ? 500
-                : double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Dialog header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                    ),
+      // Dialog content
+      Center(
+        child: Container(
+          width: MediaQuery.of(context).size.width > 600
+              ? 500
+              : double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Dialog header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Add Width',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Add Width',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
-                      GestureDetector(
-                        onTap: () {
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showAddWidthDialog = false;
+                        });
+                      },
+                      child: const Icon(Icons.close, color: Colors.black),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Dialog body
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Width Name field
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Width: *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _widthController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g., 44", 58", 60"',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Info message
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFDBEAFE)),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.info_outline,
+                            color: Color(0xFF2563EB),
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'This will be added to master and available immediately.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF1E40AF),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Dialog footer
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Cancel button
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
                           setState(() {
                             _showAddWidthDialog = false;
                           });
                         },
-                        child: const Icon(Icons.close, color: Colors.black),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Dialog body
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Width Name field
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFFFF),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          foregroundColor: Colors.white,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Width: *',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF374151),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _widthController,
-                              decoration: InputDecoration(
-                                hintText: 'e.g., 44", 58", 60"',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.withOpacity(0.3),
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      // Info message
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFDBEAFE)),
-                        ),
-                        child: Row(
-                          children: const [
-                            Icon(
-                              Icons.info_outline,
-                              color: Color(0xFF2563EB),
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'This will be added to master and available immediately.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF1E40AF),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Dialog footer
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Cancel button
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _showAddWidthDialog = false;
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Save to Master button
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            if (_widthController.text.isNotEmpty) {
-                              setState(() {
-                                widthOptions.add(_widthController.text);
-                                selectedWidth = _widthController.text;
-                                _showAddWidthDialog = false;
-                              });
-                              // Save widths to Hive
-                              _saveWidthsToHive();
+                    const SizedBox(width: 12),
+                    // Save to Master button (UPDATED)
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (_widthController.text.isNotEmpty) {
+                            try {
+                              // Extract numeric value from the input (e.g., "58" from "58\"")
+                              String widthStr = _widthController.text;
+                              if (widthStr.endsWith('"')) {
+                                widthStr = widthStr.substring(0, widthStr.length - 1);
+                              }
+                              double? widthValue = double.tryParse(widthStr);
+
+                              if (widthValue != null) {
+                                // Use WidthService to add the width. We'll use "General" as the product.
+                                await WidthService().addWidth("General", widthValue);
+
+                                // Reload widths from the service to get the updated list immediately
+                                await _loadWidthsFromService();
+
+                                // Set the selected width to the newly added one and close the dialog
+                                setState(() {
+                                  selectedWidth = _widthController.text; // Use the original text from the controller
+                                  _showAddWidthDialog = false;
+                                });
+
+                                _widthController.clear();
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Width added successfully'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              } else {
+                                // Handle case where parsing fails
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Invalid width format. Please enter a number.'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              // Handle any other errors from the service
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error adding width: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
                             }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text(
-                            'Save to Master',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text(
+                          'Save to Master',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ],
-    );
-  }
-
+      ),
+    ],
+  );
+}
   Widget _buildDetailHeading(String text) {
     return Text(
       text,

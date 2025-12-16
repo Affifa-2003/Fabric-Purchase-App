@@ -72,11 +72,6 @@ class _ProductsPageState extends State<ProductsPage> {
 
       appDataBox = Hive.box('appData');
       
-      // Initialize with defaults if box is empty
-      if (appDataBox.isEmpty) {
-        await _initializeBoxWithDefaults(appDataBox);
-      }
-      
       final productsData = appDataBox.get('products');
       if (productsData != null) {
         // Handle different types of data
@@ -104,26 +99,6 @@ class _ProductsPageState extends State<ProductsPage> {
         filteredProducts = [];
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _initializeBoxWithDefaults(Box box) async {
-    try {
-      print('Initializing Hive box with default products');
-      
-      // Fallback to hardcoded defaults since there's no JSON
-      List<Map<String, dynamic>> defaultProducts = [
-        {'name': 'Cotton Shirt', 'consumption': 1.5, 'description': 'Standard cotton shirt', 'status': 'Active'},
-        {'name': 'Denim Jeans', 'consumption': 2.0, 'description': 'Classic denim jeans', 'status': 'Active'},
-        {'name': 'Silk Scarf', 'consumption': 0.8, 'description': 'Luxury silk scarf', 'status': 'Active'},
-      ];
-      
-      // Set default products
-      await box.put('products', defaultProducts);
-      await box.flush();
-      print('Hive box initialized with default products');
-    } catch (e) {
-      print('Error initializing box with defaults: $e');
     }
   }
 

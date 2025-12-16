@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:purchase_app/service/width_service.dart';
+import 'package:purchase_app/widgets/add_width_dialog.dart';
+import 'package:purchase_app/service/width_service.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
 
 class WidthPage extends StatefulWidget {
@@ -17,7 +20,6 @@ class _WidthPageState extends State<WidthPage> {
   bool _isLoading = true;
   late Box appDataBox;
   TextEditingController _searchController = TextEditingController();
-  String? selectedProduct;
 
   @override
   void initState() {
@@ -62,11 +64,7 @@ class _WidthPageState extends State<WidthPage> {
       }
 
       appDataBox = Hive.box('appData');
-      
-      // Initialize with defaults if box is empty
-      if (appDataBox.isEmpty) {
-        await _initializeBoxWithDefaults(appDataBox);
-      }
+  
       
       final productsData = appDataBox.get('products');
       if (productsData != null) {
@@ -96,40 +94,10 @@ class _WidthPageState extends State<WidthPage> {
 
   Future<void> _loadWidths() async {
     try {
-      // Load data from Hive
-      List<Map<String, dynamic>> hiveWidths = [];
-      
-      // Ensure the box is open
-      if (!Hive.isBoxOpen('appData')) {
-        await Hive.openBox('appData');
-      }
-
-      appDataBox = Hive.box('appData');
-      
-      // Initialize with defaults if box is empty
-      if (appDataBox.isEmpty) {
-        await _initializeBoxWithDefaults(appDataBox);
-      }
-      
-      final widthsData = appDataBox.get('widths');
-      if (widthsData != null) {
-        // Handle different types of data
-        if (widthsData is List) {
-          hiveWidths = widthsData.map((item) {
-            if (item is Map) {
-              return Map<String, dynamic>.from(item);
-            }
-            // If it's a LinkedMap or other map type
-            if (item is Map<dynamic, dynamic>) {
-              return Map<String, dynamic>.from(item);
-            }
-            return <String, dynamic>{};
-          }).toList();
-        }
-      }
+      // Use the WidthService to get widths
+      widths = await WidthService().getWidths();
       
       setState(() {
-        widths = hiveWidths;
         filteredWidths = List.from(widths);
       });
       
@@ -140,64 +108,6 @@ class _WidthPageState extends State<WidthPage> {
         widths = [];
         filteredWidths = [];
       });
-    }
-  }
-
-  Future<void> _initializeBoxWithDefaults(Box box) async {
-    try {
-      print('Initializing Hive box with default widths');
-      
-      // Fallback to hardcoded defaults
-      List<Map<String, dynamic>> defaultWidths = [
-        {'product': 'Cotton Shirt', 'width': 72},
-        {'product': 'Denim Jeans', 'width': 60},
-        {'product': 'Silk Scarf', 'width': 45},
-      ];
-      
-      // Set default widths
-      await box.put('widths', defaultWidths);
-      await box.flush();
-      print('Hive box initialized with default widths');
-    } catch (e) {
-      print('Error initializing box with defaults: $e');
-    }
-  }
-
-  Future<void> _saveWidthsToStorage() async {
-    try {
-      // Ensure the box is open
-      if (!Hive.isBoxOpen('appData')) {
-        await Hive.openBox('appData');
-      }
-
-      final box = Hive.box('appData');
-      
-      // Ensure we're saving a list of maps with proper types
-      List<Map<String, dynamic>> widthsToSave = widths.map((width) {
-        return {
-          'product': width['product']?.toString() ?? '',
-          'width': width['width'] is int ? width['width'].toDouble() : width['width'] ?? 0.0,
-        };
-      }).toList();
-      
-      // Save data with explicit await to ensure it's written to disk
-      await box.put('widths', widthsToSave);
-      
-      // Explicitly flush to disk
-      await box.flush();
-
-      // Verify data was saved
-      print('Saved widths: ${box.get('widths')}');
-      print('Widths data saved successfully');
-    } catch (e) {
-      print('Error saving widths data: $e');
-      // Show error to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving widths: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -244,653 +154,80 @@ class _WidthPageState extends State<WidthPage> {
   }
 
   void _showAddNewWidthDialog() {
-    TextEditingController widthController = TextEditingController();
-    String? selectedProductValue;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: const Color(0xFFFFFFFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Add Width',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(Icons.close, color: Color(0xFF767676)),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Product Name Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Product Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: selectedProductValue,
-                                decoration: const InputDecoration(
-                                  hintText: 'Select a product',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                items: activeProducts.map((product) {
-                                  return DropdownMenuItem<String>(
-                                    value: product['name'],
-                                    child: Text(product['name']),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    selectedProductValue = value;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Width Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Width (in inches): *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: widthController,
-                                inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g. 72',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Information text with icon in a box
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEBF8FF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF3182CE)),
-                          ),
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Color(0xFF3182CE),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'This will be added to master and available for future orders.',
-                                  style: TextStyle(color: Color(0xFF3182CE)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                  
-                  // Buttons
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Validate required fields
-                                if (selectedProductValue == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Please select a product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                if (widthController.text.trim().isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Width is required'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Parse width value
-                                double? widthValue = double.tryParse(widthController.text.trim());
-                                if (widthValue == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Please enter a valid width value'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Check if this width already exists for this product
-                                bool exists = widths.any((w) => 
-                                  w['product'] == selectedProductValue && w['width'] == widthValue);
-                                
-                                if (exists) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('This width already exists for the selected product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Create new width
-                                Map<String, dynamic> newWidth = {
-                                  'product': selectedProductValue,
-                                  'width': widthValue,
-                                };
-                                
-                                // Update local state immediately
-                                setState(() {
-                                  // Add to the beginning of the list
-                                  widths.insert(0, newWidth);
-                                  _filterWidths(); // Update filtered list
-                                });
-
-                                // Save to Hive
-                                await _saveWidthsToStorage();
-
-                                Navigator.pop(context);
-
-                                // Show success message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Width added successfully'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Save to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showEditWidthDialog(Map<String, dynamic> width, int index) {
-    TextEditingController widthController = TextEditingController(text: width['width'].toString());
-    String? selectedProductValue = width['product'];
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: const Color(0xFFFFFFFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Edit Width',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(Icons.close, color: Color(0xFF767676)),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Product Name Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Product Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: selectedProductValue,
-                                decoration: const InputDecoration(
-                                  hintText: 'Select a product',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                items: activeProducts.map((product) {
-                                  return DropdownMenuItem<String>(
-                                    value: product['name'],
-                                    child: Text(product['name']),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    selectedProductValue = value;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Width Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Width (in inches): *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: widthController,
-                                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g. 72',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Information text with icon in a box
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEBF8FF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF3182CE)),
-                          ),
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Color(0xFF3182CE),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'This will update the width in master and all associated records.',
-                                  style: TextStyle(color: Color(0xFF3182CE)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                  
-                  // Buttons
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Validate required fields
-                                if (selectedProductValue == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Please select a product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                if (widthController.text.trim().isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Width is required'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Parse width value
-                                double? widthValue = double.tryParse(widthController.text.trim());
-                                if (widthValue == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Please enter a valid width value'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Check if this width already exists for this product (excluding current entry)
-                                bool exists = widths.any((w) => 
-                                  w['product'] == selectedProductValue && 
-                                  w['width'] == widthValue && 
-                                  w != width);
-                                
-                                if (exists) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('This width already exists for the selected product'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                
-                                // Check if product or width is being changed
-                                bool productChanged = selectedProductValue != width['product'];
-                                bool widthChanged = widthValue != width['width'];
-                                
-                                // Create updated width
-                                Map<String, dynamic> updatedWidth = {
-                                  'product': selectedProductValue,
-                                  'width': widthValue,
-                                };
-                                
-                                // Update local state immediately
-                                setState(() {
-                                  // Remove the old width
-                                  widths.removeAt(index);
-                                  // Add the updated width at the beginning
-                                  widths.insert(0, updatedWidth);
-                                  _filterWidths(); // Update filtered list
-                                });
-
-                                // Save to Hive
-                                await _saveWidthsToStorage();
-
-                                // If product or width changed, update all related records
-                                if (productChanged || widthChanged) {
-                                  await _updateWidthInAllRecords(width['product'], width['width'], updatedWidth);
-                                }
-
-                                Navigator.pop(context);
-
-                                // Show success message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Width updated successfully'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Update to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _updateWidthInAllRecords(String oldProduct, double oldWidth, Map<String, dynamic> updatedWidth) async {
-    try {
-      // Update width in orders box
-      if (Hive.isBoxOpen('appData')) {
-        final appDataBox = Hive.box('appData');
-        final ordersData = appDataBox.get('orders');
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AddWidthDialog(
+        activeProducts: activeProducts,
+      );
+    },
+  ).then((result) {
+    if (result != null) {
+      // Add the width using the service
+      WidthService().addWidth(result['product'], result['width']).then((_) {
+        // Reload the widths
+        _loadWidths();
         
-        if (ordersData != null && ordersData is List) {
-          List<Map<String, dynamic>> updatedOrdersData = [];
-          
-          for (var order in ordersData) {
-            Map<String, dynamic> orderMap = Map<String, dynamic>.from(order);
-            if (orderMap['product'] == oldProduct && orderMap['width'] == oldWidth) {
-              orderMap['product'] = updatedWidth['product'];
-              orderMap['width'] = updatedWidth['width'];
-            }
-            updatedOrdersData.add(orderMap);
-          }
-          
-          await appDataBox.put('orders', updatedOrdersData);
-          await appDataBox.flush();
-          print('Updated width in orders box');
-        }
-      }
-      
-    } catch (e) {
-      print('Error updating width in all records: $e');
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Width added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }).catchError((error) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding width: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
     }
-  }
-
+  });
+}
+  void _showEditWidthDialog(Map<String, dynamic> width, int index) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AddWidthDialog(
+        isEditMode: true,
+        initialWidth: width['width'],
+        activeProducts: activeProducts,
+      );
+    },
+  ).then((result) {
+    if (result != null) {
+      // Update the width using the service
+      WidthService().updateWidth(
+        width['product'], 
+        width['width'], 
+        result['product'], 
+        result['width']
+      ).then((_) {
+        // Reload the widths
+        _loadWidths();
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Width updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }).catchError((error) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating width: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    }
+  });
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1089,18 +426,10 @@ class _WidthPageState extends State<WidthPage> {
             if (isProductActive && !isMapped)
               TextButton(
                 onPressed: () async {
-                  // Find the original index in the widths list
-                  int originalIndex = widths.indexWhere((w) => 
-                    w['product'] == width['product'] && w['width'] == width['width']);
-                  if (originalIndex != -1) {
-                    // Update local state immediately
-                    setState(() {
-                      widths.removeAt(originalIndex);
-                      _filterWidths(); // Update filtered list
-                    });
-                    
-                    // Save to Hive
-                    await _saveWidthsToStorage();
+                  // Delete the width using the service
+                  WidthService().deleteWidth(width['product'], width['width']).then((_) {
+                    // Reload the widths
+                    _loadWidths();
                     
                     Navigator.of(context).pop(); // Close dialog
                     
@@ -1111,7 +440,15 @@ class _WidthPageState extends State<WidthPage> {
                         backgroundColor: Colors.green,
                       ),
                     );
-                  }
+                  }).catchError((error) {
+                    // Show error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error deleting width: $error'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  });
                 },
                 child: const Text('Delete'),
               ),
