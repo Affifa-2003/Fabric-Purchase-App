@@ -4,12 +4,14 @@ import 'package:purchase_app/utils/input_formatters.dart';
 
 class AddWidthDialog extends StatefulWidget {
   final String? initialWidth;
+  final String? initialProduct; // Add this parameter
   final bool isEditMode;
   final List<Map<String, dynamic>>? activeProducts;
 
   const AddWidthDialog({
     Key? key,
     this.initialWidth,
+    this.initialProduct, // Add this parameter
     this.isEditMode = false,
     this.activeProducts,
   }) : super(key: key);
@@ -27,8 +29,27 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.isEditMode) {
-      widthController.text = widget.initialWidth?.toString() ?? '';
+    
+    // Initialize width field
+    if (widget.isEditMode && widget.initialWidth != null) {
+      // If initialWidth is a string, use it directly
+      // If it's a number, convert it to string
+      if (widget.initialWidth is String) {
+        widthController.text = widget.initialWidth!;
+      } else {
+        widthController.text = widget.initialWidth?.toString() ?? '';
+      }
+    }
+    
+    // Initialize product field
+    if (widget.isEditMode && widget.initialProduct != null) {
+      // Set the selected product value
+      selectedProductValue = widget.initialProduct;
+      
+      // If we're not using dropdown (no active products), set the text field
+      if (widget.activeProducts == null || widget.activeProducts!.isEmpty) {
+        productController.text = widget.initialProduct!;
+      }
     }
   }
 

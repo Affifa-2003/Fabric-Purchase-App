@@ -21,7 +21,24 @@ class WidthService {
         if (widthsData is List) {
           widths = widthsData.map((item) {
             if (item is Map) {
-              return Map<String, dynamic>.from(item);
+              // Ensure all values have the correct types
+              Map<String, dynamic> widthMap = Map<String, dynamic>.from(item);
+              
+              // Ensure product is a string
+              if (widthMap['product'] is! String) {
+                widthMap['product'] = widthMap['product']?.toString() ?? 'General';
+              }
+              
+              // Ensure width is a double
+              if (widthMap['width'] is int) {
+                widthMap['width'] = (widthMap['width'] as int).toDouble();
+              } else if (widthMap['width'] is String) {
+                widthMap['width'] = double.tryParse(widthMap['width']) ?? 0.0;
+              } else if (widthMap['width'] is! double) {
+                widthMap['width'] = 0.0;
+              }
+              
+              return widthMap;
             }
             // If it's a string (old format), convert to map
             if (item is String) {
@@ -33,7 +50,7 @@ class WidthService {
                 'width': widthValue ?? 0.0,
               };
             }
-            return <String, dynamic>{};
+            return <String, dynamic>{'product': 'General', 'width': 0.0};
           }).toList();
         }
       }
@@ -153,5 +170,4 @@ class WidthService {
       rethrow;
     }
   }
-
 }
