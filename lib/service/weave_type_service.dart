@@ -25,9 +25,10 @@ class WeaveTypeService {
               // Ensure all values have the correct types
               Map<String, dynamic> weaveTypeMap = Map<String, dynamic>.from(item);
               
-              // Ensure product is a string
-              if (weaveTypeMap['product'] is! String) {
-                weaveTypeMap['product'] = weaveTypeMap['product']?.toString() ?? 'General';
+              // Ensure product is a string and not empty
+              if (weaveTypeMap['product'] is! String || weaveTypeMap['product'].toString().trim().isEmpty) {
+                // Skip items without a valid product name
+                return null;
               }
               
               // Ensure weaveType is a string
@@ -37,8 +38,9 @@ class WeaveTypeService {
               
               return weaveTypeMap;
             }
-            return <String, dynamic>{'product': 'General', 'weaveType': ''};
-          }).toList();
+            // Skip invalid items
+            return null;
+          }).where((item) => item != null).cast<Map<String, dynamic>>().toList();
         }
       }
       
