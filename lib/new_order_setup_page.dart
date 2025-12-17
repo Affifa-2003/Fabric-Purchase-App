@@ -84,6 +84,8 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       _loadWidths();
       // Load products after other data is loaded
       _loadProducts();
+
+       _refreshSampleMetersData();
     });
     
     // Update party data from Hive to get latest changes
@@ -223,157 +225,216 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  Future<void> _loadDataFromSources() async {
-    try {
-      // Load data from JSON
-      Map<String, dynamic> jsonData = {};
-      try {
-        final String response = await rootBundle.loadString('assets/order_data.json');
-        jsonData = json.decode(response);
-        print('Loaded data from JSON successfully');
-      } catch (e) {
-        print('Error loading JSON data: $e');
-      }
-
-      // Load data from Hive
-      Map<String, dynamic> hiveData = {};
-      try {
-        final box = Hive.box('appData');
-
-        // Initialize with defaults if box is empty
-        if (box.isEmpty) {
-          await _initializeBoxWithDefaults(box);
+  // Add this method to NewOrderSetupPage
+Future<void> _refreshSampleMetersData() async {
+  try {
+    if (!Hive.isBoxOpen('appData')) {
+      await Hive.openBox('appData');
+    }
+    
+    final box = Hive.box('appData');
+    final sampleMetersData = box.get('sampleMeters');
+    
+    if (sampleMetersData != null) {
+      List<String> updatedSampleMeters = [];
+      
+      if (sampleMetersData is List) {
+        for (var meter in sampleMetersData) {
+          if (meter is Map && meter['name'] != null && meter['status'] == 'Active') {
+            updatedSampleMeters.add(meter['name'] as String);
+          }
         }
-
-        // Get all data from Hive
-        final keys = box.keys.toList();
-        for (var key in keys) {
-          hiveData[key] = box.get(key);
-        }
-        print('Loaded data from Hive successfully');
-      } catch (e) {
-        print('Error loading Hive data: $e');
       }
-
-      // Combine JSON and Hive data, with Hive taking precedence
+      
       setState(() {
-        // Combine parties
-        final jsonParties = jsonData['parties'] != null
-            ? List<String>.from(jsonData['parties'])
-            : [];
-        
-        // Handle parties from Hive - could be in old format (List<String>) or new format (List<Map<String, dynamic>>)
-        List<String> hiveParties = [];
-        if (hiveData['parties'] != null) {
-          if (hiveData['parties'] is List) {
-            for (var party in hiveData['parties']) {
-              if (party is String) {
-                // Old format
-                hiveParties.add(party);
-              } else if (party is Map && party['name'] != null) {
-                // New format
-                hiveParties.add(party['name'] as String);
-              }
+        // Combine with existing sampleMtrOptions
+        final combinedOptions = [...sampleMtrOptions, ...updatedSampleMeters];
+        sampleMtrOptions = combinedOptions.toSet().toList(); // Remove duplicates
+      });
+      
+      print('Refreshed sample meters: $sampleMtrOptions');
+    }
+  } catch (e) {
+    print('Error refreshing sample meters data: $e');
+  }
+}
+  Future<void> _loadDataFromSources() async {
+  try {
+    // Load data from JSON
+    Map<String, dynamic> jsonData = {};
+    try {
+      final String response = await rootBundle.loadString('assets/order_data.json');
+      jsonData = json.decode(response);
+      print('Loaded data from JSON successfully');
+    } catch (e) {
+      print('Error loading JSON data: $e');
+    }
+
+    // Load data from Hive
+    Map<String, dynamic> hiveData = {};
+    try {
+      final box = Hive.box('appData');
+
+      // Initialize with defaults if box is empty
+      if (box.isEmpty) {
+        await _initializeBoxWithDefaults(box);
+      }
+
+      // Get all data from Hive
+      final keys = box.keys.toList();
+      for (var key in keys) {
+        hiveData[key] = box.get(key);
+      }
+      print('Loaded data from Hive successfully');
+    } catch (e) {
+      print('Error loading Hive data: $e');
+    }
+
+    // Combine JSON and Hive data, with Hive taking precedence
+    setState(() {
+      // Combine parties
+      final jsonParties = jsonData['parties'] != null
+          ? List<String>.from(jsonData['parties'])
+          : [];
+      
+      // Handle parties from Hive - could be in old format (List<String>) or new format (List<Map<String, dynamic>>)
+      List<String> hiveParties = [];
+      if (hiveData['parties'] != null) {
+        if (hiveData['parties'] is List) {
+          for (var party in hiveData['parties']) {
+            if (party is String) {
+              // Old format
+              hiveParties.add(party);
+            } else if (party is Map && party['name'] != null) {
+              // New format
+              hiveParties.add(party['name'] as String);
             }
           }
         }
-        
-        parties = [...jsonParties, ...hiveParties];
-        parties = parties.toSet().toList(); // Remove duplicates
+      }
+      
+      parties = [...jsonParties, ...hiveParties];
+      parties = parties.toSet().toList(); // Remove duplicates
 
-        // Combine ofTypes
-        final jsonOfTypes = jsonData['ofTypes'] != null
-            ? List<String>.from(jsonData['ofTypes'])
-            : [];
-        final hiveOfTypes = hiveData['ofTypes'] != null
-            ? List<String>.from(hiveData['ofTypes'])
-            : [];
-        final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
-            ? List<String>.from(hiveData['textileOFTypes'])
-            : [];
+      // Combine ofTypes
+      final jsonOfTypes = jsonData['ofTypes'] != null
+          ? List<String>.from(jsonData['ofTypes'])
+          : [];
+      final hiveOfTypes = hiveData['ofTypes'] != null
+          ? List<String>.from(hiveData['ofTypes'])
+          : [];
+      final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
+          ? List<String>.from(hiveData['textileOFTypes'])
+          : [];
 
-        // Combine lists while preserving order
-        List<String> combinedOfTypes = [];
-        combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
+      // Combine lists while preserving order
+      List<String> combinedOfTypes = [];
+      combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
 
-        // Add items from hiveOfTypes if not already present
-        for (var item in hiveOfTypes) {
-          if (!combinedOfTypes.contains(item)) {
-            combinedOfTypes.add(item);
+      // Add items from hiveOfTypes if not already present
+      for (var item in hiveOfTypes) {
+        if (!combinedOfTypes.contains(item)) {
+          combinedOfTypes.add(item);
+        }
+      }
+
+      // Add items from hiveTextileOfTypes if not already present
+      for (var item in hiveTextileOfTypes) {
+        if (!combinedOfTypes.contains(item)) {
+          combinedOfTypes.add(item);
+        }
+      }
+
+      ofTypes = combinedOfTypes;
+      // Remove the ofTypes.sort() line to maintain the original order
+
+      // Combine widths
+      final jsonWidths = jsonData['widths'] != null
+          ? List<String>.from(jsonData['widths'])
+          : [];
+      final hiveWidths = hiveData['widths'] != null
+          ? List<String>.from(hiveData['widths'])
+          : [];
+      final hiveTextileWidths = hiveData['textileWidths'] != null
+          ? List<String>.from(hiveData['textileWidths'])
+          : [];
+      widths = [...jsonWidths, ...hiveWidths, ...hiveTextileWidths];
+      widths = widths.toSet().toList(); // Remove duplicates
+      widths.sort();
+
+      // Combine sampleOptions
+      final jsonSampleOptions = jsonData['sampleOptions'] != null
+          ? List<String>.from(jsonData['sampleOptions'])
+          : [];
+      final hiveSampleOptions = hiveData['sampleOptions'] != null
+          ? List<String>.from(hiveData['sampleOptions'])
+          : [];
+      sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
+      sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
+      
+      // Combine agents
+      final jsonAgents = jsonData['agents'] != null
+          ? List<String>.from(jsonData['agents'])
+          : [];
+      final hiveAgents = hiveData['agents'] != null
+          ? List<String>.from(hiveData['agents'])
+          : [];
+
+      // Create a set to avoid duplicates
+      Set<String> uniqueAgents = Set.from(jsonAgents);
+      uniqueAgents.addAll(hiveAgents as Iterable<String>);
+
+      // Convert back to list
+      agents = uniqueAgents.toList();
+
+      // Combine sampleMtrOptions
+      // final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
+      //     ? List<String>.from(jsonData['sampleMtrOptions'])
+      //     : [];
+      // final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
+      //     ? List<String>.from(hiveData['sampleMtrOptions'])
+      //     : [];
+      
+      // Load sample meters from Hive - FIXED PART
+      List<String> hiveSampleMeters = [];
+      if (hiveData['sampleMeters'] != null && hiveData['sampleMeters'] is List) {
+        for (var meter in hiveData['sampleMeters']) {
+          if (meter is Map && meter['name'] != null) {
+            // Only add active sample meters
+            if (meter['status'] == 'Active') {
+              hiveSampleMeters.add(meter['name'] as String);
+            }
           }
         }
+      }
+      
+      // Combine all sample meter options
+      final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
+          ? List<String>.from(jsonData['sampleMtrOptions'])
+          : [];
+      final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
+          ? List<String>.from(hiveData['sampleMtrOptions'])
+          : [];
+      
+      sampleMtrOptions = [...jsonSampleMtrOptions, ...hiveSampleMtrOptions, ...hiveSampleMeters];
+      sampleMtrOptions = sampleMtrOptions.toSet().toList(); // Remove duplicates
+      
+      // Debug: Print final sampleMtrOptions
+      print('Final sampleMtrOptions: $sampleMtrOptions');
 
-        // Add items from hiveTextileOfTypes if not already present
-        for (var item in hiveTextileOfTypes) {
-          if (!combinedOfTypes.contains(item)) {
-            combinedOfTypes.add(item);
-          }
-        }
+      _isLoading = false;
+    });
 
-        ofTypes = combinedOfTypes;
-        // Remove the ofTypes.sort() line to maintain the original order
-
-        // Combine widths
-        final jsonWidths = jsonData['widths'] != null
-            ? List<String>.from(jsonData['widths'])
-            : [];
-        final hiveWidths = hiveData['widths'] != null
-            ? List<String>.from(hiveData['widths'])
-            : [];
-        final hiveTextileWidths = hiveData['textileWidths'] != null
-            ? List<String>.from(hiveData['textileWidths'])
-            : [];
-        widths = [...jsonWidths, ...hiveWidths, ...hiveTextileWidths];
-        widths = widths.toSet().toList(); // Remove duplicates
-        widths.sort();
-
-        // Combine sampleOptions
-        final jsonSampleOptions = jsonData['sampleOptions'] != null
-            ? List<String>.from(jsonData['sampleOptions'])
-            : [];
-        final hiveSampleOptions = hiveData['sampleOptions'] != null
-            ? List<String>.from(hiveData['sampleOptions'])
-            : [];
-        sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
-        sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
-//  Combine agents
-final jsonAgents = jsonData['agents'] != null
-    ? List<String>.from(jsonData['agents'])
-    : [];
-final hiveAgents = hiveData['agents'] != null
-    ? List<String>.from(hiveData['agents'])
-    : [];
-
-// Create a set to avoid duplicates
-Set<String> uniqueAgents = Set.from(jsonAgents);
-uniqueAgents.addAll(hiveAgents as Iterable<String>);
-
-// Convert back to list
-agents = uniqueAgents.toList();
-
-        // Combine sampleMtrOptions
-        final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
-            ? List<String>.from(jsonData['sampleMtrOptions'])
-            : [];
-        final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
-            ? List<String>.from(hiveData['sampleMtrOptions'])
-            : [];
-        sampleMtrOptions = [...jsonSampleMtrOptions, ...hiveSampleMtrOptions];
-        sampleMtrOptions = sampleMtrOptions.toSet().toList(); // Remove duplicates
-
-        _isLoading = false;
-      });
-
-      // Debug: Print loaded data
-      print('Combined parties: $parties');
-      print('Combined ofTypes: $ofTypes');
-    } catch (e) {
-      print('Error loading data from sources: $e');
-      // Fallback to defaults
-      _useDefaultData();
-    }
+    // Debug: Print loaded data
+    print('Combined parties: $parties');
+    print('Combined ofTypes: $ofTypes');
+  } catch (e) {
+    print('Error loading data from sources: $e');
+    // Fallback to defaults
+    _useDefaultData();
   }
-
+}
+ 
   void _useDefaultData() {
     setState(() {
       parties = [
@@ -484,59 +545,102 @@ agents = uniqueAgents.toList();
     }
   }
 
-  // In _saveOrderToHive method in NewOrderSetupPage
   Future<void> _saveOrderToHive() async {
-    try {
-      // Ensure the orders box is open
-      if (!Hive.isBoxOpen('orders')) {
-        await Hive.openBox('orders');
-      }
-
-      final box = Hive.box('orders');
-
-      // Create order data map
-      final Map<String, dynamic> orderData = {
-        'party': selectedParty,
-        'type': ofType,
-        'width': selectedWidth,
-        'defaultChoices': defaultChoices,
-        'defaultMeters': defaultMetersController.text,
-        'sampleRequired': sampleRequired,
-        'sampleMtr': _showSampleMtrField ? selectedSampleMtr : null,
-        'agent': selectedAgent,
-        'status': 'pending', // Default status
-        'date': _formatDate(DateTime.now()), // Use simple date format
-        'orders': 0, // Initial order count
-      };
-
-      // Generate a unique key for the order
-      final String key = 'order_${DateTime.now().millisecondsSinceEpoch}';
-
-      // Save the order
-      await box.put(key, orderData);
-
-      // Explicitly flush to disk
-      await box.flush();
-
-      print('Order saved successfully with key: $key');
-
-      // Notify that orders have been updated
-      OrderService().notifyOrderUpdated();
-      
-      // Mark the party as mapped
-      await _markPartyAsMapped(selectedParty!);
-    } catch (e) {
-      print('Error saving order: $e');
-      // Show error to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving order: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+  try {
+    // Ensure the orders box is open
+    if (!Hive.isBoxOpen('orders')) {
+      await Hive.openBox('orders');
     }
-  }
 
+    final box = Hive.box('orders');
+
+    // Create order data map
+    final Map<String, dynamic> orderData = {
+      'party': selectedParty,
+      'type': ofType,
+      'width': selectedWidth,
+      'defaultChoices': defaultChoices,
+      'defaultMeters': defaultMetersController.text,
+      'sampleRequired': sampleRequired,
+      'sampleMtr': _showSampleMtrField ? selectedSampleMtr : null,
+      'agent': selectedAgent,
+      'status': 'pending', // Default status
+      'date': _formatDate(DateTime.now()), // Use simple date format
+      'orders': 0, // Initial order count
+    };
+
+    // Generate a unique key for the order
+    final String key = 'order_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Save the order
+    await box.put(key, orderData);
+
+    // Explicitly flush to disk
+    await box.flush();
+
+    print('Order saved successfully with key: $key');
+
+    // Notify that orders have been updated
+    OrderService().notifyOrderUpdated();
+    
+    // Mark the party as mapped
+    await _markPartyAsMapped(selectedParty!);
+    
+    // Mark the sample meter as mapped if it's used
+    if (_showSampleMtrField && selectedSampleMtr != null) {
+      await _markSampleMeterAsMapped(selectedSampleMtr);
+    }
+  } catch (e) {
+    print('Error saving order: $e');
+    // Show error to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error saving order: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+// Add this new method to mark a sample meter as mapped
+Future<void> _markSampleMeterAsMapped(String meterName) async {
+  try {
+    if (!Hive.isBoxOpen('appData')) {
+      await Hive.openBox('appData');
+    }
+    
+    final box = Hive.box('appData');
+    List<Map<String, dynamic>> sampleMeters = [];
+    
+    // Get existing sample meters
+    final existingSampleMeters = box.get('sampleMeters');
+    if (existingSampleMeters != null) {
+      if (existingSampleMeters is List) {
+        for (var meter in existingSampleMeters) {
+          if (meter is Map) {
+            sampleMeters.add(Map<String, dynamic>.from(meter));
+          }
+        }
+      }
+    }
+    
+    // Find and update the sample meter
+    for (int i = 0; i < sampleMeters.length; i++) {
+      if (sampleMeters[i]['name'] == meterName) {
+        sampleMeters[i]['isMapped'] = true;
+        break;
+      }
+    }
+    
+    // Save to Hive
+    await box.put('sampleMeters', sampleMeters);
+    await box.flush();
+    
+    print('Sample meter "$meterName" marked as mapped');
+  } catch (e) {
+    print('Error marking sample meter as mapped: $e');
+  }
+}
   // Add this new method to _NewOrderSetupPageState:
   Future<void> _markPartyAsMapped(String partyName) async {
     try {

@@ -5,6 +5,7 @@ import 'package:purchase_app/parties_page.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/products_page.dart';
 import 'package:purchase_app/quality_page.dart';
+import 'package:purchase_app/sample_meter_page.dart';
 import 'package:purchase_app/variety_page.dart';
 import 'package:purchase_app/weave_type_page.dart';
 import 'package:purchase_app/width_page.dart';
@@ -85,330 +86,349 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // In home_page.dart, update the _buildDrawer method
-
   Widget _buildDrawer() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Determine if it's a tablet or web based on screen width
-        bool isTabletOrWeb = constraints.maxWidth > 600;
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      // Determine if it's a tablet or web based on screen width
+      bool isTabletOrWeb = constraints.maxWidth > 600;
 
-        // Calculate responsive drawer width
-        double drawerWidth = isTabletOrWeb
-            ? (constraints.maxWidth * 0.4).clamp(250, 400)
-            : constraints.maxWidth * 0.8;
+      // Calculate responsive drawer width
+      double drawerWidth = isTabletOrWeb
+          ? (constraints.maxWidth * 0.4).clamp(250, 400)
+          : constraints.maxWidth * 0.8;
 
-        // Calculate responsive font sizes
-        double titleFontSize = isTabletOrWeb ? 28.0 : 24.0;
-        double emailFontSize = isTabletOrWeb ? 18.0 : 16.0;
-        double menuItemFontSize = isTabletOrWeb ? 18.0 : 16.0;
+      // Calculate responsive font sizes
+      double titleFontSize = isTabletOrWeb ? 28.0 : 24.0;
+      double emailFontSize = isTabletOrWeb ? 18.0 : 16.0;
+      double menuItemFontSize = isTabletOrWeb ? 18.0 : 16.0;
 
-        // Calculate responsive icon sizes
-        double avatarRadius = isTabletOrWeb ? 40.0 : 30.0;
-        double iconSize = isTabletOrWeb ? 28.0 : 24.0;
-        double personIconSize = isTabletOrWeb ? 50.0 : 40.0;
+      // Calculate responsive icon sizes
+      double avatarRadius = isTabletOrWeb ? 40.0 : 30.0;
+      double iconSize = isTabletOrWeb ? 28.0 : 24.0;
+      double personIconSize = isTabletOrWeb ? 50.0 : 40.0;
 
-        // Calculate responsive padding
-        double headerPadding = isTabletOrWeb ? 24.0 : 16.0;
-        double verticalSpacing = isTabletOrWeb ? 20.0 : 16.0;
+      // Calculate responsive padding
+      double headerPadding = isTabletOrWeb ? 24.0 : 16.0;
+      double verticalSpacing = isTabletOrWeb ? 20.0 : 16.0;
 
-        return SizedBox(
-          width: drawerWidth,
-          child: Drawer(
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min, // This helps to remove empty space
-              children: [
-                // Fixed header section - blue background
-                Container(
-                  width: double.infinity,
-                  color: primaryColor,
-                  padding: EdgeInsets.fromLTRB(
-                    headerPadding,
-                    headerPadding + 8, // Extra top padding for status bar
-                    headerPadding,
-                    headerPadding,
-                  ),
+      return SizedBox(
+        width: drawerWidth,
+        child: Drawer(
+          child: Column(
+            children: [
+              // Fixed header section - blue background
+              Container(
+                width: double.infinity,
+                color: primaryColor,
+                padding: EdgeInsets.fromLTRB(
+                  headerPadding,
+                  headerPadding + 8, // Extra top padding for status bar
+                  headerPadding,
+                  headerPadding,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: avatarRadius,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.person,
+                        size: personIconSize,
+                        color: primaryColor,
+                      ),
+                    ),
+                    SizedBox(height: verticalSpacing),
+                    Text(
+                      'Fabric Purchase',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'user@gmail.com',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: emailFontSize,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Scrollable menu items
+              Expanded(
+                child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(
-                        radius: avatarRadius,
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.person,
-                          size: personIconSize,
+                      // Purchase menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.shopping_cart,
                           color: primaryColor,
+                          size: iconSize,
                         ),
+                        title: Text(
+                          'Purchase',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          // Already on purchase page
+                        },
                       ),
-                      SizedBox(height: verticalSpacing),
-                      Text(
-                        'Fabric Purchase',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: titleFontSize,
-                          fontWeight: FontWeight.bold,
+                      // Parties menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.business,
+                          color: primaryColor,
+                          size: iconSize,
                         ),
+                        title: Text(
+                          'Parties',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PartiesPage(),
+                            ),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'user@gmail.com',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: emailFontSize,
+                      // Agents menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.people,
+                          color: primaryColor,
+                          size: iconSize,
                         ),
+                        title: Text(
+                          'Agents',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AgentsPage(),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // Products menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.inventory_2,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Products',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProductsPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      // Width menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.straighten,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Width',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const WidthPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      // Weave Type menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.texture,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Weave Type',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const WeaveTypePage(),
+                            ),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(
+                          Icons.style,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Quality',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const QualityPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      // Variety menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.category,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Variety',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const VarietyPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      // Color Group menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.color_lens,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Color Group',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ColorGroupPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(
+                          Icons.speed,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Sample Meter',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SampleMeterPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      // Logout menu item
+                      ListTile(
+                        leading: Icon(
+                          Icons.logout,
+                          color: primaryColor,
+                          size: iconSize,
+                        ),
+                        title: Text(
+                          'Logout',
+                          style: TextStyle(
+                            fontSize: menuItemFontSize,
+                            color: Colors.black,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+                          _showLogoutConfirmation();
+                        },
                       ),
                     ],
                   ),
                 ),
-
-                // Menu items without background color
-                Column(
-                  mainAxisSize:
-                      MainAxisSize.min, // This helps to remove empty space
-                  children: [
-                    // Purchase menu item
-                    ListTile(
-                      leading: Icon(
-                        Icons.shopping_cart,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Purchase',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black, // Changed to black
-                          // Removed fontWeight: FontWeight.bold
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        // Already on purchase page
-                      },
-                    ),
-                    // Parties menu item
-                    ListTile(
-                      leading: Icon(
-                        Icons.business,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Parties',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PartiesPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    // Agents menu item
-                    ListTile(
-                      leading: Icon(
-                        Icons.people,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Agents',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AgentsPage(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // Products menu item
-                    ListTile(
-                      leading: Icon(
-                        Icons.inventory_2,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Products',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProductsPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    // Width menu item
-                    ListTile(
-                      leading: Icon(
-                        Icons.straighten,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Width',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const WidthPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    // Weave Type menu item
-                    ListTile(
-                      leading: Icon(
-                        Icons.texture,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Weave Type',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const WeaveTypePage(),
-                          ),
-                        );
-                      },
-                    ),
-                    ListTile(
-                      leading: Icon(
-                        Icons.style, // A suitable icon for quality
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Quality',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const QualityPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    // Variety menu item - Added this section
-                    ListTile(
-                      leading: Icon(
-                        Icons.category,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Variety',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const VarietyPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    // Color Group menu item - Added this section
-                    ListTile(
-                      leading: Icon(
-                        Icons.color_lens,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Color Group',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ColorGroupPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    // Removed the Divider
-                    // Logout menu item
-                    ListTile(
-                      leading: Icon(
-                        Icons.logout,
-                        color: primaryColor,
-                        size: iconSize,
-                      ),
-                      title: Text(
-                        'Logout',
-                        style: TextStyle(
-                          fontSize: menuItemFontSize,
-                          color: Colors.black, // Changed to black
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context); // Close drawer
-                        _showLogoutConfirmation();
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
-    );
-  }
-
+        ),
+      );
+    },
+  );
+}
   void _showLogoutConfirmation() {
     showDialog(
       context: context,
