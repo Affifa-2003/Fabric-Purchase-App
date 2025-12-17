@@ -154,9 +154,17 @@ class _VarietyPageState extends State<VarietyPage> {
   void _filterVarieties() {
     String query = _searchController.text.toLowerCase();
     setState(() {
-      filteredVarieties = varieties.where((variety) {
-        return variety['name'].toLowerCase().contains(query);
-      }).toList();
+      if (query.isEmpty) {
+        // If the search query is empty, show all varieties
+        filteredVarieties = List.from(varieties);
+      } else {
+        // Filter by both variety name and product name
+        filteredVarieties = varieties.where((variety) {
+          final varietyName = variety['name']?.toString().toLowerCase() ?? '';
+          final productName = variety['productName']?.toString().toLowerCase() ?? '';
+          return varietyName.contains(query) || productName.contains(query);
+        }).toList();
+      }
     });
   }
 
@@ -963,7 +971,8 @@ class _VarietyPageState extends State<VarietyPage> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        hintText: 'Search Varieties',
+                        // Updated hint text to reflect new functionality
+                        hintText: 'Search Varieties ',
                         prefixIcon: const Icon(Icons.search),
                         border: InputBorder.none,
                       ),
