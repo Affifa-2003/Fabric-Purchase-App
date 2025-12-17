@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:purchase_app/agent_page.dart';
+import 'package:purchase_app/color_group_page.dart';
 import 'package:purchase_app/parties_page.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/products_page.dart';
@@ -350,6 +351,30 @@ class _HomePageState extends State<HomePage> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => const VarietyPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    // Color Group menu item - Added this section
+                    ListTile(
+                      leading: Icon(
+                        Icons.color_lens,
+                        color: primaryColor,
+                        size: iconSize,
+                      ),
+                      title: Text(
+                        'Color Group',
+                        style: TextStyle(
+                          fontSize: menuItemFontSize,
+                          color: Colors.black,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context); // Close drawer
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ColorGroupPage(),
                           ),
                         );
                       },
