@@ -4,6 +4,7 @@ import 'package:purchase_app/parties_page.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/products_page.dart';
 import 'package:purchase_app/quality_page.dart';
+import 'package:purchase_app/variety_page.dart';
 import 'package:purchase_app/weave_type_page.dart';
 import 'package:purchase_app/width_page.dart';
 import 'purchase_list_page.dart';
@@ -325,6 +326,30 @@ class _HomePageState extends State<HomePage> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => const QualityPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    // Variety menu item - Added this section
+                    ListTile(
+                      leading: Icon(
+                        Icons.category,
+                        color: primaryColor,
+                        size: iconSize,
+                      ),
+                      title: Text(
+                        'Variety',
+                        style: TextStyle(
+                          fontSize: menuItemFontSize,
+                          color: Colors.black,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context); // Close drawer
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const VarietyPage(),
                           ),
                         );
                       },
