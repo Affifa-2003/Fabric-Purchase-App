@@ -5,6 +5,7 @@ import 'package:purchase_app/final_year_page.dart';
 import 'package:purchase_app/parties_page.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/products_page.dart';
+import 'package:purchase_app/purchase_order_group_page.dart';
 import 'package:purchase_app/quality_page.dart';
 import 'package:purchase_app/sample_meter_page.dart';
 import 'package:purchase_app/season_page.dart';
@@ -446,6 +447,31 @@ class _HomePageState extends State<HomePage> {
                               MaterialPageRoute(
                                 builder: (context) =>
                                     const SeasonPage(), // Navigate to SeasonPage
+                              ),
+                            );
+                          },
+                        ),
+                        // Purchase Order Group menu item (NEW)
+                        ListTile(
+                          leading: Icon(
+                            Icons.group_work, // Icon for Purchase Order Group
+                            color: primaryColor,
+                            size: iconSize,
+                          ),
+                          title: Text(
+                            'Purchase Order Group',
+                            style: TextStyle(
+                              fontSize: menuItemFontSize,
+                              color: Colors.black,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context); // Close drawer
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const PurchaseOrderGroupPage(),
                               ),
                             );
                           },
