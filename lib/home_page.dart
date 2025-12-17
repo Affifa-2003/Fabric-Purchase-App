@@ -10,6 +10,7 @@ import 'package:purchase_app/purchase_order_group_page.dart';
 import 'package:purchase_app/quality_page.dart';
 import 'package:purchase_app/sample_meter_page.dart';
 import 'package:purchase_app/season_page.dart';
+import 'package:purchase_app/transport_page.dart';
 import 'package:purchase_app/variety_page.dart';
 import 'package:purchase_app/weave_type_page.dart';
 import 'package:purchase_app/width_page.dart';
@@ -497,6 +498,30 @@ class _HomePageState extends State<HomePage> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const GradesPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        // Transport menu item - NEW
+                        ListTile(
+                          leading: Icon(
+                            Icons.local_shipping,
+                            color: primaryColor,
+                            size: iconSize,
+                          ),
+                          title: Text(
+                            'Transport',
+                            style: TextStyle(
+                              fontSize: menuItemFontSize,
+                              color: Colors.black,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context); // Close drawer
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const TransportPage(),
                               ),
                             );
                           },
