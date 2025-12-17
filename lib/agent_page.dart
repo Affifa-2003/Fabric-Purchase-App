@@ -178,194 +178,204 @@ class _AgentsPageState extends State<AgentsPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header with title and close button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
+          // Set constraints to make dialog responsive
+          insetPadding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with title and close button
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFFFFF),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Add Agent',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Add Agent',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.close, color: Color(0xFF767676)),
-                    ),
-                  ],
-                ),
-              ),
 
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Agent Name Field in a card
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Agent Name Field in a card
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Agent Name: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Agent Name: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: newAgentController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. John Smith',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            onEditingComplete: () {
-                              // Trim trailing spaces when editing is complete
-                              newAgentController.text = newAgentController.text.trim();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Information text with icon in a box
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEBF8FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF3182CE)),
-                      ),
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF3182CE),
-                          ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'This will be added to master and available for future orders.',
-                              style: TextStyle(color: Color(0xFF3182CE)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-              
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () async {
-                            // Trim any trailing spaces before saving
-                            String agentName = newAgentController.text.trim();
-                            if (agentName.isNotEmpty) {
-                              // Update local state immediately
-                              setState(() {
-                                // Add to the beginning of the list
-                                agents.insert(0, agentName);
-                              });
-
-                              // Save to Hive
-                              await _saveAgentsToStorage();
-
-                              Navigator.pop(context);
-
-                              // Show success message
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Agent added successfully'),
-                                  backgroundColor: Colors.green,
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: newAgentController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                ],
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. John Smith',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                 ),
-                              );
-                            }
-                          },
-                          child: const Text(
-                            'Save to Master',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                                onEditingComplete: () {
+                                  // Trim trailing spaces when editing is complete
+                                  newAgentController.text = newAgentController.text.trim();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Information text with icon in a box
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEBF8FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF3182CE)),
+                          ),
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xFF3182CE),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'This will be added to master and available for future orders.',
+                                  style: TextStyle(color: Color(0xFF3182CE)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                
+                // Buttons - Fixed at bottom
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextButton(
+                            onPressed: () async {
+                              // Trim any trailing spaces before saving
+                              String agentName = newAgentController.text.trim();
+                              if (agentName.isNotEmpty) {
+                                // Update local state immediately
+                                setState(() {
+                                  // Add to the beginning of the list
+                                  agents.insert(0, agentName);
+                                });
+
+                                // Save to Hive
+                                await _saveAgentsToStorage();
+
+                                Navigator.pop(context);
+
+                                // Show success message
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Agent added successfully'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text(
+                              'Save to Master',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -383,204 +393,214 @@ class _AgentsPageState extends State<AgentsPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header with title and close button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
+          // Set constraints to make dialog responsive
+          insetPadding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with title and close button
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFFFFF),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Edit Agent',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Edit Agent',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.close, color: Color(0xFF767676)),
-                    ),
-                  ],
-                ),
-              ),
 
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Agent Name Field in a card
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Agent Name Field in a card
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Agent Name: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Agent Name: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: agentNameController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. John Smith',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            onEditingComplete: () {
-                              // Trim trailing spaces when editing is complete
-                              agentNameController.text = agentNameController.text.trim();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Information text with icon in a box
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEBF8FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF3182CE)),
-                      ),
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF3182CE),
-                          ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'This will update the agent in master and all associated records.',
-                              style: TextStyle(color: Color(0xFF3182CE)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-              
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () async {
-                            // Trim any trailing spaces before saving
-                            String newAgentName = agentNameController.text.trim();
-                            if (newAgentName.isNotEmpty) {
-                              // Check if name is being changed
-                              bool nameChanged = newAgentName != agentName;
-                              
-                              // Update local state immediately
-                              setState(() {
-                                // Remove the old agent
-                                agents.removeAt(index);
-                                // Add the updated agent at the beginning
-                                agents.insert(0, newAgentName);
-                              });
-
-                              // Save to Hive
-                              await _saveAgentsToStorage();
-
-                              // If name changed, update all related records
-                              if (nameChanged) {
-                                await _updateAgentNameInAllRecords(agentName, newAgentName);
-                              }
-
-                              Navigator.pop(context);
-
-                              // Show success message
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Agent updated successfully'),
-                                  backgroundColor: Colors.green,
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: agentNameController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                ],
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. John Smith',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                 ),
-                              );
-                            }
-                          },
-                          child: const Text(
-                            'Update to Master',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                                onEditingComplete: () {
+                                  // Trim trailing spaces when editing is complete
+                                  agentNameController.text = agentNameController.text.trim();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Information text with icon in a box
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEBF8FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF3182CE)),
+                          ),
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xFF3182CE),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'This will update the agent in master and all associated records.',
+                                  style: TextStyle(color: Color(0xFF3182CE)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                
+                // Buttons - Fixed at bottom
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextButton(
+                            onPressed: () async {
+                              // Trim any trailing spaces before saving
+                              String newAgentName = agentNameController.text.trim();
+                              if (newAgentName.isNotEmpty) {
+                                // Check if name is being changed
+                                bool nameChanged = newAgentName != agentName;
+                                
+                                // Update local state immediately
+                                setState(() {
+                                  // Remove the old agent
+                                  agents.removeAt(index);
+                                  // Add the updated agent at the beginning
+                                  agents.insert(0, newAgentName);
+                                });
+
+                                // Save to Hive
+                                await _saveAgentsToStorage();
+
+                                // If name changed, update all related records
+                                if (nameChanged) {
+                                  await _updateAgentNameInAllRecords(agentName, newAgentName);
+                                }
+
+                                Navigator.pop(context);
+
+                                // Show success message
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Agent updated successfully'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text(
+                              'Update to Master',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

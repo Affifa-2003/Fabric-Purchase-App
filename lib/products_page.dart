@@ -29,37 +29,101 @@ class _ProductsPageState extends State<ProductsPage> {
     super.dispose();
   }
 
-  // Check if a product is mapped to any order
-  bool _isProductMapped(String productName) {
+  Map<String, bool> _isProductMapped(String productName) {
     try {
       if (!Hive.isBoxOpen('appData')) {
         Hive.openBox('appData');
       }
       
       final box = Hive.box('appData');
-      final ordersData = box.get('orders');
       
-      if (ordersData != null) {
-        if (ordersData is List) {
-          for (var order in ordersData) {
-            if (order is Map) {
-              // Check if product is mapped with Width, Weave Type, or Quality
-              if (order['product'] == productName && 
-                  (order['width'] != null || order['weaveType'] != null || order['quality'] != null)) {
-                return true;
+      print('Checking if product "$productName" is mapped');
+      
+      Map<String, bool> mappedAttributes = {
+        'width': false,
+        'weaveType': false,
+        'quality': false,
+      };
+      
+      // Check if product is mapped in orders
+      final ordersData = box.get('orders');
+      print('Orders data: $ordersData');
+      
+      if (ordersData != null && ordersData is List) {
+        for (var order in ordersData) {
+          if (order is Map) {
+            print('Checking order: $order');
+            // Check if product is mapped with Width, Weave Type, or Quality
+            if (order['product'] == productName) {
+              print('Found matching product in order');
+              if (order['width'] != null) {
+                mappedAttributes['width'] = true;
+                print('Product is mapped with width');
+              }
+              if (order['weaveType'] != null) {
+                mappedAttributes['weaveType'] = true;
+                print('Product is mapped with weave type');
+              }
+              if (order['quality'] != null) {
+                mappedAttributes['quality'] = true;
+                print('Product is mapped with quality');
               }
             }
           }
         }
       }
       
-      return false;
+      // Check if product is mapped in widths
+      final widthsData = box.get('widths');
+      print('Widths data: $widthsData');
+      
+      if (widthsData != null && widthsData is List) {
+        for (var width in widthsData) {
+          if (width is Map && width['product'] == productName) {
+            mappedAttributes['width'] = true;
+            print('Product is mapped with width in widths data');
+          }
+        }
+      }
+      
+      // Check if product is mapped in weave types
+      final weaveTypesData = box.get('weaveTypes');
+      print('Weave types data: $weaveTypesData');
+      
+      if (weaveTypesData != null && weaveTypesData is List) {
+        for (var weaveType in weaveTypesData) {
+          if (weaveType is Map && weaveType['product'] == productName) {
+            mappedAttributes['weaveType'] = true;
+            print('Product is mapped with weave type in weave types data');
+          }
+        }
+      }
+      
+      // Check if product is mapped in qualities
+      final qualitiesData = box.get('qualities');
+      print('Qualities data: $qualitiesData');
+      
+      if (qualitiesData != null && qualitiesData is List) {
+        for (var quality in qualitiesData) {
+          if (quality is Map && quality['product'] == productName) {
+            mappedAttributes['quality'] = true;
+            print('Product is mapped with quality in qualities data');
+          }
+        }
+      }
+      
+      print('Mapped attributes for $productName: $mappedAttributes');
+      return mappedAttributes;
     } catch (e) {
       print('Error checking if product is mapped: $e');
-      return false;
+      return {
+        'width': false,
+        'weaveType': false,
+        'quality': false,
+      };
     }
-  }
-
+  } 
+  
   Future<void> _loadProducts() async {
     try {
       // Load data from Hive
@@ -167,354 +231,364 @@ class _ProductsPageState extends State<ProductsPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header with title and close button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
+          // Set constraints to make dialog responsive
+          insetPadding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with title and close button
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFFFFF),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Add Product',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Add Product',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+                // Content with SingleChildScrollView to make it scrollable
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Product Name Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Product Name: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: nameController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                ],
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. Cotton Shirt',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Consumption Meter Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Consumption Meter: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: consumptionController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                ],
+                                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. 1.5',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Description Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Description:',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: descriptionController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                ],
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  hintText: 'Optional product description',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Status Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Status: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: statusValue,
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                items: ['Active', 'Inactive']
+                                    .map((status) => DropdownMenuItem<String>(
+                                          value: status,
+                                          child: Text(status),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    statusValue = value!;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Information text with icon in a box
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEBF8FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF3182CE)),
+                          ),
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xFF3182CE),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'This will be added to master and available for future orders.',
+                                  style: TextStyle(color: Color(0xFF3182CE)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.close, color: Color(0xFF767676)),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
 
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Product Name Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Product Name: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                
+                // Buttons - Fixed at bottom
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: nameController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. Cotton Shirt',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Consumption Meter Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Consumption Meter: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: consumptionController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. 1.5',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Description Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Description:',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: descriptionController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              hintText: 'Optional product description',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Status Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Status: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: statusValue,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            items: ['Active', 'Inactive']
-                                .map((status) => DropdownMenuItem<String>(
-                                      value: status,
-                                      child: Text(status),
-                                    ))
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                statusValue = value!;
-                              });
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
                             },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Information text with icon in a box
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEBF8FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF3182CE)),
-                      ),
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF3182CE),
-                          ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'This will be added to master and available for future orders.',
-                              style: TextStyle(color: Color(0xFF3182CE)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-              
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () async {
-                            // Validate required fields
-                            if (nameController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Product name is required'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            if (consumptionController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Consumption meter is required'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            // Parse consumption value
-                            double? consumption = double.tryParse(consumptionController.text.trim());
-                            if (consumption == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter a valid consumption value'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            // Create new product
-                            Map<String, dynamic> newProduct = {
-                              'name': nameController.text.trim(),
-                              'consumption': consumption,
-                              'description': descriptionController.text.trim(),
-                              'status': statusValue,
-                            };
-                            
-                            // Update local state immediately
-                            setState(() {
-                              // Add to the beginning of the list
-                              products.insert(0, newProduct);
-                              _filterProducts(); // Update filtered list
-                            });
-
-                            // Save to Hive
-                            await _saveProductsToStorage();
-
-                            Navigator.pop(context);
-
-                            // Show success message
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Product added successfully'),
-                                backgroundColor: Colors.green,
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
-                            );
-                          },
-                          child: const Text(
-                            'Save to Master',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextButton(
+                            onPressed: () async {
+                              // Validate required fields
+                              if (nameController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Product name is required'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              if (consumptionController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Consumption meter is required'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Parse consumption value
+                              double? consumption = double.tryParse(consumptionController.text.trim());
+                              if (consumption == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enter a valid consumption value'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Create new product
+                              Map<String, dynamic> newProduct = {
+                                'name': nameController.text.trim(),
+                                'consumption': consumption,
+                                'description': descriptionController.text.trim(),
+                                'status': statusValue,
+                              };
+                              
+                              // Update local state immediately
+                              setState(() {
+                                // Add to the beginning of the list
+                                products.insert(0, newProduct);
+                                _filterProducts(); // Update filtered list
+                              });
+
+                              // Save to Hive
+                              await _saveProductsToStorage();
+
+                              Navigator.pop(context);
+
+                              // Show success message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Product added successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Save to Master',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -535,358 +609,368 @@ class _ProductsPageState extends State<ProductsPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header with title and close button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
+          // Set constraints to make dialog responsive
+          insetPadding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with title and close button
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFFFFF),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Edit Product',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Edit Product',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+                // Content with SingleChildScrollView to make it scrollable
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Product Name Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Product Name: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: nameController,
+                                inputFormatters: [
+                                  NoLeadingOrMultipleSpacesFormatter(),
+                                ],
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. Cotton Shirt',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Consumption Meter Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Consumption Meter: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: consumptionController,
+                                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. 1.5',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Description Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Description:',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: descriptionController,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  hintText: 'Optional product description',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Status Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'Status: *',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: statusValue,
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                items: ['Active', 'Inactive']
+                                    .map((status) => DropdownMenuItem<String>(
+                                          value: status,
+                                          child: Text(status),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    statusValue = value!;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Information text with icon in a box
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEBF8FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF3182CE)),
+                          ),
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xFF3182CE),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'This will update the product in master and all associated records.',
+                                  style: TextStyle(color: Color(0xFF3182CE)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.close, color: Color(0xFF767676)),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
 
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Product Name Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Product Name: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                // Horizontal divider
+                const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                
+                // Buttons - Fixed at bottom
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: nameController,
-                            inputFormatters: [
-                              NoLeadingOrMultipleSpacesFormatter(),
-                            ],
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. Cotton Shirt',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Consumption Meter Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Consumption Meter: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: consumptionController,
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. 1.5',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Description Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Description:',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: descriptionController,
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              hintText: 'Optional product description',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Status Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Text(
-                                'Status: *',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: statusValue,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            items: ['Active', 'Inactive']
-                                .map((status) => DropdownMenuItem<String>(
-                                      value: status,
-                                      child: Text(status),
-                                    ))
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                statusValue = value!;
-                              });
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
                             },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Information text with icon in a box
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEBF8FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF3182CE)),
-                      ),
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF3182CE),
-                          ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'This will update the product in master and all associated records.',
-                              style: TextStyle(color: Color(0xFF3182CE)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Horizontal divider
-              const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-              
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TextButton(
-                          onPressed: () async {
-                            // Validate required fields
-                            if (nameController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Product name is required'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            if (consumptionController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Consumption meter is required'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            // Parse consumption value
-                            double? consumption = double.tryParse(consumptionController.text.trim());
-                            if (consumption == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter a valid consumption value'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            // Check if name is being changed
-                            bool nameChanged = nameController.text.trim() != product['name'];
-                            
-                            // Create updated product
-                            Map<String, dynamic> updatedProduct = {
-                              'name': nameController.text.trim(),
-                              'consumption': consumption,
-                              'description': descriptionController.text.trim(),
-                              'status': statusValue,
-                            };
-                            
-                            // Update local state immediately
-                            setState(() {
-                              // Remove the old product
-                              products.removeAt(index);
-                              // Add the updated product at the beginning
-                              products.insert(0, updatedProduct);
-                              _filterProducts(); // Update filtered list
-                            });
-
-                            // Save to Hive
-                            await _saveProductsToStorage();
-
-                            // If name changed, update all related records
-                            if (nameChanged) {
-                              await _updateProductNameInAllRecords(product['name'], updatedProduct['name']);
-                            }
-
-                            Navigator.pop(context);
-
-                            // Show success message
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Product updated successfully'),
-                                backgroundColor: Colors.green,
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
-                            );
-                          },
-                          child: const Text(
-                            'Update to Master',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextButton(
+                            onPressed: () async {
+                              // Validate required fields
+                              if (nameController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Product name is required'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              if (consumptionController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Consumption meter is required'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Parse consumption value
+                              double? consumption = double.tryParse(consumptionController.text.trim());
+                              if (consumption == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enter a valid consumption value'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Check if name is being changed
+                              bool nameChanged = nameController.text.trim() != product['name'];
+                              
+                              // Create updated product
+                              Map<String, dynamic> updatedProduct = {
+                                'name': nameController.text.trim(),
+                                'consumption': consumption,
+                                'description': descriptionController.text.trim(),
+                                'status': statusValue,
+                              };
+                              
+                              // Update local state immediately
+                              setState(() {
+                                // Remove the old product
+                                products.removeAt(index);
+                                // Add the updated product at the beginning
+                                products.insert(0, updatedProduct);
+                                _filterProducts(); // Update filtered list
+                              });
+
+                              // Save to Hive
+                              await _saveProductsToStorage();
+
+                              // If name changed, update all related records
+                              if (nameChanged) {
+                                await _updateProductNameInAllRecords(product['name'], updatedProduct['name']);
+                              }
+
+                              Navigator.pop(context);
+
+                              // Show success message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Product updated successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Update to Master',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -1054,7 +1138,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                       color: Color(0xFFEF4444),
                                     ),
                                     onPressed: () {
-                                      _showDeleteConfirmationDialog(product, isMapped);
+                                      _showDeleteConfirmationDialog(product);
                                     },
                                   ),
                                   onTap: () {
@@ -1075,14 +1159,26 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
-  void _showDeleteConfirmationDialog(Map<String, dynamic> product, bool isMapped) {
+  void _showDeleteConfirmationDialog(Map<String, dynamic> product) {
+    // Get the mapped attributes
+    Map<String, bool> mappedAttributes = _isProductMapped(product['name']);
+    
+    // Check if any attribute is mapped
+    bool isMapped = (mappedAttributes['width'] ?? false) || 
+                     (mappedAttributes['weaveType'] ?? false) || 
+                     (mappedAttributes['quality'] ?? false);
+    
+    print('Delete dialog for product: ${product['name']}');
+    print('Is mapped: $isMapped');
+    print('Mapped attributes: $mappedAttributes');
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
           content: isMapped 
-              ? const Text('This product is already mapped with Width, Weave Type, or Quality and cannot be deleted.')
+              ? const Text('Already mapped')
               : Text('Are you sure you want to delete "${product['name']}"?'),
           actions: [
             TextButton(

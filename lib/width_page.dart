@@ -1,3 +1,4 @@
+// lib/width_page.dart
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:purchase_app/service/width_service.dart';
@@ -57,7 +58,7 @@ class _WidthPageState extends State<WidthPage> {
       // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
       
-      // Ensure the box is open
+      // Ensure box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
@@ -100,7 +101,7 @@ class _WidthPageState extends State<WidthPage> {
         filteredWidths = List.from(widths);
       });
       
-      print('Loaded ${widths.length} widths from Hive');
+      print('Loaded ${widths.length} widths from service');
     } catch (e) {
       print('Error loading widths: $e');
       setState(() {
@@ -129,7 +130,7 @@ class _WidthPageState extends State<WidthPage> {
   }
 
   // Check if a width is mapped to any order
-  bool _isWidthMapped(String productName, dynamic widthValue) {
+  bool _isWidthMapped(String productName, int widthValue) {
     try {
       if (!Hive.isBoxOpen('appData')) {
         Hive.openBox('appData');
@@ -146,26 +147,17 @@ class _WidthPageState extends State<WidthPage> {
               if (order['product'] == productName && 
                   order['width'] != null) {
                 
-                // Convert both values to the same type for comparison
-                double orderWidth = 0.0;
-                if (order['width'] is double) {
+                // Convert order width to int for comparison
+                int orderWidth = 0;
+                if (order['width'] is int) {
                   orderWidth = order['width'];
-                } else if (order['width'] is int) {
-                  orderWidth = (order['width'] as int).toDouble();
+                } else if (order['width'] is double) {
+                  orderWidth = (order['width'] as double).toInt();
                 } else if (order['width'] is String) {
-                  orderWidth = double.tryParse(order['width']) ?? 0.0;
+                  orderWidth = int.tryParse(order['width']) ?? 0;
                 }
                 
-                double inputWidth = 0.0;
-                if (widthValue is double) {
-                  inputWidth = widthValue;
-                } else if (widthValue is int) {
-                  inputWidth = (widthValue as int).toDouble();
-                } else if (widthValue is String) {
-                  inputWidth = double.tryParse(widthValue) ?? 0.0;
-                }
-                
-                if (orderWidth == inputWidth) {
+                if (orderWidth == widthValue) {
                   return true;
                 }
               }
@@ -217,18 +209,19 @@ class _WidthPageState extends State<WidthPage> {
   }
 
   void _showEditWidthDialog(Map<String, dynamic> width, int index) {
-    // Ensure width value is properly converted to string for display
-    String initialWidthStr = width['width']?.toString() ?? '';
-    // Get the current product name
+    // Get the current product name and width as integer
     String currentProduct = width['product']?.toString() ?? '';
+    int currentWidth = width['width'] is int 
+        ? width['width'] 
+        : int.tryParse(width['width']?.toString() ?? '') ?? 0;
     
     showDialog(
       context: context,
       builder: (context) {
         return AddWidthDialog(
           isEditMode: true,
-          initialWidth: initialWidthStr,
-          initialProduct: currentProduct, // Pass the current product
+          initialWidth: currentWidth.toString(), // Pass as string for display
+          initialProduct: currentProduct,
           activeProducts: activeProducts,
         );
       },
@@ -236,10 +229,8 @@ class _WidthPageState extends State<WidthPage> {
       if (result != null) {
         // Update the width using the service
         WidthService().updateWidth(
-          width['product']?.toString() ?? '', 
-          width['width'] is double 
-              ? width['width'] 
-              : double.tryParse(width['width']?.toString() ?? '') ?? 0.0, 
+          currentProduct, 
+          currentWidth, 
           result['product'], 
           result['width']
         ).then((_) {
@@ -283,15 +274,15 @@ class _WidthPageState extends State<WidthPage> {
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
-            width: 36, // Set fixed width for smaller circle
-            height: 36, // Set fixed height for smaller circle
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              padding: EdgeInsets.zero, // Remove default padding
-              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24),
               onPressed: _showAddNewWidthDialog,
             ),
           ),
@@ -368,13 +359,10 @@ class _WidthPageState extends State<WidthPage> {
                             itemCount: filteredWidths.length,
                             itemBuilder: (context, index) {
                               final width = filteredWidths[index];
-                              // Ensure width value is properly typed before passing to _isWidthMapped
-                              dynamic widthValue = width['width'];
-                              if (widthValue is int) {
-                                widthValue = (widthValue as int).toDouble();
-                              } else if (widthValue is String) {
-                                widthValue = double.tryParse(widthValue) ?? 0.0;
-                              }
+                              // Ensure width value is an integer
+                              int widthValue = width['width'] is int 
+                                  ? width['width'] 
+                                  : int.tryParse(width['width']?.toString() ?? '') ?? 0;
                               
                               final isMapped = _isWidthMapped(width['product']?.toString() ?? '', widthValue);
                               // Check if the product is still active
@@ -400,7 +388,7 @@ class _WidthPageState extends State<WidthPage> {
                                     ),
                                   ),
                                   title: Text(
-                                    '${width['product']} - ${width['width']} inches',
+                                    '${width['product']} - $widthValue inches',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontSize: 16,
@@ -419,12 +407,7 @@ class _WidthPageState extends State<WidthPage> {
                                   onTap: () {
                                     // Only allow editing if product is still active
                                     if (isProductActive) {
-                                      // Find the original index in the widths list
-                                      int originalIndex = widths.indexWhere((w) => 
-                                        w['product'] == width['product'] && w['width'] == width['width']);
-                                      if (originalIndex != -1) {
-                                        _showEditWidthDialog(width, originalIndex);
-                                      }
+                                      _showEditWidthDialog(width, index);
                                     } else {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -449,6 +432,11 @@ class _WidthPageState extends State<WidthPage> {
     // Check if the product is still active
     bool isProductActive = activeProducts.any((p) => p['name'] == width['product']);
     
+    // Ensure width value is an integer
+    int widthValue = width['width'] is int 
+        ? width['width'] 
+        : int.tryParse(width['width']?.toString() ?? '') ?? 0;
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -458,11 +446,11 @@ class _WidthPageState extends State<WidthPage> {
               ? Text('This width belongs to an inactive product "${width['product']}" and cannot be deleted.')
               : isMapped 
                   ? const Text('This width is already mapped with orders and cannot be deleted.')
-                  : Text('Are you sure you want to delete "${width['product']} - ${width['width']} inches"?'),
+                  : Text('Are you sure you want to delete "${width['product']} - $widthValue inches"?'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop();
               },
               child: const Text(
                 'Cancel',
@@ -472,20 +460,12 @@ class _WidthPageState extends State<WidthPage> {
             if (isProductActive && !isMapped)
               TextButton(
                 onPressed: () async {
-                  // Ensure width value is properly typed before passing to deleteWidth
-                  dynamic widthValue = width['width'];
-                  if (widthValue is int) {
-                    widthValue = (widthValue as int).toDouble();
-                  } else if (widthValue is String) {
-                    widthValue = double.tryParse(widthValue) ?? 0.0;
-                  }
-                  
                   // Delete the width using the service
                   WidthService().deleteWidth(width['product']?.toString() ?? '', widthValue).then((_) {
                     // Reload the widths
                     _loadWidths();
                     
-                    Navigator.of(context).pop(); // Close dialog
+                    Navigator.of(context).pop();
                     
                     // Show success message
                     ScaffoldMessenger.of(context).showSnackBar(

@@ -172,6 +172,35 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
+  Future<void> _refreshAgentsData() async {
+  try {
+    if (!Hive.isBoxOpen('appData')) {
+      await Hive.openBox('appData');
+    }
+    
+    final box = Hive.box('appData');
+    final agentsData = box.get('agents');
+    
+    if (agentsData != null) {
+      List<String> updatedAgents = [];
+      
+      if (agentsData is List) {
+        for (var agent in agentsData) {
+          if (agent is String) {
+            updatedAgents.add(agent);
+          }
+        }
+      }
+      
+      setState(() {
+        agents = updatedAgents;
+      });
+    }
+  } catch (e) {
+    print('Error refreshing agents data: $e');
+  }
+}
+
   // Add this method to your NewOrderSetupPage
   Future<void> _verifyDataPersistence() async {
     try {
@@ -307,16 +336,20 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             : [];
         sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
         sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
+//  Combine agents
+final jsonAgents = jsonData['agents'] != null
+    ? List<String>.from(jsonData['agents'])
+    : [];
+final hiveAgents = hiveData['agents'] != null
+    ? List<String>.from(hiveData['agents'])
+    : [];
 
-        // Combine agents
-        final jsonAgents = jsonData['agents'] != null
-            ? List<String>.from(jsonData['agents'])
-            : [];
-        final hiveAgents = hiveData['agents'] != null
-            ? List<String>.from(hiveData['agents'])
-            : [];
-        agents = [...jsonAgents, ...hiveAgents];
-        agents = agents.toSet().toList(); // Remove duplicates
+// Create a set to avoid duplicates
+Set<String> uniqueAgents = Set.from(jsonAgents);
+uniqueAgents.addAll(hiveAgents as Iterable<String>);
+
+// Convert back to list
+agents = uniqueAgents.toList();
 
         // Combine sampleMtrOptions
         final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
@@ -906,7 +939,8 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  void _showAddNewPartyDialog() {
+  Future<void> _showAddNewPartyDialog() async {
+    await _refreshAgentsData();
   TextEditingController newPartyController = TextEditingController();
   String? selectedAgent;
   File? visitingCardImage;
@@ -1320,15 +1354,37 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         parties.insert(0, partyName);
       }
       
-      // Add new agent if provided and not already in the list
-      if (agent != null && !agents.contains(agent)) {
-        agents.add(agent);
-      }
+       if (agent != null && !agents.contains(agent)) {
+    agents.add(agent);
+    // Also save the updated agents list to Hive
+    _saveAgentsToStorage();
+  }
     });
     
     print('Party "$partyName" saved to Hive with all details');
   } catch (e) {
     print('Error saving new party to Hive: $e');
+  }
+}
+
+Future<void> _saveAgentsToStorage() async {
+  try {
+    final box = Hive.box('appData');
+    
+    // Convert all agents to List<String> to ensure type safety
+    final List<String> agentsToSave = agents
+        .map((e) => e.toString())
+        .toList();
+
+    // Save data with explicit await to ensure it's written to disk
+    await box.put('agents', agentsToSave);
+    
+    // Explicitly flush to disk
+    await box.flush();
+    
+    print('Agents data saved successfully');
+  } catch (e) {
+    print('Error saving agents data: $e');
   }
 }
   Future<void> _refreshPartyData() async {

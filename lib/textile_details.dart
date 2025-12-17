@@ -3218,7 +3218,7 @@ Future<void> _loadQualitiesFromService() async {
 
                               if (widthValue != null) {
                                 // Use WidthService to add the width. We'll use "General" as the product.
-                                await WidthService().addWidth("General", widthValue);
+                                await WidthService().addWidth("General", widthValue as int);
 
                                 // Reload widths from the service to get the updated list immediately
                                 await _loadWidthsFromService();

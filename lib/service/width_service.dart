@@ -1,3 +1,4 @@
+// WidthService.dart
 import 'package:hive_flutter/hive_flutter.dart';
 
 class WidthService {
@@ -30,13 +31,15 @@ class WidthService {
                 return null;
               }
               
-              // Ensure width is a double
+              // Ensure width is an integer
               if (widthMap['width'] is int) {
-                widthMap['width'] = (widthMap['width'] as int).toDouble();
+                // Keep as integer
+              } else if (widthMap['width'] is double) {
+                widthMap['width'] = (widthMap['width'] as double).toInt();
               } else if (widthMap['width'] is String) {
-                widthMap['width'] = double.tryParse(widthMap['width']) ?? 0.0;
-              } else if (widthMap['width'] is! double) {
-                widthMap['width'] = 0.0;
+                widthMap['width'] = int.tryParse(widthMap['width']) ?? 0;
+              } else {
+                widthMap['width'] = 0;
               }
               
               return widthMap;
@@ -59,7 +62,7 @@ class WidthService {
     }
   }
 
-  Future<void> addWidth(String product, double width) async {
+  Future<void> addWidth(String product, int width) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -82,7 +85,7 @@ class WidthService {
       // Add new width
       widths.insert(0, {
         'product': product,
-        'width': width,
+        'width': width, // Store as integer
       });
       
       // Save to Hive
@@ -96,7 +99,7 @@ class WidthService {
     }
   }
 
-  Future<void> updateWidth(String oldProduct, double oldWidth, String newProduct, double newWidth) async {
+  Future<void> updateWidth(String oldProduct, int oldWidth, String newProduct, int newWidth) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -128,7 +131,7 @@ class WidthService {
       // Update width
       widths[index] = {
         'product': newProduct,
-        'width': newWidth,
+        'width': newWidth, // Store as integer
       };
       
       // Save to Hive
@@ -142,7 +145,7 @@ class WidthService {
     }
   }
 
-  Future<void> deleteWidth(String product, double width) async {
+  Future<void> deleteWidth(String product, int width) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -154,7 +157,7 @@ class WidthService {
       // Get existing widths
       List<Map<String, dynamic>> widths = await getWidths();
       
-      // Remove the width
+      // Remove width
       widths.removeWhere((w) => w['product'] == product && w['width'] == width);
       
       // Save to Hive
