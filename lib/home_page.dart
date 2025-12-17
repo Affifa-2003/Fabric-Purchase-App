@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:purchase_app/agent_page.dart';
 import 'package:purchase_app/color_group_page.dart';
 import 'package:purchase_app/final_year_page.dart';
+import 'package:purchase_app/grade_page.dart';
 import 'package:purchase_app/parties_page.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/products_page.dart';
@@ -472,6 +473,30 @@ class _HomePageState extends State<HomePage> {
                               MaterialPageRoute(
                                 builder: (context) =>
                                     const PurchaseOrderGroupPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        // Grade menu item - NEW
+                        ListTile(
+                          leading: Icon(
+                            Icons.grade,
+                            color: primaryColor,
+                            size: iconSize,
+                          ),
+                          title: Text(
+                            'Grade',
+                            style: TextStyle(
+                              fontSize: menuItemFontSize,
+                              color: Colors.black,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context); // Close drawer
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const GradesPage(),
                               ),
                             );
                           },
