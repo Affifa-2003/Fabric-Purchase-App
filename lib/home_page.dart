@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:purchase_app/agent_page.dart';
 import 'package:purchase_app/color_group_page.dart';
-import 'package:purchase_app/final_year_page.dart';
+import 'package:purchase_app/financial_year_page.dart';
 import 'package:purchase_app/grade_page.dart';
+import 'package:purchase_app/order_form_type_page.dart';
 import 'package:purchase_app/parties_page.dart';
 import 'package:purchase_app/new_order_setup_page.dart';
 import 'package:purchase_app/products_page.dart';
@@ -329,6 +330,32 @@ class _HomePageState extends State<HomePage> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const QualityPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        // Add this to the drawer menu in home_page.dart
+
+                        // Order Form Type menu item
+                        ListTile(
+                          leading: Icon(
+                            Icons.description,
+                            color: primaryColor,
+                            size: iconSize,
+                          ),
+                          title: Text(
+                            'Order Form Type',
+                            style: TextStyle(
+                              fontSize: menuItemFontSize,
+                              color: Colors.black,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context); // Close drawer
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const OrderFormTypePage(),
                               ),
                             );
                           },

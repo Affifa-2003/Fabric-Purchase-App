@@ -899,22 +899,46 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> financialYear) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: Text('Are you sure you want to delete "${financialYear['name']}"?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
+  // Check if financial year is used in any purchase order groups
+  bool isUsedInPurchaseOrderGroups = false;
+  
+  try {
+    if (Hive.isBoxOpen('appData')) {
+      final appDataBox = Hive.box('appData');
+      final purchaseOrderGroupsData = appDataBox.get('purchaseOrderGroups');
+      
+      if (purchaseOrderGroupsData != null && purchaseOrderGroupsData is List) {
+        for (var group in purchaseOrderGroupsData) {
+          if (group is Map && group['financialYear'] == financialYear['name']) {
+            isUsedInPurchaseOrderGroups = true;
+            break;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    print('Error checking if financial year is used: $e');
+  }
+  
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: isUsedInPurchaseOrderGroups
+            ? const Text('This financial year is already mapped with purchase order groups and cannot be deleted.')
+            : Text('Are you sure you want to delete "${financialYear['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.red),
             ),
+          ),
+          if (!isUsedInPurchaseOrderGroups)
             TextButton(
               onPressed: () async {
                 // Find the original index in the financialYears list
@@ -942,9 +966,10 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
               },
               child: const Text('Delete'),
             ),
-          ],
-        );
-      },
-    );
-  }
+        ],
+      );
+    },
+  );
+}
+
 }

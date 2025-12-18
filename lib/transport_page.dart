@@ -1229,78 +1229,96 @@ class _TransportPageState extends State<TransportPage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> transport) {
-    // Check if transport is used in any orders
-    bool isUsed = false;
-    
-    try {
-      if (Hive.isBoxOpen('appData')) {
-        final appDataBox = Hive.box('appData');
-        final ordersData = appDataBox.get('orders');
-        
-        if (ordersData != null && ordersData is List) {
-          for (var order in ordersData) {
-            if (order is Map && order['transport'] == transport['name']) {
-              isUsed = true;
-              break;
-            }
+  // Check if transport is used in any orders
+  bool isUsedInOrders = false;
+  
+  // Check if transport is mapped to any parties
+  bool isMappedToParties = false;
+  
+  try {
+    if (Hive.isBoxOpen('appData')) {
+      final appDataBox = Hive.box('appData');
+      
+      // Check if transport is used in orders
+      final ordersData = appDataBox.get('orders');
+      
+      if (ordersData != null && ordersData is List) {
+        for (var order in ordersData) {
+          if (order is Map && order['transport'] == transport['name']) {
+            isUsedInOrders = true;
+            break;
           }
         }
       }
-    } catch (e) {
-      print('Error checking if transport is used: $e');
+      
+      // Check if transport is mapped to parties
+      final partiesData = appDataBox.get('parties');
+      
+      if (partiesData != null && partiesData is List) {
+        for (var party in partiesData) {
+          if (party is Map && party['transport'] == transport['name']) {
+            isMappedToParties = true;
+            break;
+          }
+        }
+      }
     }
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: isUsed 
-              ? const Text('This transport is already used in orders and cannot be deleted.')
-              : Text('Are you sure you want to delete "${transport['name']}"?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-            if (!isUsed)
-              TextButton(
-                onPressed: () async {
-                  // Find the original index in the transports list
-                  int originalIndex = transports.indexWhere((t) => t['name'] == transport['name']);
-                  if (originalIndex != -1) {
-                    // Update local state immediately
-                    setState(() {
-                      transports.removeAt(originalIndex);
-                      _filterTransports(); // Update filtered list
-                    });
-                    
-                    // Save to Hive
-                    await _saveTransportsToStorage();
-                    
-                    Navigator.of(context).pop(); // Close dialog
-                    
-                    // Show success message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Transport deleted successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Delete'),
-              ),
-          ],
-        );
-      },
-    );
+  } catch (e) {
+    print('Error checking if transport is used: $e');
   }
+  
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: isUsedInOrders || isMappedToParties
+            ? Text('This transport is already ${isUsedInOrders ? "used in orders" : ""}${isUsedInOrders && isMappedToParties ? " and " : ""}${isMappedToParties ? "mapped to parties" : ""} and cannot be deleted.')
+            : Text('Are you sure you want to delete "${transport['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+          if (!isUsedInOrders && !isMappedToParties)
+            TextButton(
+              onPressed: () async {
+                // Find the original index in the transports list
+                int originalIndex = transports.indexWhere((t) => t['name'] == transport['name']);
+                if (originalIndex != -1) {
+                  // Update local state immediately
+                  setState(() {
+                    transports.removeAt(originalIndex);
+                    _filterTransports(); // Update filtered list
+                  });
+                  
+                  // Save to Hive
+                  await _saveTransportsToStorage();
+                  
+                  Navigator.of(context).pop(); // Close dialog
+                  
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Transport deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Delete'),
+            ),
+        ],
+      );
+    },
+  );
+}
+
 }
 
 // Additional formatter for uppercase text (if not already in input_formatters.dart)

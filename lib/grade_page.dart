@@ -839,76 +839,93 @@ class _GradesPageState extends State<GradesPage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> grade) {
-    // Check if grade is used in any orders
-    bool isUsed = false;
-    
-    try {
-      if (Hive.isBoxOpen('appData')) {
-        final appDataBox = Hive.box('appData');
-        final ordersData = appDataBox.get('orders');
-        
-        if (ordersData != null && ordersData is List) {
-          for (var order in ordersData) {
-            if (order is Map && order['grade'] == grade['name']) {
-              isUsed = true;
-              break;
-            }
+  // Check if grade is used in any orders
+  bool isUsedInOrders = false;
+  
+  // Check if grade is mapped to any agents
+  bool isMappedToAgents = false;
+  
+  try {
+    if (Hive.isBoxOpen('appData')) {
+      final appDataBox = Hive.box('appData');
+      
+      // Check if grade is used in orders
+      final ordersData = appDataBox.get('orders');
+      
+      if (ordersData != null && ordersData is List) {
+        for (var order in ordersData) {
+          if (order is Map && order['grade'] == grade['name']) {
+            isUsedInOrders = true;
+            break;
           }
         }
       }
-    } catch (e) {
-      print('Error checking if grade is used: $e');
+      
+      // Check if grade is mapped to agents
+      final agentsData = appDataBox.get('agents');
+      
+      if (agentsData != null && agentsData is List) {
+        for (var agent in agentsData) {
+          if (agent is Map && agent['grade'] == grade['name']) {
+            isMappedToAgents = true;
+            break;
+          }
+        }
+      }
     }
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: isUsed 
-              ? const Text('This grade is already used in orders and cannot be deleted.')
-              : Text('Are you sure you want to delete "${grade['name']}"?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-            if (!isUsed)
-              TextButton(
-                onPressed: () async {
-                  // Find the original index in the grades list
-                  int originalIndex = grades.indexWhere((g) => g['name'] == grade['name']);
-                  if (originalIndex != -1) {
-                    // Update local state immediately
-                    setState(() {
-                      grades.removeAt(originalIndex);
-                      _filterGrades(); // Update filtered list
-                    });
-                    
-                    // Save to Hive
-                    await _saveGradesToStorage();
-                    
-                    Navigator.of(context).pop(); // Close dialog
-                    
-                    // Show success message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Grade deleted successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Delete'),
-              ),
-          ],
-        );
-      },
-    );
+  } catch (e) {
+    print('Error checking if grade is used: $e');
   }
+  
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: isUsedInOrders || isMappedToAgents
+            ? Text('This grade is already ${isUsedInOrders ? "used in orders" : ""}${isUsedInOrders && isMappedToAgents ? " and " : ""}${isMappedToAgents ? "mapped to agents" : ""} and cannot be deleted.')
+            : Text('Are you sure you want to delete "${grade['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+          if (!isUsedInOrders && !isMappedToAgents)
+            TextButton(
+              onPressed: () async {
+                // Find the original index in the grades list
+                int originalIndex = grades.indexWhere((g) => g['name'] == grade['name']);
+                if (originalIndex != -1) {
+                  // Update local state immediately
+                  setState(() {
+                    grades.removeAt(originalIndex);
+                    _filterGrades(); // Update filtered list
+                  });
+                  
+                  // Save to Hive
+                  await _saveGradesToStorage();
+                  
+                  Navigator.of(context).pop(); // Close dialog
+                  
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Grade deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Delete'),
+            ),
+        ],
+      );
+    },
+  );
+}
 }

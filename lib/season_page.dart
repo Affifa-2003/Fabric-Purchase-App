@@ -712,22 +712,52 @@ Widget build(BuildContext context) {
   );
 }
   void _showDeleteConfirmationDialog(Map<String, dynamic> season) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: Text('Are you sure you want to delete "${season['name']}"?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
+  // Check if season is used in any purchase order groups
+  bool isUsedInPurchaseOrderGroups = false;
+  
+  try {
+    if (Hive.isBoxOpen('appData')) {
+      final appDataBox = Hive.box('appData');
+      final purchaseOrderGroupsData = appDataBox.get('purchaseOrderGroups');
+      
+      if (purchaseOrderGroupsData != null && purchaseOrderGroupsData is List) {
+        for (var group in purchaseOrderGroupsData) {
+          if (group is Map) {
+            // Check if the season is in the seasons list of this group
+            if (group['seasons'] != null && group['seasons'] is List) {
+              List<dynamic> seasonsList = group['seasons'];
+              if (seasonsList.contains(season['name'])) {
+                isUsedInPurchaseOrderGroups = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    print('Error checking if season is used: $e');
+  }
+  
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: isUsedInPurchaseOrderGroups
+            ? const Text('This season is already mapped with purchase order groups and cannot be deleted.')
+            : Text('Are you sure you want to delete "${season['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.red),
             ),
+          ),
+          if (!isUsedInPurchaseOrderGroups)
             TextButton(
               onPressed: () async {
                 // Find the original index in the seasons list
@@ -755,9 +785,10 @@ Widget build(BuildContext context) {
               },
               child: const Text('Delete'),
             ),
-          ],
-        );
-      },
-    );
-  }
+        ],
+      );
+    },
+  );
+}
+
 }
