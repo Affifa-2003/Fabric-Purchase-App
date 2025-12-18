@@ -34,12 +34,12 @@ class _TransportPageState extends State<TransportPage> {
   bool _validateMobileNumber(String mobile) {
     // Remove any non-digit characters
     String digitsOnly = mobile.replaceAll(RegExp(r'[^\d]'), '');
-    
+
     // Check if it's exactly 10 digits and starts with 6-9
     if (digitsOnly.length != 10) {
       return false;
     }
-    
+
     // Check if first digit is between 6 and 9
     int firstDigit = int.parse(digitsOnly[0]);
     return firstDigit >= 6 && firstDigit <= 9;
@@ -49,14 +49,14 @@ class _TransportPageState extends State<TransportPage> {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveTransports = [];
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       appDataBox = Hive.box('appData');
-      
+
       final transportsData = appDataBox.get('transports');
       if (transportsData != null) {
         // Handle different types of data
@@ -69,13 +69,13 @@ class _TransportPageState extends State<TransportPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
         transports = hiveTransports;
         filteredTransports = List.from(transports);
         _isLoading = false;
       });
-      
+
       print('Loaded ${transports.length} transports from Hive');
     } catch (e) {
       print('Error loading transports: $e');
@@ -95,7 +95,7 @@ class _TransportPageState extends State<TransportPage> {
       }
 
       final box = Hive.box('appData');
-      
+
       // Ensure we're saving a list of maps with proper types
       List<Map<String, dynamic>> transportsToSave = transports.map((transport) {
         return {
@@ -107,10 +107,10 @@ class _TransportPageState extends State<TransportPage> {
           'status': transport['status']?.toString() ?? 'Active',
         };
       }).toList();
-      
+
       // Save data with explicit await to ensure it's written to disk
       await box.put('transports', transportsToSave);
-      
+
       // Explicitly flush to disk
       await box.flush();
 
@@ -134,7 +134,7 @@ class _TransportPageState extends State<TransportPage> {
     setState(() {
       filteredTransports = transports.where((transport) {
         return transport['name'].toLowerCase().contains(query) ||
-               transport['mobileNumber'].toLowerCase().contains(query);
+            transport['mobileNumber'].toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -190,7 +190,10 @@ class _TransportPageState extends State<TransportPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -211,7 +214,9 @@ class _TransportPageState extends State<TransportPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -221,7 +226,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Transport Company Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -244,13 +251,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Address Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -260,7 +269,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Address:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -284,13 +295,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // GST No Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -300,7 +313,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'GST No:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -311,10 +326,13 @@ class _TransportPageState extends State<TransportPage> {
                                   NoLeadingOrMultipleSpacesFormatter(),
                                   // GST format: 2 digits + 1 letter + PAN format (10 chars) + 1 letter + 1 digit + Z
                                   // Example: 27AAPFU0939F1ZV
-                                  FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[A-Z0-9]'),
+                                  ),
                                   UpperCaseTextFormatter(),
                                 ],
-                                textCapitalization: TextCapitalization.characters,
+                                textCapitalization:
+                                    TextCapitalization.characters,
                                 decoration: const InputDecoration(
                                   hintText: 'e.g. 27AAPFU0939F1ZV',
                                   border: OutlineInputBorder(),
@@ -328,13 +346,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Mobile Number Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -344,7 +364,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Mobile Number: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -369,13 +391,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Contact Person Name Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -385,7 +409,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Contact Person Name:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -408,13 +434,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Status Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -424,7 +452,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Status: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -439,10 +469,12 @@ class _TransportPageState extends State<TransportPage> {
                                   ),
                                 ),
                                 items: ['Active', 'Inactive']
-                                    .map((status) => DropdownMenuItem<String>(
-                                          value: status,
-                                          child: Text(status),
-                                        ))
+                                    .map(
+                                      (status) => DropdownMenuItem<String>(
+                                        value: status,
+                                        child: Text(status),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) {
                                   setState(() {
@@ -486,7 +518,7 @@ class _TransportPageState extends State<TransportPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -525,13 +557,15 @@ class _TransportPageState extends State<TransportPage> {
                               if (nameController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Transport company name is required'),
+                                    content: Text(
+                                      'Transport company name is required',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                                 return;
                               }
-                              
+
                               if (mobileNumberController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -541,28 +575,34 @@ class _TransportPageState extends State<TransportPage> {
                                 );
                                 return;
                               }
-                              
+
                               // Validate mobile number format
-                              if (!_validateMobileNumber(mobileNumberController.text.trim())) {
+                              if (!_validateMobileNumber(
+                                mobileNumberController.text.trim(),
+                              )) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Please enter a valid 10-digit mobile number starting with 6-9'),
+                                    content: Text(
+                                      'Please enter a valid 10-digit mobile number starting with 6-9',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                                 return;
                               }
-                              
+
                               // Create new transport
                               Map<String, dynamic> newTransport = {
                                 'name': nameController.text.trim(),
                                 'address': addressController.text.trim(),
                                 'gstNo': gstNoController.text.trim(),
-                                'mobileNumber': mobileNumberController.text.trim(),
-                                'contactPerson': contactPersonController.text.trim(),
+                                'mobileNumber': mobileNumberController.text
+                                    .trim(),
+                                'contactPerson': contactPersonController.text
+                                    .trim(),
                                 'status': statusValue,
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Add to the beginning of the list
@@ -605,11 +645,21 @@ class _TransportPageState extends State<TransportPage> {
   }
 
   void _showEditTransportDialog(Map<String, dynamic> transport, int index) {
-    TextEditingController nameController = TextEditingController(text: transport['name']);
-    TextEditingController addressController = TextEditingController(text: transport['address'] ?? '');
-    TextEditingController gstNoController = TextEditingController(text: transport['gstNo'] ?? '');
-    TextEditingController mobileNumberController = TextEditingController(text: transport['mobileNumber']);
-    TextEditingController contactPersonController = TextEditingController(text: transport['contactPerson'] ?? '');
+    TextEditingController nameController = TextEditingController(
+      text: transport['name'],
+    );
+    TextEditingController addressController = TextEditingController(
+      text: transport['address'] ?? '',
+    );
+    TextEditingController gstNoController = TextEditingController(
+      text: transport['gstNo'] ?? '',
+    );
+    TextEditingController mobileNumberController = TextEditingController(
+      text: transport['mobileNumber'],
+    );
+    TextEditingController contactPersonController = TextEditingController(
+      text: transport['contactPerson'] ?? '',
+    );
     String statusValue = transport['status'] ?? 'Active';
 
     showDialog(
@@ -655,7 +705,10 @@ class _TransportPageState extends State<TransportPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -676,7 +729,9 @@ class _TransportPageState extends State<TransportPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -686,7 +741,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Transport Company Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -709,13 +766,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Address Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -725,7 +784,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Address:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -749,13 +810,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // GST No Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -765,7 +828,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'GST No:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -774,10 +839,13 @@ class _TransportPageState extends State<TransportPage> {
                                 controller: gstNoController,
                                 inputFormatters: [
                                   NoLeadingOrMultipleSpacesFormatter(),
-                                  FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[A-Z0-9]'),
+                                  ),
                                   UpperCaseTextFormatter(),
                                 ],
-                                textCapitalization: TextCapitalization.characters,
+                                textCapitalization:
+                                    TextCapitalization.characters,
                                 decoration: const InputDecoration(
                                   hintText: 'e.g. 27AAPFU0939F1ZV',
                                   border: OutlineInputBorder(),
@@ -791,13 +859,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Mobile Number Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -807,7 +877,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Mobile Number: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -832,13 +904,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Contact Person Name Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -848,7 +922,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Contact Person Name:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -871,13 +947,15 @@ class _TransportPageState extends State<TransportPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Status Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -887,7 +965,9 @@ class _TransportPageState extends State<TransportPage> {
                                 children: [
                                   Text(
                                     'Status: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -902,10 +982,12 @@ class _TransportPageState extends State<TransportPage> {
                                   ),
                                 ),
                                 items: ['Active', 'Inactive']
-                                    .map((status) => DropdownMenuItem<String>(
-                                          value: status,
-                                          child: Text(status),
-                                        ))
+                                    .map(
+                                      (status) => DropdownMenuItem<String>(
+                                        value: status,
+                                        child: Text(status),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) {
                                   setState(() {
@@ -949,7 +1031,7 @@ class _TransportPageState extends State<TransportPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -988,13 +1070,15 @@ class _TransportPageState extends State<TransportPage> {
                               if (nameController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Transport company name is required'),
+                                    content: Text(
+                                      'Transport company name is required',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                                 return;
                               }
-                              
+
                               if (mobileNumberController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -1004,28 +1088,34 @@ class _TransportPageState extends State<TransportPage> {
                                 );
                                 return;
                               }
-                              
+
                               // Validate mobile number format
-                              if (!_validateMobileNumber(mobileNumberController.text.trim())) {
+                              if (!_validateMobileNumber(
+                                mobileNumberController.text.trim(),
+                              )) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Please enter a valid 10-digit mobile number starting with 6-9'),
+                                    content: Text(
+                                      'Please enter a valid 10-digit mobile number starting with 6-9',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                                 return;
                               }
-                              
+
                               // Create updated transport
                               Map<String, dynamic> updatedTransport = {
                                 'name': nameController.text.trim(),
                                 'address': addressController.text.trim(),
                                 'gstNo': gstNoController.text.trim(),
-                                'mobileNumber': mobileNumberController.text.trim(),
-                                'contactPerson': contactPersonController.text.trim(),
+                                'mobileNumber': mobileNumberController.text
+                                    .trim(),
+                                'contactPerson': contactPersonController.text
+                                    .trim(),
                                 'status': statusValue,
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Remove the old transport
@@ -1043,7 +1133,9 @@ class _TransportPageState extends State<TransportPage> {
                               // Show success message
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Transport updated successfully'),
+                                  content: Text(
+                                    'Transport updated successfully',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -1094,7 +1186,11 @@ class _TransportPageState extends State<TransportPage> {
             ),
             child: IconButton(
               padding: EdgeInsets.zero, // Remove default padding
-              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
+              icon: const Icon(
+                Icons.add,
+                color: Color(0xFF2563EB),
+                size: 24,
+              ), // Adjusted icon size
               onPressed: _showAddNewTransportDialog,
             ),
           ),
@@ -1128,7 +1224,7 @@ class _TransportPageState extends State<TransportPage> {
                     ),
                   ),
                 ),
-                
+
                 // Transports list
                 Expanded(
                   child: filteredTransports.isEmpty
@@ -1167,17 +1263,21 @@ class _TransportPageState extends State<TransportPage> {
                       : RefreshIndicator(
                           onRefresh: _loadTransports,
                           child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
                             itemCount: filteredTransports.length,
                             itemBuilder: (context, index) {
                               final transport = filteredTransports[index];
-                              
+
                               return Card(
                                 elevation: 0,
                                 color: const Color(0xFFFFFFFF),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
@@ -1212,9 +1312,14 @@ class _TransportPageState extends State<TransportPage> {
                                   ),
                                   onTap: () {
                                     // Find the original index in the transports list
-                                    int originalIndex = transports.indexWhere((t) => t['name'] == transport['name']);
+                                    int originalIndex = transports.indexWhere(
+                                      (t) => t['name'] == transport['name'],
+                                    );
                                     if (originalIndex != -1) {
-                                      _showEditTransportDialog(transport, originalIndex);
+                                      _showEditTransportDialog(
+                                        transport,
+                                        originalIndex,
+                                      );
                                     }
                                   },
                                 ),
@@ -1229,102 +1334,105 @@ class _TransportPageState extends State<TransportPage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> transport) {
-  // Check if transport is used in any orders
-  bool isUsedInOrders = false;
-  
-  // Check if transport is mapped to any parties
-  bool isMappedToParties = false;
-  
-  try {
-    if (Hive.isBoxOpen('appData')) {
-      final appDataBox = Hive.box('appData');
-      
-      // Check if transport is used in orders
-      final ordersData = appDataBox.get('orders');
-      
-      if (ordersData != null && ordersData is List) {
-        for (var order in ordersData) {
-          if (order is Map && order['transport'] == transport['name']) {
-            isUsedInOrders = true;
-            break;
-          }
-        }
-      }
-      
-      // Check if transport is mapped to parties
-      final partiesData = appDataBox.get('parties');
-      
-      if (partiesData != null && partiesData is List) {
-        for (var party in partiesData) {
-          if (party is Map && party['transport'] == transport['name']) {
-            isMappedToParties = true;
-            break;
-          }
-        }
-      }
-    }
-  } catch (e) {
-    print('Error checking if transport is used: $e');
-  }
-  
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: isUsedInOrders || isMappedToParties
-            ? Text('This transport is already ${isUsedInOrders ? "used in orders" : ""}${isUsedInOrders && isMappedToParties ? " and " : ""}${isMappedToParties ? "mapped to parties" : ""} and cannot be deleted.')
-            : Text('Are you sure you want to delete "${transport['name']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-          if (!isUsedInOrders && !isMappedToParties)
-            TextButton(
-              onPressed: () async {
-                // Find the original index in the transports list
-                int originalIndex = transports.indexWhere((t) => t['name'] == transport['name']);
-                if (originalIndex != -1) {
-                  // Update local state immediately
-                  setState(() {
-                    transports.removeAt(originalIndex);
-                    _filterTransports(); // Update filtered list
-                  });
-                  
-                  // Save to Hive
-                  await _saveTransportsToStorage();
-                  
-                  Navigator.of(context).pop(); // Close dialog
-                  
-                  // Show success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Transport deleted successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Delete'),
-            ),
-        ],
-      );
-    },
-  );
-}
+    // Check if transport is used in any orders
+    bool isUsedInOrders = false;
 
+    // Check if transport is mapped to any parties
+    bool isMappedToParties = false;
+
+    try {
+      if (Hive.isBoxOpen('appData')) {
+        final appDataBox = Hive.box('appData');
+
+        // Check if transport is used in orders
+        final ordersData = appDataBox.get('orders');
+
+        if (ordersData != null && ordersData is List) {
+          for (var order in ordersData) {
+            if (order is Map && order['transport'] == transport['name']) {
+              isUsedInOrders = true;
+              break;
+            }
+          }
+        }
+
+        // Check if transport is mapped to parties
+        final partiesData = appDataBox.get('parties');
+
+        if (partiesData != null && partiesData is List) {
+          for (var party in partiesData) {
+            if (party is Map && party['transport'] == transport['name']) {
+              isMappedToParties = true;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error checking if transport is used: $e');
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: isUsedInOrders || isMappedToParties
+              ? Text(
+                  'This transport is already ${isUsedInOrders ? "used in orders" : ""}${isUsedInOrders && isMappedToParties ? " and " : ""}${isMappedToParties ? "mapped to parties" : ""} and cannot be deleted.',
+                )
+              : Text('Are you sure you want to delete "${transport['name']}"?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+            ),
+            if (!isUsedInOrders && !isMappedToParties)
+              TextButton(
+                onPressed: () async {
+                  // Find the original index in the transports list
+                  int originalIndex = transports.indexWhere(
+                    (t) => t['name'] == transport['name'],
+                  );
+                  if (originalIndex != -1) {
+                    // Update local state immediately
+                    setState(() {
+                      transports.removeAt(originalIndex);
+                      _filterTransports(); // Update filtered list
+                    });
+
+                    // Save to Hive
+                    await _saveTransportsToStorage();
+
+                    Navigator.of(context).pop(); // Close dialog
+
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Transport deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Delete'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 // Additional formatter for uppercase text (if not already in input_formatters.dart)
 class UpperCaseTextFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     return TextEditingValue(
       text: newValue.text.toUpperCase(),
       selection: newValue.selection,

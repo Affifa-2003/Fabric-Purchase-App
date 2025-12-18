@@ -37,10 +37,10 @@ class _QualityPageState extends State<QualityPage> {
     try {
       // Load products first
       await _loadProducts();
-      
+
       // Load qualities
       await _loadQualities();
-      
+
       setState(() {
         _isLoading = false;
       });
@@ -56,14 +56,14 @@ class _QualityPageState extends State<QualityPage> {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
-      
+
       // Ensure box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       final box = Hive.box('appData');
-      
+
       final productsData = box.get('products');
       if (productsData != null) {
         // Handle different types of data
@@ -76,15 +76,18 @@ class _QualityPageState extends State<QualityPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
         products = hiveProducts;
         // Filter only active products
-        activeProducts = products.where((product) => 
-          product['status'] == 'Active').toList();
+        activeProducts = products
+            .where((product) => product['status'] == 'Active')
+            .toList();
       });
-      
-      print('Loaded ${products.length} products (${activeProducts.length} active)');
+
+      print(
+        'Loaded ${products.length} products (${activeProducts.length} active)',
+      );
     } catch (e) {
       print('Error loading products: $e');
     }
@@ -94,11 +97,11 @@ class _QualityPageState extends State<QualityPage> {
     try {
       // Use the QualityService to get qualities
       qualities = await QualityService().getQualities();
-      
+
       setState(() {
         filteredQualities = List.from(qualities);
       });
-      
+
       print('Loaded ${qualities.length} qualities from service');
     } catch (e) {
       print('Error loading qualities: $e');
@@ -113,8 +116,8 @@ class _QualityPageState extends State<QualityPage> {
     String query = _searchController.text.toLowerCase();
     setState(() {
       filteredQualities = qualities.where((quality) {
-        return quality['product'].toString().toLowerCase().contains(query) || 
-               quality['quality'].toString().toLowerCase().contains(query);
+        return quality['product'].toString().toLowerCase().contains(query) ||
+            quality['quality'].toString().toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -125,17 +128,17 @@ class _QualityPageState extends State<QualityPage> {
       if (!Hive.isBoxOpen('appData')) {
         Hive.openBox('appData');
       }
-      
+
       final box = Hive.box('appData');
       final ordersData = box.get('orders');
-      
+
       if (ordersData != null) {
         if (ordersData is List) {
           for (var order in ordersData) {
             if (order is Map) {
               // Check if quality is mapped with this product and quality name
-              if (order['product'] == productName && 
-                  order['quality'] != null && 
+              if (order['product'] == productName &&
+                  order['quality'] != null &&
                   order['quality'] == qualityName) {
                 return true;
               }
@@ -143,7 +146,7 @@ class _QualityPageState extends State<QualityPage> {
           }
         }
       }
-      
+
       return false;
     } catch (e) {
       print('Error checking if quality is mapped: $e');
@@ -155,37 +158,40 @@ class _QualityPageState extends State<QualityPage> {
     showDialog(
       context: context,
       builder: (context) {
-        return QualityDialog(
-          activeProducts: activeProducts,
-        );
+        return QualityDialog(activeProducts: activeProducts);
       },
     ).then((result) {
       if (result != null) {
         // Add the quality using the service
-        QualityService().addQuality(result['product'], result['quality'], 
-          code: result['code'],
-          description: result['description'],
-          status: result['status']
-        ).then((_) {
-          // Reload the qualities
-          _loadQualities();
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Quality added successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }).catchError((error) {
-          // Show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error adding quality: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        });
+        QualityService()
+            .addQuality(
+              result['product'],
+              result['quality'],
+              code: result['code'],
+              description: result['description'],
+              status: result['status'],
+            )
+            .then((_) {
+              // Reload the qualities
+              _loadQualities();
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Quality added successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            })
+            .catchError((error) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error adding quality: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            });
       }
     });
   }
@@ -207,34 +213,37 @@ class _QualityPageState extends State<QualityPage> {
     ).then((result) {
       if (result != null) {
         // Update the quality using the service
-        QualityService().updateQuality(
-          quality['product'], 
-          quality['quality'],
-          result['product'], 
-          result['quality'],
-          code: result['code'],
-          description: result['description'],
-          status: result['status']
-        ).then((_) {
-          // Reload the qualities
-          _loadQualities();
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Quality updated successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }).catchError((error) {
-          // Show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error updating quality: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        });
+        QualityService()
+            .updateQuality(
+              quality['product'],
+              quality['quality'],
+              result['product'],
+              result['quality'],
+              code: result['code'],
+              description: result['description'],
+              status: result['status'],
+            )
+            .then((_) {
+              // Reload the qualities
+              _loadQualities();
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Quality updated successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            })
+            .catchError((error) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error updating quality: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            });
       }
     });
   }
@@ -264,7 +273,11 @@ class _QualityPageState extends State<QualityPage> {
             ),
             child: IconButton(
               padding: EdgeInsets.zero, // Remove default padding
-              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
+              icon: const Icon(
+                Icons.add,
+                color: Color(0xFF2563EB),
+                size: 24,
+              ), // Adjusted icon size
               onPressed: _showAddNewQualityDialog,
             ),
           ),
@@ -298,7 +311,7 @@ class _QualityPageState extends State<QualityPage> {
                     ),
                   ),
                 ),
-                
+
                 // Qualities list
                 Expanded(
                   child: filteredQualities.isEmpty
@@ -337,29 +350,38 @@ class _QualityPageState extends State<QualityPage> {
                       : RefreshIndicator(
                           onRefresh: _loadQualities,
                           child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
                             itemCount: filteredQualities.length,
                             itemBuilder: (context, index) {
                               final quality = filteredQualities[index];
-                              final isMapped = _isQualityMapped(quality['product'], quality['quality']);
+                              final isMapped = _isQualityMapped(
+                                quality['product'],
+                                quality['quality'],
+                              );
                               // Check if product is still active
-                              bool isProductActive = activeProducts.any((p) => p['name'] == quality['product']);
-                              
+                              bool isProductActive = activeProducts.any(
+                                (p) => p['name'] == quality['product'],
+                              );
+
                               return Card(
                                 elevation: 0,
                                 color: const Color(0xFFFFFFFF),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: isProductActive 
+                                    backgroundColor: isProductActive
                                         ? const Color(0xFFEBF5FF)
                                         : Colors.grey[200],
                                     child: Icon(
                                       Icons.style,
-                                      color: isProductActive 
+                                      color: isProductActive
                                           ? const Color(0xFF2563EB)
                                           : Colors.grey[500],
                                     ),
@@ -370,7 +392,9 @@ class _QualityPageState extends State<QualityPage> {
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontSize: 16,
-                                      color: isProductActive ? Colors.black : Colors.grey[500],
+                                      color: isProductActive
+                                          ? Colors.black
+                                          : Colors.grey[500],
                                     ),
                                   ),
                                   trailing: IconButton(
@@ -379,7 +403,10 @@ class _QualityPageState extends State<QualityPage> {
                                       color: Color(0xFFEF4444),
                                     ),
                                     onPressed: () {
-                                      _showDeleteConfirmationDialog(quality, isMapped);
+                                      _showDeleteConfirmationDialog(
+                                        quality,
+                                        isMapped,
+                                      );
                                     },
                                   ),
                                   onTap: () {
@@ -387,9 +414,13 @@ class _QualityPageState extends State<QualityPage> {
                                     if (isProductActive) {
                                       _showEditQualityDialog(quality, index);
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
-                                          content: Text('Cannot edit quality for inactive product'),
+                                          content: Text(
+                                            'Cannot edit quality for inactive product',
+                                          ),
                                           backgroundColor: Colors.orange,
                                         ),
                                       );
@@ -406,56 +437,67 @@ class _QualityPageState extends State<QualityPage> {
     );
   }
 
-  void _showDeleteConfirmationDialog(Map<String, dynamic> quality, bool isMapped) {
+  void _showDeleteConfirmationDialog(
+    Map<String, dynamic> quality,
+    bool isMapped,
+  ) {
     // Check if product is still active
-    bool isProductActive = activeProducts.any((p) => p['name'] == quality['product']);
-    
+    bool isProductActive = activeProducts.any(
+      (p) => p['name'] == quality['product'],
+    );
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
           content: !isProductActive
-              ? Text('This quality belongs to an inactive product "${quality['product']}" and cannot be deleted.')
-              : isMapped 
-                  ? const Text('This quality is already mapped with orders and cannot be deleted.')
-                  : Text('Are you sure you want to delete "${quality['product']} - ${quality['quality']}"?'),
+              ? Text(
+                  'This quality belongs to an inactive product "${quality['product']}" and cannot be deleted.',
+                )
+              : isMapped
+              ? const Text(
+                  'This quality is already mapped with orders and cannot be deleted.',
+                )
+              : Text(
+                  'Are you sure you want to delete "${quality['product']} - ${quality['quality']}"?',
+                ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
             ),
             if (isProductActive && !isMapped)
               TextButton(
                 onPressed: () async {
                   // Delete the quality using the service
-                  QualityService().deleteQuality(quality['product'], quality['quality']).then((_) {
-                    // Reload the qualities
-                    _loadQualities();
-                    
-                    Navigator.of(context).pop(); // Close dialog
-                    
-                    // Show success message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Quality deleted successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }).catchError((error) {
-                    // Show error message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error deleting quality: $error'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  });
+                  QualityService()
+                      .deleteQuality(quality['product'], quality['quality'])
+                      .then((_) {
+                        // Reload the qualities
+                        _loadQualities();
+
+                        Navigator.of(context).pop(); // Close dialog
+
+                        // Show success message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Quality deleted successfully'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      })
+                      .catchError((error) {
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error deleting quality: $error'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      });
                 },
                 child: const Text('Delete'),
               ),

@@ -35,7 +35,7 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
     try {
       // Load order form types
       await _loadOrderFormTypes();
-      
+
       setState(() {
         _isLoading = false;
       });
@@ -51,11 +51,11 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
     try {
       // Use the OrderFormTypeService to get order form types
       orderFormTypes = await OrderFormTypeService().getOrderFormTypes();
-      
+
       setState(() {
         filteredOrderFormTypes = List.from(orderFormTypes);
       });
-      
+
       print('Loaded ${orderFormTypes.length} order form types from service');
     } catch (e) {
       print('Error loading order form types: $e');
@@ -71,15 +71,15 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
     setState(() {
       filteredOrderFormTypes = orderFormTypes.where((type) {
         // Ensure name is a string before calling toLowerCase
-        String name = type['name'] is String 
-            ? type['name'] 
+        String name = type['name'] is String
+            ? type['name']
             : type['name']?.toString() ?? '';
-        
+
         // Ensure description is a string before calling contains
         String description = type['description']?.toString() ?? '';
-        
-        return name.toLowerCase().contains(query) || 
-               description.toLowerCase().contains(query);
+
+        return name.toLowerCase().contains(query) ||
+            description.toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -90,10 +90,10 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
       if (!Hive.isBoxOpen('appData')) {
         Hive.openBox('appData');
       }
-      
+
       final box = Hive.box('appData');
       final ordersData = box.get('orders');
-      
+
       if (ordersData != null) {
         if (ordersData is List) {
           for (var order in ordersData) {
@@ -106,7 +106,7 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
           }
         }
       }
-      
+
       return false;
     } catch (e) {
       print('Error checking if order form type is in use: $e');
@@ -123,42 +123,48 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
     ).then((result) {
       if (result != null) {
         // Add the order form type using the service
-        OrderFormTypeService().addOrderFormType(
-          result['name'],
-          description: result['description'],
-          isPlainMixed: result['isPlainMixed'],
-          status: result['status']
-        ).then((_) {
-          // Reload the order form types
-          _loadOrderFormTypes();
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order form type added successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }).catchError((error) {
-          // Show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error adding order form type: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        });
+        OrderFormTypeService()
+            .addOrderFormType(
+              result['name'],
+              description: result['description'],
+              isPlainMixed: result['isPlainMixed'],
+              status: result['status'],
+            )
+            .then((_) {
+              // Reload the order form types
+              _loadOrderFormTypes();
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Order form type added successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            })
+            .catchError((error) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error adding order form type: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            });
       }
     });
   }
 
-  void _showEditOrderFormTypeDialog(Map<String, dynamic> orderFormType, int index) {
+  void _showEditOrderFormTypeDialog(
+    Map<String, dynamic> orderFormType,
+    int index,
+  ) {
     // Get the current name
     String currentName = orderFormType['name']?.toString() ?? '';
     String currentDescription = orderFormType['description']?.toString() ?? '';
     bool currentIsPlainMixed = orderFormType['isPlainMixed'] ?? false;
     String currentStatus = orderFormType['status']?.toString() ?? 'Active';
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -173,32 +179,35 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
     ).then((result) {
       if (result != null) {
         // Update the order form type using the service
-        OrderFormTypeService().updateOrderFormType(
-          currentName, 
-          result['name'],
-          description: result['description'],
-          isPlainMixed: result['isPlainMixed'],
-          status: result['status']
-        ).then((_) {
-          // Reload the order form types
-          _loadOrderFormTypes();
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order form type updated successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }).catchError((error) {
-          // Show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error updating order form type: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        });
+        OrderFormTypeService()
+            .updateOrderFormType(
+              currentName,
+              result['name'],
+              description: result['description'],
+              isPlainMixed: result['isPlainMixed'],
+              status: result['status'],
+            )
+            .then((_) {
+              // Reload the order form types
+              _loadOrderFormTypes();
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Order form type updated successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            })
+            .catchError((error) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error updating order form type: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            });
       }
     });
   }
@@ -262,7 +271,7 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
                     ),
                   ),
                 ),
-                
+
                 // Order form types list
                 Expanded(
                   child: filteredOrderFormTypes.isEmpty
@@ -301,18 +310,25 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
                       : RefreshIndicator(
                           onRefresh: _loadOrderFormTypes,
                           child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
                             itemCount: filteredOrderFormTypes.length,
                             itemBuilder: (context, index) {
-                              final orderFormType = filteredOrderFormTypes[index];
-                              final isInUse = _isOrderFormTypeInUse(orderFormType['name']?.toString() ?? '');
-                              
+                              final orderFormType =
+                                  filteredOrderFormTypes[index];
+                              final isInUse = _isOrderFormTypeInUse(
+                                orderFormType['name']?.toString() ?? '',
+                              );
+
                               return Card(
                                 elevation: 0,
                                 color: const Color(0xFFFFFFFF),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
@@ -336,11 +352,17 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
                                       color: Color(0xFFEF4444),
                                     ),
                                     onPressed: () {
-                                      _showDeleteConfirmationDialog(orderFormType, isInUse);
+                                      _showDeleteConfirmationDialog(
+                                        orderFormType,
+                                        isInUse,
+                                      );
                                     },
                                   ),
                                   onTap: () {
-                                    _showEditOrderFormTypeDialog(orderFormType, index);
+                                    _showEditOrderFormTypeDialog(
+                                      orderFormType,
+                                      index,
+                                    );
                                   },
                                 ),
                               );
@@ -353,53 +375,62 @@ class _OrderFormTypePageState extends State<OrderFormTypePage> {
     );
   }
 
-  void _showDeleteConfirmationDialog(Map<String, dynamic> orderFormType, bool isInUse) {
+  void _showDeleteConfirmationDialog(
+    Map<String, dynamic> orderFormType,
+    bool isInUse,
+  ) {
     String name = orderFormType['name']?.toString() ?? '';
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
-          content: isInUse 
-              ? const Text('This order form type is already used in orders and cannot be deleted.')
+          content: isInUse
+              ? const Text(
+                  'This order form type is already used in orders and cannot be deleted.',
+                )
               : Text('Are you sure you want to delete "$name"?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
             ),
             if (!isInUse)
               TextButton(
                 onPressed: () async {
                   // Delete the order form type using the service
-                  OrderFormTypeService().deleteOrderFormType(name).then((_) {
-                    // Reload the order form types
-                    _loadOrderFormTypes();
-                    
-                    Navigator.of(context).pop();
-                    
-                    // Show success message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Order form type deleted successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }).catchError((error) {
-                    // Show error message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error deleting order form type: $error'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  });
+                  OrderFormTypeService()
+                      .deleteOrderFormType(name)
+                      .then((_) {
+                        // Reload the order form types
+                        _loadOrderFormTypes();
+
+                        Navigator.of(context).pop();
+
+                        // Show success message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Order form type deleted successfully',
+                            ),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      })
+                      .catchError((error) {
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Error deleting order form type: $error',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      });
                 },
                 child: const Text('Delete'),
               ),

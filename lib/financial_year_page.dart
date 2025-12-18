@@ -33,14 +33,14 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveFinancialYears = [];
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       appDataBox = Hive.box('appData');
-      
+
       final financialYearsData = appDataBox.get('financialYears');
       if (financialYearsData != null) {
         // Handle different types of data
@@ -53,13 +53,13 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
         financialYears = hiveFinancialYears;
         filteredFinancialYears = List.from(financialYears);
         _isLoading = false;
       });
-      
+
       print('Loaded ${financialYears.length} financial years from Hive');
     } catch (e) {
       print('Error loading financial years: $e');
@@ -79,19 +79,21 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
       }
 
       final box = Hive.box('appData');
-      
+
       // Ensure we're saving a list of maps with proper types
-      List<Map<String, dynamic>> financialYearsToSave = financialYears.map((financialYear) {
+      List<Map<String, dynamic>> financialYearsToSave = financialYears.map((
+        financialYear,
+      ) {
         return {
           'name': financialYear['name']?.toString() ?? '',
           'description': financialYear['description']?.toString() ?? '',
           'status': financialYear['status']?.toString() ?? 'Active',
         };
       }).toList();
-      
+
       // Save data with explicit await to ensure it's written to disk
       await box.put('financialYears', financialYearsToSave);
-      
+
       // Explicitly flush to disk
       await box.flush();
 
@@ -167,7 +169,10 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -188,7 +193,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -198,7 +205,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                 children: [
                                   Text(
                                     'Financial Year Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -221,13 +230,15 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Description Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -237,7 +248,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                 children: [
                                   Text(
                                     'Description:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -261,13 +274,15 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Status Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -277,7 +292,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                 children: [
                                   Text(
                                     'Status: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -292,10 +309,12 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                   ),
                                 ),
                                 items: ['Active', 'Inactive']
-                                    .map((status) => DropdownMenuItem<String>(
-                                          value: status,
-                                          child: Text(status),
-                                        ))
+                                    .map(
+                                      (status) => DropdownMenuItem<String>(
+                                        value: status,
+                                        child: Text(status),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) {
                                   setState(() {
@@ -339,7 +358,7 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -378,20 +397,23 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                               if (nameController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Financial year name is required'),
+                                    content: Text(
+                                      'Financial year name is required',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                                 return;
                               }
-                              
+
                               // Create new financial year
                               Map<String, dynamic> newFinancialYear = {
                                 'name': nameController.text.trim(),
-                                'description': descriptionController.text.trim(),
+                                'description': descriptionController.text
+                                    .trim(),
                                 'status': statusValue,
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Add to the beginning of the list
@@ -407,7 +429,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                               // Show success message
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Financial year added successfully'),
+                                  content: Text(
+                                    'Financial year added successfully',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -433,9 +457,16 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
     );
   }
 
-  void _showEditFinancialYearDialog(Map<String, dynamic> financialYear, int index) {
-    TextEditingController nameController = TextEditingController(text: financialYear['name']);
-    TextEditingController descriptionController = TextEditingController(text: financialYear['description'] ?? '');
+  void _showEditFinancialYearDialog(
+    Map<String, dynamic> financialYear,
+    int index,
+  ) {
+    TextEditingController nameController = TextEditingController(
+      text: financialYear['name'],
+    );
+    TextEditingController descriptionController = TextEditingController(
+      text: financialYear['description'] ?? '',
+    );
     String statusValue = financialYear['status'];
 
     showDialog(
@@ -481,7 +512,10 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -502,7 +536,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -512,7 +548,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                 children: [
                                   Text(
                                     'Financial Year Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -535,13 +573,15 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Description Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -551,7 +591,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                 children: [
                                   Text(
                                     'Description:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -572,13 +614,15 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Status Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -588,7 +632,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                 children: [
                                   Text(
                                     'Status: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -603,10 +649,12 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                   ),
                                 ),
                                 items: ['Active', 'Inactive']
-                                    .map((status) => DropdownMenuItem<String>(
-                                          value: status,
-                                          child: Text(status),
-                                        ))
+                                    .map(
+                                      (status) => DropdownMenuItem<String>(
+                                        value: status,
+                                        child: Text(status),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) {
                                   setState(() {
@@ -650,7 +698,7 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -689,20 +737,23 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                               if (nameController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Financial year name is required'),
+                                    content: Text(
+                                      'Financial year name is required',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                                 return;
                               }
-                              
+
                               // Create updated financial year
                               Map<String, dynamic> updatedFinancialYear = {
                                 'name': nameController.text.trim(),
-                                'description': descriptionController.text.trim(),
+                                'description': descriptionController.text
+                                    .trim(),
                                 'status': statusValue,
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Remove the old financial year
@@ -720,7 +771,9 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                               // Show success message
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Financial year updated successfully'),
+                                  content: Text(
+                                    'Financial year updated successfully',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -771,7 +824,11 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
             ),
             child: IconButton(
               padding: EdgeInsets.zero, // Remove default padding
-              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
+              icon: const Icon(
+                Icons.add,
+                color: Color(0xFF2563EB),
+                size: 24,
+              ), // Adjusted icon size
               onPressed: _showAddNewFinancialYearDialog,
             ),
           ),
@@ -805,7 +862,7 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                     ),
                   ),
                 ),
-                
+
                 // Financial years list
                 Expanded(
                   child: filteredFinancialYears.isEmpty
@@ -844,17 +901,22 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                       : RefreshIndicator(
                           onRefresh: _loadFinancialYears,
                           child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
                             itemCount: filteredFinancialYears.length,
                             itemBuilder: (context, index) {
-                              final financialYear = filteredFinancialYears[index];
-                              
+                              final financialYear =
+                                  filteredFinancialYears[index];
+
                               return Card(
                                 elevation: 0,
                                 color: const Color(0xFFFFFFFF),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
@@ -877,14 +939,24 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
                                       color: Color(0xFFEF4444),
                                     ),
                                     onPressed: () {
-                                      _showDeleteConfirmationDialog(financialYear);
+                                      _showDeleteConfirmationDialog(
+                                        financialYear,
+                                      );
                                     },
                                   ),
                                   onTap: () {
                                     // Find the original index in the financialYears list
-                                    int originalIndex = financialYears.indexWhere((fy) => fy['name'] == financialYear['name']);
+                                    int originalIndex = financialYears
+                                        .indexWhere(
+                                          (fy) =>
+                                              fy['name'] ==
+                                              financialYear['name'],
+                                        );
                                     if (originalIndex != -1) {
-                                      _showEditFinancialYearDialog(financialYear, originalIndex);
+                                      _showEditFinancialYearDialog(
+                                        financialYear,
+                                        originalIndex,
+                                      );
                                     }
                                   },
                                 ),
@@ -899,77 +971,81 @@ class _FinancialYearPageState extends State<FinancialYearPage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> financialYear) {
-  // Check if financial year is used in any purchase order groups
-  bool isUsedInPurchaseOrderGroups = false;
-  
-  try {
-    if (Hive.isBoxOpen('appData')) {
-      final appDataBox = Hive.box('appData');
-      final purchaseOrderGroupsData = appDataBox.get('purchaseOrderGroups');
-      
-      if (purchaseOrderGroupsData != null && purchaseOrderGroupsData is List) {
-        for (var group in purchaseOrderGroupsData) {
-          if (group is Map && group['financialYear'] == financialYear['name']) {
-            isUsedInPurchaseOrderGroups = true;
-            break;
+    // Check if financial year is used in any purchase order groups
+    bool isUsedInPurchaseOrderGroups = false;
+
+    try {
+      if (Hive.isBoxOpen('appData')) {
+        final appDataBox = Hive.box('appData');
+        final purchaseOrderGroupsData = appDataBox.get('purchaseOrderGroups');
+
+        if (purchaseOrderGroupsData != null &&
+            purchaseOrderGroupsData is List) {
+          for (var group in purchaseOrderGroupsData) {
+            if (group is Map &&
+                group['financialYear'] == financialYear['name']) {
+              isUsedInPurchaseOrderGroups = true;
+              break;
+            }
           }
         }
       }
+    } catch (e) {
+      print('Error checking if financial year is used: $e');
     }
-  } catch (e) {
-    print('Error checking if financial year is used: $e');
-  }
-  
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: isUsedInPurchaseOrderGroups
-            ? const Text('This financial year is already mapped with purchase order groups and cannot be deleted.')
-            : Text('Are you sure you want to delete "${financialYear['name']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-          if (!isUsedInPurchaseOrderGroups)
-            TextButton(
-              onPressed: () async {
-                // Find the original index in the financialYears list
-                int originalIndex = financialYears.indexWhere((fy) => fy['name'] == financialYear['name']);
-                if (originalIndex != -1) {
-                  // Update local state immediately
-                  setState(() {
-                    financialYears.removeAt(originalIndex);
-                    _filterFinancialYears(); // Update filtered list
-                  });
-                  
-                  // Save to Hive
-                  await _saveFinancialYearsToStorage();
-                  
-                  Navigator.of(context).pop(); // Close dialog
-                  
-                  // Show success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Financial year deleted successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Delete'),
-            ),
-        ],
-      );
-    },
-  );
-}
 
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: isUsedInPurchaseOrderGroups
+              ? const Text(
+                  'This financial year is already mapped with purchase order groups and cannot be deleted.',
+                )
+              : Text(
+                  'Are you sure you want to delete "${financialYear['name']}"?',
+                ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+            ),
+            if (!isUsedInPurchaseOrderGroups)
+              TextButton(
+                onPressed: () async {
+                  // Find the original index in the financialYears list
+                  int originalIndex = financialYears.indexWhere(
+                    (fy) => fy['name'] == financialYear['name'],
+                  );
+                  if (originalIndex != -1) {
+                    // Update local state immediately
+                    setState(() {
+                      financialYears.removeAt(originalIndex);
+                      _filterFinancialYears(); // Update filtered list
+                    });
+
+                    // Save to Hive
+                    await _saveFinancialYearsToStorage();
+
+                    Navigator.of(context).pop(); // Close dialog
+
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Financial year deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Delete'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

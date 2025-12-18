@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FilteringTextInputFormatter, LengthLimitingTextInputFormatter, TextInputFormatter;
+import 'package:flutter/services.dart'
+    show
+        FilteringTextInputFormatter,
+        LengthLimitingTextInputFormatter,
+        TextInputFormatter;
 import 'package:purchase_app/utils/input_formatters.dart';
 import 'package:purchase_app/service/party_service.dart';
 
 enum PartyType { direct, agent }
+
 enum PartyStatus { active, inactive }
 
 class AddPartyDialog extends StatefulWidget {
@@ -70,12 +75,12 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
   late TextEditingController _ifscCodeController;
   late TextEditingController _branchNameController;
   late TextEditingController _accountHolderNameController;
-  
+
   late PartyType _selectedPartyType;
   String? _selectedAgent;
   String? _selectedTransport;
   late PartyStatus _selectedStatus;
-  
+
   List<String> _mobileNumbers = [];
   List<TextEditingController> _mobileControllers = [TextEditingController()];
   List<FocusNode> _mobileFocusNodes = [FocusNode()];
@@ -84,36 +89,56 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize controllers
     _nameController = TextEditingController(text: widget.initialName ?? '');
     _codeController = TextEditingController(text: widget.initialCode ?? '');
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
-    _addressController = TextEditingController(text: widget.initialAddress ?? '');
+    _addressController = TextEditingController(
+      text: widget.initialAddress ?? '',
+    );
     _stateController = TextEditingController(text: widget.initialState ?? '');
-    _districtController = TextEditingController(text: widget.initialDistrict ?? '');
+    _districtController = TextEditingController(
+      text: widget.initialDistrict ?? '',
+    );
     _gstNoController = TextEditingController(text: widget.initialGstNo ?? '');
-    _bankNameController = TextEditingController(text: widget.initialBankName ?? '');
-    _accountNoController = TextEditingController(text: widget.initialAccountNo ?? '');
-    _ifscCodeController = TextEditingController(text: widget.initialIfscCode ?? '');
-    _branchNameController = TextEditingController(text: widget.initialBranchName ?? '');
-    _accountHolderNameController = TextEditingController(text: widget.initialAccountHolderName ?? '');
-    
+    _bankNameController = TextEditingController(
+      text: widget.initialBankName ?? '',
+    );
+    _accountNoController = TextEditingController(
+      text: widget.initialAccountNo ?? '',
+    );
+    _ifscCodeController = TextEditingController(
+      text: widget.initialIfscCode ?? '',
+    );
+    _branchNameController = TextEditingController(
+      text: widget.initialBranchName ?? '',
+    );
+    _accountHolderNameController = TextEditingController(
+      text: widget.initialAccountHolderName ?? '',
+    );
+
     // Initialize dropdown values
-    _selectedPartyType = widget.initialPartyType == 'PartyType.agent' 
-        ? PartyType.agent 
+    _selectedPartyType = widget.initialPartyType == 'PartyType.agent'
+        ? PartyType.agent
         : PartyType.direct;
     _selectedAgent = widget.initialAgent;
     _selectedTransport = widget.initialTransport;
-    _selectedStatus = widget.initialStatus == 'PartyStatus.inactive' 
-        ? PartyStatus.inactive 
+    _selectedStatus = widget.initialStatus == 'PartyStatus.inactive'
+        ? PartyStatus.inactive
         : PartyStatus.active;
-    
+
     // Initialize mobile numbers
-    if (widget.initialMobileNumbers != null && widget.initialMobileNumbers!.isNotEmpty) {
+    if (widget.initialMobileNumbers != null &&
+        widget.initialMobileNumbers!.isNotEmpty) {
       _mobileNumbers = List<String>.from(widget.initialMobileNumbers!);
-      _mobileControllers = _mobileNumbers.map((number) => TextEditingController(text: number)).toList();
-      _mobileFocusNodes = List.generate(_mobileNumbers.length, (index) => FocusNode());
+      _mobileControllers = _mobileNumbers
+          .map((number) => TextEditingController(text: number))
+          .toList();
+      _mobileFocusNodes = List.generate(
+        _mobileNumbers.length,
+        (index) => FocusNode(),
+      );
       _mobileErrors = List.filled(_mobileNumbers.length, false);
     } else {
       _mobileNumbers = [''];
@@ -137,7 +162,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
     _ifscCodeController.dispose();
     _branchNameController.dispose();
     _accountHolderNameController.dispose();
-    
+
     for (var controller in _mobileControllers) {
       controller.dispose();
     }
@@ -151,12 +176,12 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
   bool _validateMobileNumber(String mobile) {
     // Remove any non-digit characters
     String digitsOnly = mobile.replaceAll(RegExp(r'[^\d]'), '');
-    
+
     // Check if it's exactly 10 digits and starts with 6-9
     if (digitsOnly.length != 10) {
       return false;
     }
-    
+
     // Check if first digit is between 6 and 9
     int firstDigit = int.parse(digitsOnly[0]);
     return firstDigit >= 6 && firstDigit <= 9;
@@ -166,9 +191,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -205,10 +228,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                       onTap: () {
                         Navigator.pop(context);
                       },
-                      child: const Icon(
-                        Icons.close,
-                        color: Color(0xFF767676),
-                      ),
+                      child: const Icon(Icons.close, color: Color(0xFF767676)),
                     ),
                   ],
                 ),
@@ -306,7 +326,8 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                                 }
                               : null,
                         ),
-                      if (_selectedPartyType == PartyType.agent) const SizedBox(height: 16),
+                      if (_selectedPartyType == PartyType.agent)
+                        const SizedBox(height: 16),
 
                       // Mobile Numbers Field - Multiple
                       _buildSectionTitle('Mobile Numbers: *'),
@@ -334,7 +355,9 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                                   hintText: 'e.g. 9876543210',
                                   border: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: _mobileErrors[index] ? Colors.red : Colors.grey,
+                                      color: _mobileErrors[index]
+                                          ? Colors.red
+                                          : Colors.grey,
                                     ),
                                   ),
                                   errorText: _mobileErrors[index]
@@ -349,9 +372,13 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                                           onPressed: () {
                                             setState(() {
                                               _mobileNumbers.add('');
-                                              _mobileControllers.add(TextEditingController());
+                                              _mobileControllers.add(
+                                                TextEditingController(),
+                                              );
                                               _mobileErrors.add(false);
-                                              _mobileFocusNodes.add(FocusNode());
+                                              _mobileFocusNodes.add(
+                                                FocusNode(),
+                                              );
                                             });
                                           },
                                         )
@@ -364,9 +391,13 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                                             setState(() {
                                               if (_mobileNumbers.length > 1) {
                                                 _mobileNumbers.removeAt(index);
-                                                _mobileControllers.removeAt(index).dispose();
+                                                _mobileControllers
+                                                    .removeAt(index)
+                                                    .dispose();
                                                 _mobileErrors.removeAt(index);
-                                                _mobileFocusNodes.removeAt(index).dispose();
+                                                _mobileFocusNodes
+                                                    .removeAt(index)
+                                                    .dispose();
                                               }
                                             });
                                           },
@@ -375,7 +406,8 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                                 onChanged: (value) {
                                   _mobileNumbers[index] = value;
                                   // Only update error state, don't trigger full rebuild
-                                  if (value.trim().isNotEmpty && !_validateMobileNumber(value.trim())) {
+                                  if (value.trim().isNotEmpty &&
+                                      !_validateMobileNumber(value.trim())) {
                                     if (!_mobileErrors[index]) {
                                       setState(() {
                                         _mobileErrors[index] = true;
@@ -390,7 +422,9 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                                   }
                                 },
                                 validator: (value) {
-                                  if (_mobileNumbers.every((num) => num.trim().isEmpty)) {
+                                  if (_mobileNumbers.every(
+                                    (num) => num.trim().isEmpty,
+                                  )) {
                                     return 'Please add at least one mobile number';
                                   }
                                   return null;
@@ -412,7 +446,9 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter email';
                           }
-                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(value)) {
                             return 'Please enter a valid email';
                           }
                           return null;
@@ -485,7 +521,9 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                         label: 'Account No:',
                         hintText: 'Enter account number',
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                       ),
                       const SizedBox(height: 16),
                       _buildTextFormField(
@@ -583,10 +621,16 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                               List<String> validMobileNumbers = _mobileNumbers
                                   .where((number) => number.trim().isNotEmpty)
                                   .toList();
-                              
+
                               // Validate each mobile number
-                              for (int i = 0; i < validMobileNumbers.length; i++) {
-                                if (!_validateMobileNumber(validMobileNumbers[i])) {
+                              for (
+                                int i = 0;
+                                i < validMobileNumbers.length;
+                                i++
+                              ) {
+                                if (!_validateMobileNumber(
+                                  validMobileNumbers[i],
+                                )) {
                                   setState(() {
                                     _mobileErrors[i] = true;
                                   });
@@ -605,23 +649,30 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                                 'address': _addressController.text.trim(),
                                 'state': _stateController.text.trim(),
                                 'district': _districtController.text.trim(),
-                                'gstNo': _gstNoController.text.trim().isNotEmpty 
-                                    ? _gstNoController.text.trim() 
+                                'gstNo': _gstNoController.text.trim().isNotEmpty
+                                    ? _gstNoController.text.trim()
                                     : null,
-                                'bankName': _bankNameController.text.trim().isNotEmpty 
-                                    ? _bankNameController.text.trim() 
+                                'bankName':
+                                    _bankNameController.text.trim().isNotEmpty
+                                    ? _bankNameController.text.trim()
                                     : null,
-                                'accountNo': _accountNoController.text.trim().isNotEmpty 
-                                    ? _accountNoController.text.trim() 
+                                'accountNo':
+                                    _accountNoController.text.trim().isNotEmpty
+                                    ? _accountNoController.text.trim()
                                     : null,
-                                'ifscCode': _ifscCodeController.text.trim().isNotEmpty 
-                                    ? _ifscCodeController.text.trim() 
+                                'ifscCode':
+                                    _ifscCodeController.text.trim().isNotEmpty
+                                    ? _ifscCodeController.text.trim()
                                     : null,
-                                'branchName': _branchNameController.text.trim().isNotEmpty 
-                                    ? _branchNameController.text.trim() 
+                                'branchName':
+                                    _branchNameController.text.trim().isNotEmpty
+                                    ? _branchNameController.text.trim()
                                     : null,
-                                'accountHolderName': _accountHolderNameController.text.trim().isNotEmpty 
-                                    ? _accountHolderNameController.text.trim() 
+                                'accountHolderName':
+                                    _accountHolderNameController.text
+                                        .trim()
+                                        .isNotEmpty
+                                    ? _accountHolderNameController.text.trim()
                                     : null,
                                 'transport': _selectedTransport,
                                 'status': _selectedStatus.toString(),
@@ -651,10 +702,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 16,
-      ),
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
     );
   }
 
@@ -672,10 +720,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
       children: [
         Row(
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 8),
@@ -712,10 +757,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: value,
@@ -723,41 +765,29 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
           isDense: true,
           style: const TextStyle(color: Colors.black),
           items: items.map((item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
+            return DropdownMenuItem<String>(value: item, child: Text(item));
           }).toList(),
           onChanged: onChanged,
           validator: validator,
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: Colors.grey.withOpacity(0.3),
-              ),
+              borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: Colors.grey.withOpacity(0.3),
-              ),
+              borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF529FF3),
-              ),
+              borderSide: const BorderSide(color: Color(0xFF529FF3)),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 8,
             ),
           ),
-          icon: const Icon(
-            Icons.arrow_drop_down,
-            color: Color(0xFF767676),
-          ),
+          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF767676)),
           iconSize: 24,
           isExpanded: true,
         ),
@@ -776,7 +806,9 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
       isDense: true,
       style: const TextStyle(color: Colors.black),
       items: PartyStatus.values.map((status) {
-        String statusText = status == PartyStatus.active ? 'Active' : 'Inactive';
+        String statusText = status == PartyStatus.active
+            ? 'Active'
+            : 'Inactive';
         return DropdownMenuItem<PartyStatus>(
           value: status,
           child: Text(statusText),
@@ -787,31 +819,19 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
       decoration: InputDecoration(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: Colors.grey.withOpacity(0.3),
-          ),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: Colors.grey.withOpacity(0.3),
-          ),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(
-            color: Color(0xFF529FF3),
-          ),
+          borderSide: const BorderSide(color: Color(0xFF529FF3)),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
-      icon: const Icon(
-        Icons.arrow_drop_down,
-        color: Color(0xFF767676),
-      ),
+      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF767676)),
       iconSize: 24,
       isExpanded: true,
     );

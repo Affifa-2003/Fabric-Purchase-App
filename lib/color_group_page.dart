@@ -90,7 +90,9 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
       }
 
       setState(() {
-        products = hiveProducts.where((product) => product['status'] == 'Active').toList();
+        products = hiveProducts
+            .where((product) => product['status'] == 'Active')
+            .toList();
       });
       print('Loaded ${products.length} active products from Hive');
     } catch (e) {
@@ -111,7 +113,9 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
       List<Map<String, dynamic>> colorGroupsToSave = colorGroups.map((group) {
         return {
           'name': group['name']?.toString() ?? '',
-          'photos': group['photos'] is List ? List<String>.from(group['photos']) : [],
+          'photos': group['photos'] is List
+              ? List<String>.from(group['photos'])
+              : [],
           'productName': group['productName']?.toString() ?? '',
           'description': group['description']?.toString() ?? '',
           'status': group['status']?.toString() ?? 'Active',
@@ -140,7 +144,8 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
       } else {
         filteredColorGroups = colorGroups.where((group) {
           final groupName = group['name']?.toString().toLowerCase() ?? '';
-          final productName = group['productName']?.toString().toLowerCase() ?? '';
+          final productName =
+              group['productName']?.toString().toLowerCase() ?? '';
           return groupName.contains(query) || productName.contains(query);
         }).toList();
       }
@@ -206,14 +211,22 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
         backgroundColor: const Color(0xFF2563EB),
         toolbarHeight: 55,
         title: const Text('Color Groups'),
-        titleTextStyle: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        titleTextStyle: const TextStyle(
+          color: Color(0xFFFFFFFF),
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
         iconTheme: const IconThemeData(color: Color(0xFFFFFFFF)),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
             width: 36,
             height: 36,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
             child: IconButton(
               padding: EdgeInsets.zero,
               icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24),
@@ -238,7 +251,10 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
                     child: TextField(
                       controller: _searchController,
                       decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         hintText: 'Search Color Groups',
                         prefixIcon: Icon(Icons.search),
                         border: InputBorder.none,
@@ -252,16 +268,30 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.color_lens_outlined, size: 64, color: Colors.grey[400]),
+                              Icon(
+                                Icons.color_lens_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
                               const SizedBox(height: 16),
                               Text(
-                                colorGroups.isEmpty ? 'No color groups found' : 'No matching color groups',
-                                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                                colorGroups.isEmpty
+                                    ? 'No color groups found'
+                                    : 'No matching color groups',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[600],
+                                ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                colorGroups.isEmpty ? 'Add color groups using the + button' : 'Try a different search term',
-                                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                                colorGroups.isEmpty
+                                    ? 'Add color groups using the + button'
+                                    : 'Try a different search term',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
                               ),
                             ],
                           ),
@@ -269,7 +299,9 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
                       : RefreshIndicator(
                           onRefresh: _loadColorGroups,
                           child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
                             itemCount: filteredColorGroups.length,
                             itemBuilder: (context, index) {
                               final group = filteredColorGroups[index];
@@ -278,23 +310,49 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
                                 color: const Color(0xFFFFFFFF),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     backgroundColor: const Color(0xFFEBF5FF),
-                                    child: Icon(Icons.color_lens, color: const Color(0xFF2563EB)),
+                                    child: Icon(
+                                      Icons.color_lens,
+                                      color: const Color(0xFF2563EB),
+                                    ),
                                   ),
-                                  title: Text(group['name'], style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
-                                  subtitle: Text('Product: ${group['productName']}', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                                  title: Text(
+                                    group['name'],
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Product: ${group['productName']}',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                    ),
+                                  ),
                                   trailing: IconButton(
-                                    icon: const Icon(Icons.delete, color: Color(0xFFEF4444)),
-                                    onPressed: () => _showDeleteConfirmationDialog(group),
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Color(0xFFEF4444),
+                                    ),
+                                    onPressed: () =>
+                                        _showDeleteConfirmationDialog(group),
                                   ),
                                   onTap: () {
-                                    int originalIndex = colorGroups.indexWhere((g) => g['name'] == group['name']);
+                                    int originalIndex = colorGroups.indexWhere(
+                                      (g) => g['name'] == group['name'],
+                                    );
                                     if (originalIndex != -1) {
-                                      _showEditColorGroupDialog(group, originalIndex);
+                                      _showEditColorGroupDialog(
+                                        group,
+                                        originalIndex,
+                                      );
                                     }
                                   },
                                 ),
@@ -322,7 +380,9 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
             ),
             TextButton(
               onPressed: () async {
-                int originalIndex = colorGroups.indexWhere((g) => g['name'] == group['name']);
+                int originalIndex = colorGroups.indexWhere(
+                  (g) => g['name'] == group['name'],
+                );
                 if (originalIndex != -1) {
                   setState(() {
                     colorGroups.removeAt(originalIndex);
@@ -330,7 +390,12 @@ class _ColorGroupPageState extends State<ColorGroupPage> {
                   });
                   await _saveColorGroupsToStorage();
                   Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Color Group deleted successfully'), backgroundColor: Colors.green));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Color Group deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 }
               },
               child: const Text('Delete'),
@@ -367,12 +432,12 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
   List<XFile> _selectedPhotos = [];
   String? _selectedProduct;
   String _statusValue = 'Active';
-  
+
   // Photo capture state variables (from textile_details.dart)
   bool _isCapturingMultiple = false;
   List<XFile> _pendingPhotos = [];
   bool _isProcessingPhotos = false;
-  
+
   // Full screen photo preview state
   int? _previewPhotoIndex;
   final ImagePicker _imagePicker = ImagePicker();
@@ -380,14 +445,20 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialGroup?['name'] ?? '');
-    _descriptionController = TextEditingController(text: widget.initialGroup?['description'] ?? '');
-    
+    _nameController = TextEditingController(
+      text: widget.initialGroup?['name'] ?? '',
+    );
+    _descriptionController = TextEditingController(
+      text: widget.initialGroup?['description'] ?? '',
+    );
+
     // Load existing photos from file paths if editing
     if (widget.initialGroup?['photos'] != null) {
-      _loadPhotosFromPaths(List<String>.from(widget.initialGroup?['photos'] ?? []));
+      _loadPhotosFromPaths(
+        List<String>.from(widget.initialGroup?['photos'] ?? []),
+      );
     }
-    
+
     _selectedProduct = widget.initialGroup?['productName'];
     _statusValue = widget.initialGroup?['status'] ?? 'Active';
   }
@@ -431,7 +502,9 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
         // For iOS, use the app's private documents directory.
         // This is the standard and recommended location for app-specific files.
         final appDirectory = await getApplicationDocumentsDirectory();
-        directory = Directory('${appDirectory.path}/ColorGroups'); // Changed to ColorGroups
+        directory = Directory(
+          '${appDirectory.path}/ColorGroups',
+        ); // Changed to ColorGroups
         location = "App Documents";
         print("iOS detected. Saving to app's documents directory.");
       } else if (Platform.isAndroid) {
@@ -439,14 +512,14 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
         try {
           // For Android 10 and above
           directory = Directory('/storage/emulated/0/Download');
-          
+
           if (await directory.exists()) {
             location = "Download Directory";
           }
         } catch (e) {
           print("Error accessing primary Download directory on Android: $e");
         }
-        
+
         // If the primary directory doesn't exist or is not accessible, try an alternative path.
         if (directory == null || !await directory.exists()) {
           try {
@@ -458,7 +531,9 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
               }
             }
           } catch (e) {
-            print("Error accessing alternative Download directory on Android: $e");
+            print(
+              "Error accessing alternative Download directory on Android: $e",
+            );
           }
         }
       }
@@ -467,7 +542,9 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
       if (directory == null || !await directory.exists()) {
         print("Using fallback directory: App Documents");
         final appDirectory = await getApplicationDocumentsDirectory();
-        directory = Directory('${appDirectory.path}/ColorGroups'); // Changed to ColorGroups
+        directory = Directory(
+          '${appDirectory.path}/ColorGroups',
+        ); // Changed to ColorGroups
         location = "App Documents";
       }
 
@@ -475,16 +552,18 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
       if (!await directory.exists()) {
         await directory.create(recursive: true);
       }
-      
+
       // --- The rest of the logic remains UNCHANGED ---
       // Check if the image is already saved to avoid duplicates
       final List<FileSystemEntity> files = await directory.list().toList();
       for (var file in files) {
-        if (file is File && path.basename(file.path).startsWith('ColorGroup_')) { // Changed prefix
+        if (file is File &&
+            path.basename(file.path).startsWith('ColorGroup_')) {
+          // Changed prefix
           // Compare file sizes to check if it's the same image
           final int savedFileSize = await file.length();
           final int newFileSize = await image.length();
-          
+
           if (savedFileSize == newFileSize) {
             // It's likely the same image, return the existing path
             print("Image already exists in $location: ${file.path}");
@@ -492,15 +571,15 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
           }
         }
       }
-      
+
       // Generate a unique filename using timestamp and app identifier
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final String fileName = 'ColorGroup_$timestamp.jpg'; // Changed prefix
       final String filePath = path.join(directory.path, fileName);
-      
+
       // Save the image file
       await image.saveTo(filePath);
-      
+
       print("Image saved to $location: $filePath");
       return filePath;
     } catch (e) {
@@ -512,7 +591,7 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
   // Converts XFile list to a list of permanent file paths for saving
   Future<List<String>> _convertPhotosToPaths() async {
     List<String> photoPaths = [];
-    
+
     for (XFile photo in _selectedPhotos) {
       if (photo.path.contains('ColorGroup_')) {
         photoPaths.add(photo.path);
@@ -521,12 +600,12 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
         photoPaths.add(filePath);
       }
     }
-    
+
     return photoPaths;
   }
 
   // --- START: Photo Capture Logic from textile_details.dart ---
-  
+
   // Add this new method to handle multiple photo capture
   Future<void> _captureMultiplePhotos() async {
     try {
@@ -647,10 +726,7 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
             const SizedBox(height: 4),
             const Text(
               'Ready to capture photos',
-              style: TextStyle(
-                fontSize: 11,
-                color: Color(0xFF9CA3AF),
-              ),
+              style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
             ),
           ],
         ),
@@ -659,7 +735,6 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
   }
 
   // --- END: Photo Capture Logic from textile_details.dart ---
-
 
   @override
   Widget build(BuildContext context) {
@@ -718,12 +793,18 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
       padding: const EdgeInsets.all(16.0),
       decoration: const BoxDecoration(
         color: Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(
+            widget.title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: const Icon(Icons.close, color: Color(0xFF767676)),
@@ -753,7 +834,7 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
       Column(
         children: [
           const SizedBox(height: 12),
-          
+
           // Photo capture area
           if (_selectedPhotos.isEmpty && _pendingPhotos.isEmpty)
             _buildEmptyCaptureArea()
@@ -761,7 +842,7 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
             _buildPhotoGrid(),
 
           const SizedBox(height: 12),
-          
+
           // Capture button
           InkWell(
             onTap: () async {
@@ -920,11 +1001,18 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
                       color: Colors.black.withOpacity(0.5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(16),
@@ -935,14 +1023,19 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => _showDeleteConfirmationDialog(_previewPhotoIndex!),
+                  onTap: () =>
+                      _showDeleteConfirmationDialog(_previewPhotoIndex!),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.delete, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
               ],
@@ -957,7 +1050,10 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
               color: Colors.black.withOpacity(0.7),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 10,
+                ),
                 itemCount: _selectedPhotos.length,
                 itemBuilder: (context, index) {
                   final isSelected = index == _previewPhotoIndex;
@@ -968,12 +1064,18 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
                       height: 70,
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
-                        border: Border.all(color: isSelected ? Colors.white : Colors.transparent, width: 2),
+                        border: Border.all(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          width: 2,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
-                        child: Image.file(File(_selectedPhotos[index].path), fit: BoxFit.cover),
+                        child: Image.file(
+                          File(_selectedPhotos[index].path),
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   );
@@ -1028,15 +1130,21 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
         decoration: const InputDecoration(border: OutlineInputBorder()),
         items: widget.products.isEmpty
             ? []
-            : widget.products.map((product) => DropdownMenuItem<String>(
-                  value: product['name'],
-                  child: Text(product['name']),
-                )).toList(),
-        onChanged: widget.products.isEmpty ? null : (value) {
-          setState(() {
-            _selectedProduct = value;
-          });
-        },
+            : widget.products
+                  .map(
+                    (product) => DropdownMenuItem<String>(
+                      value: product['name'],
+                      child: Text(product['name']),
+                    ),
+                  )
+                  .toList(),
+        onChanged: widget.products.isEmpty
+            ? null
+            : (value) {
+                setState(() {
+                  _selectedProduct = value;
+                });
+              },
         disabledHint: const Text('No products available'),
       ),
     );
@@ -1062,10 +1170,12 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
       DropdownButtonFormField<String>(
         value: _statusValue,
         decoration: const InputDecoration(border: OutlineInputBorder()),
-        items: ['Active', 'Inactive'].map((status) => DropdownMenuItem<String>(
-          value: status,
-          child: Text(status),
-        )).toList(),
+        items: ['Active', 'Inactive']
+            .map(
+              (status) =>
+                  DropdownMenuItem<String>(value: status, child: Text(status)),
+            )
+            .toList(),
         onChanged: (value) {
           setState(() {
             _statusValue = value!;
@@ -1115,25 +1225,33 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
           const SizedBox(width: 16),
           Expanded(
             child: _buildButton(
-              widget.initialGroup == null ? 'Save to Master' : 'Update to Master',
+              widget.initialGroup == null
+                  ? 'Save to Master'
+                  : 'Update to Master',
               const Color(0xFF10B981),
               () async {
                 if (_nameController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Color Group name is required'), backgroundColor: Colors.red),
+                    const SnackBar(
+                      content: Text('Color Group name is required'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                   return;
                 }
-                
+
                 if (_selectedProduct == null || _selectedProduct!.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Product name is required'), backgroundColor: Colors.red),
+                    const SnackBar(
+                      content: Text('Product name is required'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                   return;
                 }
-                
+
                 List<String> photoPaths = await _convertPhotosToPaths();
-                
+
                 Map<String, dynamic> newGroup = {
                   'name': _nameController.text.trim(),
                   'photos': photoPaths,
@@ -1141,7 +1259,7 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
                   'description': _descriptionController.text.trim(),
                   'status': _statusValue,
                 };
-                
+
                 widget.onSave(newGroup);
                 Navigator.pop(context);
               },
@@ -1154,10 +1272,19 @@ class _ColorGroupDialogState extends State<ColorGroupDialog> {
 
   Widget _buildButton(String text, Color color, VoidCallback onPressed) {
     return Container(
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: TextButton(
         onPressed: onPressed,
-        child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

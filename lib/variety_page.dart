@@ -35,14 +35,14 @@ class _VarietyPageState extends State<VarietyPage> {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveVarieties = [];
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       appDataBox = Hive.box('appData');
-      
+
       final varietiesData = appDataBox.get('varieties');
       if (varietiesData != null) {
         // Handle different types of data
@@ -55,13 +55,13 @@ class _VarietyPageState extends State<VarietyPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
         varieties = hiveVarieties;
         filteredVarieties = List.from(varieties);
         _isLoading = false;
       });
-      
+
       print('Loaded ${varieties.length} varieties from Hive');
     } catch (e) {
       print('Error loading varieties: $e');
@@ -77,14 +77,14 @@ class _VarietyPageState extends State<VarietyPage> {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       appDataBox = Hive.box('appData');
-      
+
       final productsData = appDataBox.get('products');
       if (productsData != null) {
         // Handle different types of data
@@ -97,11 +97,13 @@ class _VarietyPageState extends State<VarietyPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
-        products = hiveProducts.where((product) => product['status'] == 'Active').toList();
+        products = hiveProducts
+            .where((product) => product['status'] == 'Active')
+            .toList();
       });
-      
+
       print('Loaded ${products.length} active products from Hive');
     } catch (e) {
       print('Error loading products: $e');
@@ -119,7 +121,7 @@ class _VarietyPageState extends State<VarietyPage> {
       }
 
       final box = Hive.box('appData');
-      
+
       // Ensure we're saving a list of maps with proper types
       List<Map<String, dynamic>> varietiesToSave = varieties.map((variety) {
         return {
@@ -129,10 +131,10 @@ class _VarietyPageState extends State<VarietyPage> {
           'status': variety['status']?.toString() ?? 'Active',
         };
       }).toList();
-      
+
       // Save data with explicit await to ensure it's written to disk
       await box.put('varieties', varietiesToSave);
-      
+
       // Explicitly flush to disk
       await box.flush();
 
@@ -161,7 +163,8 @@ class _VarietyPageState extends State<VarietyPage> {
         // Filter by both variety name and product name
         filteredVarieties = varieties.where((variety) {
           final varietyName = variety['name']?.toString().toLowerCase() ?? '';
-          final productName = variety['productName']?.toString().toLowerCase() ?? '';
+          final productName =
+              variety['productName']?.toString().toLowerCase() ?? '';
           return varietyName.contains(query) || productName.contains(query);
         }).toList();
       }
@@ -172,13 +175,14 @@ class _VarietyPageState extends State<VarietyPage> {
     TextEditingController nameController = TextEditingController();
     TextEditingController descriptionController = TextEditingController();
     // Initialize selectedProduct to an empty string to ensure the hint text is shown initially.
-    String? selectedProduct; 
+    String? selectedProduct;
     String statusValue = 'Active';
 
     showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder( // Use StatefulBuilder to update dialog state
+        return StatefulBuilder(
+          // Use StatefulBuilder to update dialog state
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: const Color(0xFFFFFFFF),
@@ -219,7 +223,10 @@ class _VarietyPageState extends State<VarietyPage> {
                             onTap: () {
                               Navigator.pop(context);
                             },
-                            child: const Icon(Icons.close, color: Color(0xFF767676)),
+                            child: const Icon(
+                              Icons.close,
+                              color: Color(0xFF767676),
+                            ),
                           ),
                         ],
                       ),
@@ -240,7 +247,9 @@ class _VarietyPageState extends State<VarietyPage> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -250,7 +259,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Variety Name: *',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -273,13 +284,15 @@ class _VarietyPageState extends State<VarietyPage> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             // Product Name Field - Standard Dropdown
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -289,7 +302,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Product Name: *',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -306,28 +321,41 @@ class _VarietyPageState extends State<VarietyPage> {
                                     ),
                                     items: products.isEmpty
                                         ? []
-                                        : products.map((product) => DropdownMenuItem<String>(
-                                              value: product['name'],
-                                              child: Text(product['name']),
-                                            )).toList(),
-                                    onChanged: products.isEmpty ? null : (value) {
-                                      setDialogState(() {
-                                        selectedProduct = value;
-                                      });
-                                    },
-                                    disabledHint: const Text('No products available'),
+                                        : products
+                                              .map(
+                                                (product) =>
+                                                    DropdownMenuItem<String>(
+                                                      value: product['name'],
+                                                      child: Text(
+                                                        product['name'],
+                                                      ),
+                                                    ),
+                                              )
+                                              .toList(),
+                                    onChanged: products.isEmpty
+                                        ? null
+                                        : (value) {
+                                            setDialogState(() {
+                                              selectedProduct = value;
+                                            });
+                                          },
+                                    disabledHint: const Text(
+                                      'No products available',
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             // Description Field
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -337,7 +365,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Description:',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -361,13 +391,15 @@ class _VarietyPageState extends State<VarietyPage> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             // Status Field
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -377,7 +409,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Status: *',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -392,10 +426,12 @@ class _VarietyPageState extends State<VarietyPage> {
                                       ),
                                     ),
                                     items: ['Active', 'Inactive']
-                                        .map((status) => DropdownMenuItem<String>(
-                                              value: status,
-                                              child: Text(status),
-                                            ))
+                                        .map(
+                                          (status) => DropdownMenuItem<String>(
+                                            value: status,
+                                            child: Text(status),
+                                          ),
+                                        )
                                         .toList(),
                                     onChanged: (value) {
                                       setDialogState(() {
@@ -413,7 +449,9 @@ class _VarietyPageState extends State<VarietyPage> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEBF8FF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFF3182CE)),
+                                border: Border.all(
+                                  color: const Color(0xFF3182CE),
+                                ),
                               ),
                               padding: const EdgeInsets.all(12.0),
                               child: Row(
@@ -426,7 +464,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                   const Expanded(
                                     child: Text(
                                       'This will be added to master and available for future orders.',
-                                      style: TextStyle(color: Color(0xFF3182CE)),
+                                      style: TextStyle(
+                                        color: Color(0xFF3182CE),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -439,7 +479,7 @@ class _VarietyPageState extends State<VarietyPage> {
 
                     // Horizontal divider
                     const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                    
+
                     // Buttons - Fixed at bottom
                     Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -478,31 +518,37 @@ class _VarietyPageState extends State<VarietyPage> {
                                   if (nameController.text.trim().isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Variety name is required'),
+                                        content: Text(
+                                          'Variety name is required',
+                                        ),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
                                     return;
                                   }
-                                  
-                                  if (selectedProduct == null || selectedProduct!.isEmpty) {
+
+                                  if (selectedProduct == null ||
+                                      selectedProduct!.isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Product name is required'),
+                                        content: Text(
+                                          'Product name is required',
+                                        ),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
                                     return;
                                   }
-                                  
+
                                   // Create new variety
                                   Map<String, dynamic> newVariety = {
                                     'name': nameController.text.trim(),
                                     'productName': selectedProduct,
-                                    'description': descriptionController.text.trim(),
+                                    'description': descriptionController.text
+                                        .trim(),
                                     'status': statusValue,
                                   };
-                                  
+
                                   // Update local state immediately
                                   setState(() {
                                     varieties.insert(0, newVariety);
@@ -517,7 +563,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                   // Show success message
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Variety added successfully'),
+                                      content: Text(
+                                        'Variety added successfully',
+                                      ),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
@@ -546,15 +594,20 @@ class _VarietyPageState extends State<VarietyPage> {
   }
 
   void _showEditVarietyDialog(Map<String, dynamic> variety, int index) {
-    TextEditingController nameController = TextEditingController(text: variety['name']);
-    TextEditingController descriptionController = TextEditingController(text: variety['description'] ?? '');
+    TextEditingController nameController = TextEditingController(
+      text: variety['name'],
+    );
+    TextEditingController descriptionController = TextEditingController(
+      text: variety['description'] ?? '',
+    );
     String? selectedProduct = variety['productName'];
     String statusValue = variety['status'];
 
     showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder( // Use StatefulBuilder to update dialog state
+        return StatefulBuilder(
+          // Use StatefulBuilder to update dialog state
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: const Color(0xFFFFFFFF),
@@ -595,7 +648,10 @@ class _VarietyPageState extends State<VarietyPage> {
                             onTap: () {
                               Navigator.pop(context);
                             },
-                            child: const Icon(Icons.close, color: Color(0xFF767676)),
+                            child: const Icon(
+                              Icons.close,
+                              color: Color(0xFF767676),
+                            ),
                           ),
                         ],
                       ),
@@ -616,7 +672,9 @@ class _VarietyPageState extends State<VarietyPage> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -626,7 +684,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Variety Name: *',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -649,13 +709,15 @@ class _VarietyPageState extends State<VarietyPage> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             // Product Name Field - Standard Dropdown
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -665,7 +727,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Product Name: *',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -682,28 +746,41 @@ class _VarietyPageState extends State<VarietyPage> {
                                     ),
                                     items: products.isEmpty
                                         ? []
-                                        : products.map((product) => DropdownMenuItem<String>(
-                                              value: product['name'],
-                                              child: Text(product['name']),
-                                            )).toList(),
-                                    onChanged: products.isEmpty ? null : (value) {
-                                      setDialogState(() {
-                                        selectedProduct = value;
-                                      });
-                                    },
-                                    disabledHint: const Text('No products available'),
+                                        : products
+                                              .map(
+                                                (product) =>
+                                                    DropdownMenuItem<String>(
+                                                      value: product['name'],
+                                                      child: Text(
+                                                        product['name'],
+                                                      ),
+                                                    ),
+                                              )
+                                              .toList(),
+                                    onChanged: products.isEmpty
+                                        ? null
+                                        : (value) {
+                                            setDialogState(() {
+                                              selectedProduct = value;
+                                            });
+                                          },
+                                    disabledHint: const Text(
+                                      'No products available',
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             // Description Field
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -713,7 +790,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Description:',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -734,13 +813,15 @@ class _VarietyPageState extends State<VarietyPage> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             // Status Field
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFFFF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
@@ -750,7 +831,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                     children: [
                                       Text(
                                         'Status: *',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -765,10 +848,12 @@ class _VarietyPageState extends State<VarietyPage> {
                                       ),
                                     ),
                                     items: ['Active', 'Inactive']
-                                        .map((status) => DropdownMenuItem<String>(
-                                              value: status,
-                                              child: Text(status),
-                                            ))
+                                        .map(
+                                          (status) => DropdownMenuItem<String>(
+                                            value: status,
+                                            child: Text(status),
+                                          ),
+                                        )
                                         .toList(),
                                     onChanged: (value) {
                                       setDialogState(() {
@@ -786,7 +871,9 @@ class _VarietyPageState extends State<VarietyPage> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEBF8FF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFF3182CE)),
+                                border: Border.all(
+                                  color: const Color(0xFF3182CE),
+                                ),
                               ),
                               padding: const EdgeInsets.all(12.0),
                               child: Row(
@@ -799,7 +886,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                   const Expanded(
                                     child: Text(
                                       'This will update the variety in master and all associated records.',
-                                      style: TextStyle(color: Color(0xFF3182CE)),
+                                      style: TextStyle(
+                                        color: Color(0xFF3182CE),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -812,7 +901,7 @@ class _VarietyPageState extends State<VarietyPage> {
 
                     // Horizontal divider
                     const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                    
+
                     // Buttons - Fixed at bottom
                     Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -851,31 +940,37 @@ class _VarietyPageState extends State<VarietyPage> {
                                   if (nameController.text.trim().isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Variety name is required'),
+                                        content: Text(
+                                          'Variety name is required',
+                                        ),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
                                     return;
                                   }
-                                  
-                                  if (selectedProduct == null || selectedProduct!.isEmpty) {
+
+                                  if (selectedProduct == null ||
+                                      selectedProduct!.isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Product name is required'),
+                                        content: Text(
+                                          'Product name is required',
+                                        ),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
                                     return;
                                   }
-                                  
+
                                   // Create updated variety
                                   Map<String, dynamic> updatedVariety = {
                                     'name': nameController.text.trim(),
                                     'productName': selectedProduct,
-                                    'description': descriptionController.text.trim(),
+                                    'description': descriptionController.text
+                                        .trim(),
                                     'status': statusValue,
                                   };
-                                  
+
                                   // Update local state immediately
                                   setState(() {
                                     varieties.removeAt(index);
@@ -891,7 +986,9 @@ class _VarietyPageState extends State<VarietyPage> {
                                   // Show success message
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Variety updated successfully'),
+                                      content: Text(
+                                        'Variety updated successfully',
+                                      ),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
@@ -944,7 +1041,11 @@ class _VarietyPageState extends State<VarietyPage> {
             ),
             child: IconButton(
               padding: EdgeInsets.zero, // Remove default padding
-              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
+              icon: const Icon(
+                Icons.add,
+                color: Color(0xFF2563EB),
+                size: 24,
+              ), // Adjusted icon size
               onPressed: _showAddNewVarietyDialog,
             ),
           ),
@@ -979,7 +1080,7 @@ class _VarietyPageState extends State<VarietyPage> {
                     ),
                   ),
                 ),
-                
+
                 // Varieties list
                 Expanded(
                   child: filteredVarieties.isEmpty
@@ -1018,17 +1119,21 @@ class _VarietyPageState extends State<VarietyPage> {
                       : RefreshIndicator(
                           onRefresh: _loadVarieties,
                           child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
                             itemCount: filteredVarieties.length,
                             itemBuilder: (context, index) {
                               final variety = filteredVarieties[index];
-                              
+
                               return Card(
                                 elevation: 0,
                                 color: const Color(0xFFFFFFFF),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
@@ -1063,9 +1168,14 @@ class _VarietyPageState extends State<VarietyPage> {
                                   ),
                                   onTap: () {
                                     // Find the original index in the varieties list
-                                    int originalIndex = varieties.indexWhere((v) => v['name'] == variety['name']);
+                                    int originalIndex = varieties.indexWhere(
+                                      (v) => v['name'] == variety['name'],
+                                    );
                                     if (originalIndex != -1) {
-                                      _showEditVarietyDialog(variety, originalIndex);
+                                      _showEditVarietyDialog(
+                                        variety,
+                                        originalIndex,
+                                      );
                                     }
                                   },
                                 ),
@@ -1085,33 +1195,34 @@ class _VarietyPageState extends State<VarietyPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
-          content: Text('Are you sure you want to delete "${variety['name']}"?'),
+          content: Text(
+            'Are you sure you want to delete "${variety['name']}"?',
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
             ),
             TextButton(
               onPressed: () async {
                 // Find the original index in the varieties list
-                int originalIndex = varieties.indexWhere((v) => v['name'] == variety['name']);
+                int originalIndex = varieties.indexWhere(
+                  (v) => v['name'] == variety['name'],
+                );
                 if (originalIndex != -1) {
                   // Update local state immediately
                   setState(() {
                     varieties.removeAt(originalIndex);
                     _filterVarieties(); // Update filtered list
                   });
-                  
+
                   // Save to Hive
                   await _saveVarietiesToStorage();
-                  
+
                   Navigator.of(context).pop(); // Close dialog
-                  
+
                   // Show success message
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

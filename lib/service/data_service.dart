@@ -14,7 +14,7 @@ class DataService {
 
       final box = Hive.box('appData');
       List<String> agents = [];
-      
+
       final agentsData = box.get('agents');
       if (agentsData != null && agentsData is List) {
         for (var agent in agentsData) {
@@ -25,7 +25,7 @@ class DataService {
           }
         }
       }
-      
+
       return agents;
     } catch (e) {
       print('Error getting agents: $e');
@@ -42,7 +42,7 @@ class DataService {
 
       final box = Hive.box('appData');
       List<String> transports = [];
-      
+
       final transportsData = box.get('transports');
       if (transportsData != null && transportsData is List) {
         for (var transport in transportsData) {
@@ -53,7 +53,7 @@ class DataService {
           }
         }
       }
-      
+
       return transports;
     } catch (e) {
       print('Error getting transports: $e');

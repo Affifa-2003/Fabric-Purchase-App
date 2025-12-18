@@ -32,14 +32,14 @@ class _SeasonPageState extends State<SeasonPage> {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveSeasons = [];
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       appDataBox = Hive.box('appData');
-      
+
       final seasonsData = appDataBox.get('seasons');
       if (seasonsData != null) {
         // Handle different types of data
@@ -52,13 +52,13 @@ class _SeasonPageState extends State<SeasonPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
         seasons = hiveSeasons;
         filteredSeasons = List.from(seasons);
         _isLoading = false;
       });
-      
+
       print('Loaded ${seasons.length} seasons from Hive');
     } catch (e) {
       print('Error loading seasons: $e');
@@ -78,17 +78,15 @@ class _SeasonPageState extends State<SeasonPage> {
       }
 
       final box = Hive.box('appData');
-      
+
       // Ensure we're saving a list of maps with proper types
       List<Map<String, dynamic>> seasonsToSave = seasons.map((season) {
-        return {
-          'name': season['name']?.toString() ?? '',
-        };
+        return {'name': season['name']?.toString() ?? ''};
       }).toList();
-      
+
       // Save data with explicit await to ensure it's written to disk
       await box.put('seasons', seasonsToSave);
-      
+
       // Explicitly flush to disk
       await box.flush();
 
@@ -162,7 +160,10 @@ class _SeasonPageState extends State<SeasonPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -183,7 +184,9 @@ class _SeasonPageState extends State<SeasonPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -193,7 +196,9 @@ class _SeasonPageState extends State<SeasonPage> {
                                 children: [
                                   Text(
                                     'Season Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -245,7 +250,7 @@ class _SeasonPageState extends State<SeasonPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -290,12 +295,12 @@ class _SeasonPageState extends State<SeasonPage> {
                                 );
                                 return;
                               }
-                              
+
                               // Create new season
                               Map<String, dynamic> newSeason = {
                                 'name': nameController.text.trim(),
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Add to the beginning of the list
@@ -338,7 +343,9 @@ class _SeasonPageState extends State<SeasonPage> {
   }
 
   void _showEditSeasonDialog(Map<String, dynamic> season, int index) {
-    TextEditingController nameController = TextEditingController(text: season['name']);
+    TextEditingController nameController = TextEditingController(
+      text: season['name'],
+    );
 
     showDialog(
       context: context,
@@ -383,7 +390,10 @@ class _SeasonPageState extends State<SeasonPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -404,7 +414,9 @@ class _SeasonPageState extends State<SeasonPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -414,7 +426,9 @@ class _SeasonPageState extends State<SeasonPage> {
                                 children: [
                                   Text(
                                     'Season Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -466,7 +480,7 @@ class _SeasonPageState extends State<SeasonPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -511,12 +525,12 @@ class _SeasonPageState extends State<SeasonPage> {
                                 );
                                 return;
                               }
-                              
+
                               // Create updated season
                               Map<String, dynamic> updatedSeason = {
                                 'name': nameController.text.trim(),
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Remove the old season
@@ -561,234 +575,250 @@ class _SeasonPageState extends State<SeasonPage> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      backgroundColor: const Color(0xFF2563EB),
-      toolbarHeight: 55,
-      title: const Text('Seasons'),
-      titleTextStyle: const TextStyle(
-        color: Color(0xFFFFFFFF),
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.5,
-      ),
-      iconTheme: const IconThemeData(color: Color(0xFFFFFFFF)),
-      actions: [
-        Container(
-          margin: const EdgeInsets.only(right: 16),
-          width: 36, // Set fixed width for smaller circle
-          height: 36, // Set fixed height for smaller circle
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            padding: EdgeInsets.zero, // Remove default padding
-            icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
-            onPressed: _showAddNewSeasonDialog,
-          ),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF2563EB),
+        toolbarHeight: 55,
+        title: const Text('Seasons'),
+        titleTextStyle: const TextStyle(
+          color: Color(0xFFFFFFFF),
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
-      ],
-    ),
-    backgroundColor: const Color(0xFFF9FAFB),
-    body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
-            children: [
-              // Search field
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFFFF),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+        iconTheme: const IconThemeData(color: Color(0xFFFFFFFF)),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            width: 36, // Set fixed width for smaller circle
+            height: 36, // Set fixed height for smaller circle
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              padding: EdgeInsets.zero, // Remove default padding
+              icon: const Icon(
+                Icons.add,
+                color: Color(0xFF2563EB),
+                size: 24,
+              ), // Adjusted icon size
+              onPressed: _showAddNewSeasonDialog,
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // Search field
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        hintText: 'Search Seasons',
+                        prefixIcon: const Icon(Icons.search),
+                        border: InputBorder.none,
                       ),
-                      hintText: 'Search Seasons',
-                      prefixIcon: const Icon(Icons.search),
-                      border: InputBorder.none,
                     ),
                   ),
                 ),
-              ),
-              
-              // Seasons list
-              Expanded(
-                child: filteredSeasons.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.eco_outlined, // Changed from calendar_today_outlined
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              seasons.isEmpty
-                                  ? 'No seasons found'
-                                  : 'No matching seasons',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
+
+                // Seasons list
+                Expanded(
+                  child: filteredSeasons.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons
+                                    .eco_outlined, // Changed from calendar_today_outlined
+                                size: 64,
+                                color: Colors.grey[400],
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              seasons.isEmpty
-                                  ? 'Add seasons using the + button'
-                                  : 'Try a different search term',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
+                              const SizedBox(height: 16),
+                              Text(
+                                seasons.isEmpty
+                                    ? 'No seasons found'
+                                    : 'No matching seasons',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[600],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadSeasons,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          itemCount: filteredSeasons.length,
-                          itemBuilder: (context, index) {
-                            final season = filteredSeasons[index];
-                            
-                            return Card(
-                              elevation: 0,
-                              color: const Color(0xFFFFFFFF),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                              const SizedBox(height: 8),
+                              Text(
+                                seasons.isEmpty
+                                    ? 'Add seasons using the + button'
+                                    : 'Try a different search term',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
                               ),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: const Color(0xFFEBF5FF),
-                                  child: Icon(
-                                    Icons.eco, // Changed from calendar_today
-                                    color: const Color(0xFF2563EB),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadSeasons,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
+                            itemCount: filteredSeasons.length,
+                            itemBuilder: (context, index) {
+                              final season = filteredSeasons[index];
+
+                              return Card(
+                                elevation: 0,
+                                color: const Color(0xFFFFFFFF),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
                                   ),
                                 ),
-                                title: Text(
-                                  season['name'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 16,
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: const Color(0xFFEBF5FF),
+                                    child: Icon(
+                                      Icons.eco, // Changed from calendar_today
+                                      color: const Color(0xFF2563EB),
+                                    ),
                                   ),
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Color(0xFFEF4444),
+                                  title: Text(
+                                    season['name'],
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 16,
+                                    ),
                                   ),
-                                  onPressed: () {
-                                    _showDeleteConfirmationDialog(season);
+                                  trailing: IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Color(0xFFEF4444),
+                                    ),
+                                    onPressed: () {
+                                      _showDeleteConfirmationDialog(season);
+                                    },
+                                  ),
+                                  onTap: () {
+                                    // Find the original index in the seasons list
+                                    int originalIndex = seasons.indexWhere(
+                                      (s) => s['name'] == season['name'],
+                                    );
+                                    if (originalIndex != -1) {
+                                      _showEditSeasonDialog(
+                                        season,
+                                        originalIndex,
+                                      );
+                                    }
                                   },
                                 ),
-                                onTap: () {
-                                  // Find the original index in the seasons list
-                                  int originalIndex = seasons.indexWhere((s) => s['name'] == season['name']);
-                                  if (originalIndex != -1) {
-                                    _showEditSeasonDialog(season, originalIndex);
-                                  }
-                                },
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-              ),
-            ],
-          ),
-  );
-}
+                ),
+              ],
+            ),
+    );
+  }
+
   void _showDeleteConfirmationDialog(Map<String, dynamic> season) {
-  // Check if season is used in any purchase order groups
-  bool isUsedInPurchaseOrderGroups = false;
-  
-  try {
-    if (Hive.isBoxOpen('appData')) {
-      final appDataBox = Hive.box('appData');
-      final purchaseOrderGroupsData = appDataBox.get('purchaseOrderGroups');
-      
-      if (purchaseOrderGroupsData != null && purchaseOrderGroupsData is List) {
-        for (var group in purchaseOrderGroupsData) {
-          if (group is Map) {
-            // Check if the season is in the seasons list of this group
-            if (group['seasons'] != null && group['seasons'] is List) {
-              List<dynamic> seasonsList = group['seasons'];
-              if (seasonsList.contains(season['name'])) {
-                isUsedInPurchaseOrderGroups = true;
-                break;
+    // Check if season is used in any purchase order groups
+    bool isUsedInPurchaseOrderGroups = false;
+
+    try {
+      if (Hive.isBoxOpen('appData')) {
+        final appDataBox = Hive.box('appData');
+        final purchaseOrderGroupsData = appDataBox.get('purchaseOrderGroups');
+
+        if (purchaseOrderGroupsData != null &&
+            purchaseOrderGroupsData is List) {
+          for (var group in purchaseOrderGroupsData) {
+            if (group is Map) {
+              // Check if the season is in the seasons list of this group
+              if (group['seasons'] != null && group['seasons'] is List) {
+                List<dynamic> seasonsList = group['seasons'];
+                if (seasonsList.contains(season['name'])) {
+                  isUsedInPurchaseOrderGroups = true;
+                  break;
+                }
               }
             }
           }
         }
       }
+    } catch (e) {
+      print('Error checking if season is used: $e');
     }
-  } catch (e) {
-    print('Error checking if season is used: $e');
-  }
-  
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: isUsedInPurchaseOrderGroups
-            ? const Text('This season is already mapped with purchase order groups and cannot be deleted.')
-            : Text('Are you sure you want to delete "${season['name']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-          if (!isUsedInPurchaseOrderGroups)
-            TextButton(
-              onPressed: () async {
-                // Find the original index in the seasons list
-                int originalIndex = seasons.indexWhere((s) => s['name'] == season['name']);
-                if (originalIndex != -1) {
-                  // Update local state immediately
-                  setState(() {
-                    seasons.removeAt(originalIndex);
-                    _filterSeasons(); // Update filtered list
-                  });
-                  
-                  // Save to Hive
-                  await _saveSeasonsToStorage();
-                  
-                  Navigator.of(context).pop(); // Close dialog
-                  
-                  // Show success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Season deleted successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Delete'),
-            ),
-        ],
-      );
-    },
-  );
-}
 
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: isUsedInPurchaseOrderGroups
+              ? const Text(
+                  'This season is already mapped with purchase order groups and cannot be deleted.',
+                )
+              : Text('Are you sure you want to delete "${season['name']}"?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+            ),
+            if (!isUsedInPurchaseOrderGroups)
+              TextButton(
+                onPressed: () async {
+                  // Find the original index in the seasons list
+                  int originalIndex = seasons.indexWhere(
+                    (s) => s['name'] == season['name'],
+                  );
+                  if (originalIndex != -1) {
+                    // Update local state immediately
+                    setState(() {
+                      seasons.removeAt(originalIndex);
+                      _filterSeasons(); // Update filtered list
+                    });
+
+                    // Save to Hive
+                    await _saveSeasonsToStorage();
+
+                    Navigator.of(context).pop(); // Close dialog
+
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Season deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Delete'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

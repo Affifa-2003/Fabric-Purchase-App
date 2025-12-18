@@ -13,83 +13,92 @@ class PartyService {
       }
 
       final box = Hive.box('appData');
-      
+
       final partiesData = box.get('parties');
       List<Map<String, dynamic>> parties = [];
-      
+
       if (partiesData != null) {
         if (partiesData is List) {
-          parties = partiesData.map((item) {
-            if (item is Map) {
-              // Ensure all values have the correct types
-              Map<String, dynamic> partyMap = Map<String, dynamic>.from(item);
-              
-              // Ensure name is a string and not empty
-              if (partyMap['name'] is! String || partyMap['name'].toString().trim().isEmpty) {
-                // Skip items without a valid name
+          parties = partiesData
+              .map((item) {
+                if (item is Map) {
+                  // Ensure all values have the correct types
+                  Map<String, dynamic> partyMap = Map<String, dynamic>.from(
+                    item,
+                  );
+
+                  // Ensure name is a string and not empty
+                  if (partyMap['name'] is! String ||
+                      partyMap['name'].toString().trim().isEmpty) {
+                    // Skip items without a valid name
+                    return null;
+                  }
+
+                  // Ensure code is a string
+                  if (partyMap['code'] is! String) {
+                    partyMap['code'] = '';
+                  }
+
+                  // Ensure partyType is a string
+                  if (partyMap['partyType'] is! String) {
+                    partyMap['partyType'] = 'PartyType.direct';
+                  }
+
+                  // Ensure agent is a string or null
+                  if (partyMap['agent'] is! String &&
+                      partyMap['agent'] != null) {
+                    partyMap['agent'] = null;
+                  }
+
+                  // Ensure mobileNumbers is a list
+                  if (partyMap['mobileNumbers'] is! List) {
+                    partyMap['mobileNumbers'] = [];
+                  }
+
+                  // Ensure email is a string
+                  if (partyMap['email'] is! String) {
+                    partyMap['email'] = '';
+                  }
+
+                  // Ensure address is a string
+                  if (partyMap['address'] is! String) {
+                    partyMap['address'] = '';
+                  }
+
+                  // Ensure state is a string
+                  if (partyMap['state'] is! String) {
+                    partyMap['state'] = '';
+                  }
+
+                  // Ensure district is a string
+                  if (partyMap['district'] is! String) {
+                    partyMap['district'] = '';
+                  }
+
+                  // Keep other fields as they are (could be null)
+
+                  // Ensure status is a string and default to 'Active' if not set
+                  if (partyMap['status'] is! String ||
+                      partyMap['status'].toString().trim().isEmpty) {
+                    partyMap['status'] = 'PartyStatus.active';
+                  }
+
+                  // Ensure isMapped is a boolean
+                  if (partyMap['isMapped'] is! bool) {
+                    partyMap['isMapped'] = false;
+                  }
+
+                  return partyMap;
+                }
+                // Skip invalid items
                 return null;
-              }
-              
-              // Ensure code is a string
-              if (partyMap['code'] is! String) {
-                partyMap['code'] = '';
-              }
-              
-              // Ensure partyType is a string
-              if (partyMap['partyType'] is! String) {
-                partyMap['partyType'] = 'PartyType.direct';
-              }
-              
-              // Ensure agent is a string or null
-              if (partyMap['agent'] is! String && partyMap['agent'] != null) {
-                partyMap['agent'] = null;
-              }
-              
-              // Ensure mobileNumbers is a list
-              if (partyMap['mobileNumbers'] is! List) {
-                partyMap['mobileNumbers'] = [];
-              }
-              
-              // Ensure email is a string
-              if (partyMap['email'] is! String) {
-                partyMap['email'] = '';
-              }
-              
-              // Ensure address is a string
-              if (partyMap['address'] is! String) {
-                partyMap['address'] = '';
-              }
-              
-              // Ensure state is a string
-              if (partyMap['state'] is! String) {
-                partyMap['state'] = '';
-              }
-              
-              // Ensure district is a string
-              if (partyMap['district'] is! String) {
-                partyMap['district'] = '';
-              }
-              
-              // Keep other fields as they are (could be null)
-              
-              // Ensure status is a string and default to 'Active' if not set
-              if (partyMap['status'] is! String || partyMap['status'].toString().trim().isEmpty) {
-                partyMap['status'] = 'PartyStatus.active';
-              }
-              
-              // Ensure isMapped is a boolean
-              if (partyMap['isMapped'] is! bool) {
-                partyMap['isMapped'] = false;
-              }
-              
-              return partyMap;
-            }
-            // Skip invalid items
-            return null;
-          }).where((item) => item != null).cast<Map<String, dynamic>>().toList();
+              })
+              .where((item) => item != null)
+              .cast<Map<String, dynamic>>()
+              .toList();
         }
       }
-      
+
       return parties;
     } catch (e) {
       print('Error getting parties: $e');
@@ -107,7 +116,7 @@ class PartyService {
 
       final box = Hive.box('appData');
       List<String> agents = [];
-      
+
       final agentsData = box.get('agents');
       if (agentsData != null && agentsData is List) {
         for (var agent in agentsData) {
@@ -118,7 +127,7 @@ class PartyService {
           }
         }
       }
-      
+
       return agents;
     } catch (e) {
       print('Error getting agents: $e');
@@ -135,7 +144,7 @@ class PartyService {
 
       final box = Hive.box('appData');
       List<String> transports = [];
-      
+
       final transportsData = box.get('transports');
       if (transportsData != null && transportsData is List) {
         for (var transport in transportsData) {
@@ -146,7 +155,7 @@ class PartyService {
           }
         }
       }
-      
+
       return transports;
     } catch (e) {
       print('Error getting transports: $e');
@@ -180,18 +189,17 @@ class PartyService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing parties
       List<Map<String, dynamic>> parties = await getParties();
-      
+
       // Check if this party already exists
-      bool exists = parties.any((p) => 
-        p['name'] == name || p['code'] == code);
-      
+      bool exists = parties.any((p) => p['name'] == name || p['code'] == code);
+
       if (exists) {
         throw Exception('Party with this name or code already exists');
       }
-      
+
       // Add new party
       parties.insert(0, {
         'name': name,
@@ -213,11 +221,11 @@ class PartyService {
         'status': status ?? 'PartyStatus.active',
         'isMapped': false,
       });
-      
+
       // Save to Hive
       await box.put('parties', parties);
       await box.flush();
-      
+
       print('Party added successfully');
     } catch (e) {
       print('Error adding party: $e');
@@ -254,27 +262,30 @@ class PartyService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing parties
       List<Map<String, dynamic>> parties = await getParties();
-      
+
       // Find the index of the party to update
-      int index = parties.indexWhere((p) => 
-        p['name'] == oldName && p['code'] == oldCode);
-      
+      int index = parties.indexWhere(
+        (p) => p['name'] == oldName && p['code'] == oldCode,
+      );
+
       if (index == -1) {
         throw Exception('Party not found');
       }
-      
+
       // Check if this party already exists (excluding current entry)
-      bool exists = parties.any((p) => 
-        (p['name'] == newName || p['code'] == newCode) && 
-        (p['name'] != oldName || p['code'] != oldCode));
-      
+      bool exists = parties.any(
+        (p) =>
+            (p['name'] == newName || p['code'] == newCode) &&
+            (p['name'] != oldName || p['code'] != oldCode),
+      );
+
       if (exists) {
         throw Exception('Party with this name or code already exists');
       }
-      
+
       // Update party
       parties[index] = {
         'name': newName,
@@ -291,16 +302,17 @@ class PartyService {
         'accountNo': accountNo ?? parties[index]['accountNo'],
         'ifscCode': ifscCode ?? parties[index]['ifscCode'],
         'branchName': branchName ?? parties[index]['branchName'],
-        'accountHolderName': accountHolderName ?? parties[index]['accountHolderName'],
+        'accountHolderName':
+            accountHolderName ?? parties[index]['accountHolderName'],
         'transport': transport ?? parties[index]['transport'],
         'status': status ?? parties[index]['status'],
         'isMapped': isMapped ?? parties[index]['isMapped'],
       };
-      
+
       // Save to Hive
       await box.put('parties', parties);
       await box.flush();
-      
+
       print('Party updated successfully');
     } catch (e) {
       print('Error updating party: $e');
@@ -316,30 +328,31 @@ class PartyService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing parties
       List<Map<String, dynamic>> parties = await getParties();
-      
+
       // Find the party to delete
-      int index = parties.indexWhere((p) => 
-        p['name'] == name && p['code'] == code);
-      
+      int index = parties.indexWhere(
+        (p) => p['name'] == name && p['code'] == code,
+      );
+
       if (index == -1) {
         throw Exception('Party not found');
       }
-      
+
       // Check if party is mapped
       if (parties[index]['isMapped'] == true) {
         throw Exception('Cannot delete party that is mapped to orders');
       }
-      
+
       // Remove party
       parties.removeAt(index);
-      
+
       // Save to Hive
       await box.put('parties', parties);
       await box.flush();
-      
+
       print('Party deleted successfully');
     } catch (e) {
       print('Error deleting party: $e');

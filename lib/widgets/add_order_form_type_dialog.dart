@@ -31,22 +31,22 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize name field
     if (widget.isEditMode && widget.initialName != null) {
       nameController.text = widget.initialName!;
     }
-    
+
     // Initialize description field
     if (widget.isEditMode && widget.initialDescription != null) {
       descriptionController.text = widget.initialDescription!;
     }
-    
+
     // Initialize isPlainMixed field
     if (widget.isEditMode && widget.initialIsPlainMixed != null) {
       isPlainMixed = widget.initialIsPlainMixed!;
     }
-    
+
     // Initialize status field
     if (widget.isEditMode && widget.initialStatus != null) {
       selectedStatus = widget.initialStatus!;
@@ -64,9 +64,7 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       // Set constraints to make dialog responsive
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
@@ -92,7 +90,9 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    widget.isEditMode ? 'Edit Order Form Type' : 'Add Order Form Type',
+                    widget.isEditMode
+                        ? 'Edit Order Form Type'
+                        : 'Add Order Form Type',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
@@ -156,7 +156,7 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Description Field
                     Container(
                       decoration: BoxDecoration(
@@ -189,7 +189,7 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Is Plain Mixed Field
                     Container(
                       decoration: BoxDecoration(
@@ -233,7 +233,7 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Status Field
                     Container(
                       decoration: BoxDecoration(
@@ -316,7 +316,7 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
 
             // Horizontal divider
             const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-            
+
             // Buttons - Fixed at bottom
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -361,7 +361,7 @@ class _AddOrderFormTypeDialogState extends State<AddOrderFormTypeDialog> {
                             );
                             return;
                           }
-                          
+
                           // Return the order form type data to caller
                           Navigator.pop(context, {
                             'name': nameController.text.trim(),

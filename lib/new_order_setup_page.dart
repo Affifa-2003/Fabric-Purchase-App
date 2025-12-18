@@ -1,3 +1,6 @@
+// lib/new_order_setup_page.dart
+
+// --- START: ADD THESE NEW IMPORTS ---
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -9,10 +12,14 @@ import 'package:purchase_app/service/data_service.dart';
 import 'package:purchase_app/service/order_service.dart';
 import 'package:purchase_app/service/party_service.dart';
 import 'package:purchase_app/service/width_service.dart';
+// --- ADD THIS IMPORT FOR ORDER FORM TYPE ---
+import 'package:purchase_app/service/order_form_type_service.dart';
 import 'package:purchase_app/textile_details.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
 import 'package:purchase_app/widgets/add_party_dialog.dart';
 import 'package:purchase_app/widgets/add_width_dialog.dart';
+// --- ADD THIS IMPORT FOR THE DIALOG ---
+import 'package:purchase_app/widgets/add_order_form_type_dialog.dart';
 
 class NewOrderSetupPage extends StatefulWidget {
   final bool isEditMode;
@@ -55,7 +62,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
   // Data that will be loaded from JSON and Hive
   List<String> parties = [];
-  List<String> ofTypes = [];
+  // --- CHANGE: We will now load ofTypes from a service, but keep defaults ---
+  // List<String> ofTypes = []; // Old way
+  List<String> ofTypes = ['Regular', 'Mix', 'Plain']; // Start with defaults
   List<String> widths = [];
   List<String> sampleOptions = [];
   List<String> agents = [];
@@ -91,6 +100,8 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       // Load products after other data is loaded
       _loadProducts();
       _refreshSampleMetersData();
+      // --- ADD THIS: Load O/F Types from the service ---
+      _loadOrderFormTypes();
 
       // Load agents and transports using the new service
       _loadAgentsAndTransports().then((_) {
@@ -105,12 +116,89 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     });
   }
 
-  // Add this new method to _NewOrderSetupPageState
+  // --- ADD THIS NEW METHOD TO LOAD ORDER FORM TYPES ---
+  Future<void> _loadOrderFormTypes() async {
+    try {
+      // Use the OrderFormTypeService to get order form types
+      List<Map<String, dynamic>> orderFormTypesData =
+          await OrderFormTypeService().getOrderFormTypes();
+
+      // Extract just the names from the order form types
+      List<String> serviceOfTypes = orderFormTypesData
+          .map((type) => type['name'] as String)
+          .toList();
+
+      // Combine with default types, using a Set to avoid duplicates
+      Set<String> combinedOfTypes = Set.from(ofTypes);
+      combinedOfTypes.addAll(serviceOfTypes);
+
+      setState(() {
+        ofTypes = combinedOfTypes.toList();
+      });
+
+      print(
+        'Loaded ${ofTypes.length} order form types from service and defaults',
+      );
+    } catch (e) {
+      print('Error loading order form types: $e');
+    }
+  }
+
+  // --- ADD THIS NEW METHOD TO SHOW THE ADD DIALOG ---
+  void _showAddNewTypeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        // This is the same dialog used in order_form_type_page.dart
+        return const AddOrderFormTypeDialog();
+      },
+    ).then((result) {
+      if (result != null) {
+        // Add the order form type using the service
+        OrderFormTypeService()
+            .addOrderFormType(
+              result['name'],
+              description: result['description'],
+              isPlainMixed: result['isPlainMixed'],
+              status: result['status'],
+            )
+            .then((_) {
+              // Reload the order form types to get the latest list
+              _loadOrderFormTypes();
+
+              // Set the selected type to the newly added one for good UX
+              setState(() {
+                ofType = result['name'];
+              });
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Order form type added successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            })
+            .catchError((error) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error adding order form type: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            });
+      }
+    });
+  }
+
+  // --- REST OF YOUR EXISTING CODE REMAINS THE SAME ---
+  // I am keeping all your existing methods below this point.
+
   Future<void> _loadAgentsAndTransports() async {
     try {
       final dataService = DataService();
 
-      // Load agents and transports in parallel for better performance
       final results = await Future.wait([
         dataService.getAgents(),
         dataService.getTransports(),
@@ -131,38 +219,30 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
   Future<void> _initializeHiveAndLoadData() async {
     try {
-      // Get the boxes (they should already be open from main.dart)
       appDataBox = Hive.box('appData');
       ordersBox = Hive.box('orders');
       print(
         'Hive boxes are open: ${Hive.isBoxOpen('appData')} and ${Hive.isBoxOpen('orders')}',
       );
 
-      // Load data from JSON and Hive
       await _loadDataFromSources();
     } catch (e) {
       print('Error initializing Hive: $e');
-      // Try to recover by reinitializing
       await _reinitializeHive();
     }
   }
 
-  // Add this method to _NewOrderSetupPageState
   Future<void> _loadProducts() async {
     try {
-      // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
 
-      // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       final box = Hive.box('appData');
-
       final productsData = box.get('products');
       if (productsData != null) {
-        // Handle different types of data
         if (productsData is List) {
           hiveProducts = productsData.map((item) {
             if (item is Map) {
@@ -175,7 +255,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
       setState(() {
         products = hiveProducts;
-        // Filter only active products
         activeProducts = products
             .where((product) => product['status'] == 'Active')
             .toList();
@@ -191,7 +270,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
   Future<void> _reinitializeHive() async {
     try {
-      // If the boxes are closed, reopen them
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
@@ -201,11 +279,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       appDataBox = Hive.box('appData');
       ordersBox = Hive.box('orders');
 
-      // Load data again
       await _loadDataFromSources();
     } catch (e) {
       print('Error reinitializing Hive: $e');
-      // As a last resort, use defaults
       _useDefaultData();
     }
   }
@@ -239,7 +315,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  // Add this method to your NewOrderSetupPage
   Future<void> _verifyDataPersistence() async {
     try {
       final appDataBox = Hive.box('appData');
@@ -261,7 +336,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  // Add this method to NewOrderSetupPage
   Future<void> _refreshSampleMetersData() async {
     try {
       if (!Hive.isBoxOpen('appData')) {
@@ -285,11 +359,8 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
 
         setState(() {
-          // Combine with existing sampleMtrOptions
           final combinedOptions = [...sampleMtrOptions, ...updatedSampleMeters];
-          sampleMtrOptions = combinedOptions
-              .toSet()
-              .toList(); // Remove duplicates
+          sampleMtrOptions = combinedOptions.toSet().toList();
         });
 
         print('Refreshed sample meters: $sampleMtrOptions');
@@ -301,7 +372,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
   Future<void> _loadDataFromSources() async {
     try {
-      // Load data from JSON
       Map<String, dynamic> jsonData = {};
       try {
         final String response = await rootBundle.loadString(
@@ -313,17 +383,14 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         print('Error loading JSON data: $e');
       }
 
-      // Load data from Hive
       Map<String, dynamic> hiveData = {};
       try {
         final box = Hive.box('appData');
 
-        // Initialize with defaults if box is empty
         if (box.isEmpty) {
           await _initializeBoxWithDefaults(box);
         }
 
-        // Get all data from Hive
         final keys = box.keys.toList();
         for (var key in keys) {
           hiveData[key] = box.get(key);
@@ -333,23 +400,17 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         print('Error loading Hive data: $e');
       }
 
-      // Combine JSON and Hive data, with Hive taking precedence
       setState(() {
-        // Combine parties
         final jsonParties = jsonData['parties'] != null
             ? List<String>.from(jsonData['parties'])
             : [];
-
-        // Handle parties from Hive - could be in old format (List<String>) or new format (List<Map<String, dynamic>>)
         List<String> hiveParties = [];
         if (hiveData['parties'] != null) {
           if (hiveData['parties'] is List) {
             for (var party in hiveData['parties']) {
               if (party is String) {
-                // Old format
                 hiveParties.add(party);
               } else if (party is Map && party['name'] != null) {
-                // New format
                 hiveParties.add(party['name'] as String);
               }
             }
@@ -357,41 +418,13 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
 
         parties = [...jsonParties, ...hiveParties];
-        parties = parties.toSet().toList(); // Remove duplicates
+        parties = parties.toSet().toList();
 
         print('Combined parties: $parties');
-        // Combine ofTypes
-        final jsonOfTypes = jsonData['ofTypes'] != null
-            ? List<String>.from(jsonData['ofTypes'])
-            : [];
-        final hiveOfTypes = hiveData['ofTypes'] != null
-            ? List<String>.from(hiveData['ofTypes'])
-            : [];
-        final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
-            ? List<String>.from(hiveData['textileOFTypes'])
-            : [];
 
-        // Combine lists while preserving order
-        List<String> combinedOfTypes = [];
-        combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
+        // --- NOTE: We are no longer loading ofTypes from here ---
+        // The _loadOrderFormTypes method handles it now.
 
-        // Add items from hiveOfTypes if not already present
-        for (var item in hiveOfTypes) {
-          if (!combinedOfTypes.contains(item)) {
-            combinedOfTypes.add(item);
-          }
-        }
-
-        // Add items from hiveTextileOfTypes if not already present
-        for (var item in hiveTextileOfTypes) {
-          if (!combinedOfTypes.contains(item)) {
-            combinedOfTypes.add(item);
-          }
-        }
-
-        ofTypes = combinedOfTypes;
-
-        // Combine widths
         final jsonWidths = jsonData['widths'] != null
             ? List<String>.from(jsonData['widths'])
             : [];
@@ -402,10 +435,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             ? List<String>.from(hiveData['textileWidths'])
             : [];
         widths = [...jsonWidths, ...hiveWidths, ...hiveTextileWidths];
-        widths = widths.toSet().toList(); // Remove duplicates
+        widths = widths.toSet().toList();
         widths.sort();
 
-        // Combine sampleOptions
         final jsonSampleOptions = jsonData['sampleOptions'] != null
             ? List<String>.from(jsonData['sampleOptions'])
             : [];
@@ -413,9 +445,8 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             ? List<String>.from(hiveData['sampleOptions'])
             : [];
         sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
-        sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
+        sampleOptions = sampleOptions.toSet().toList();
 
-        // Combine agents - UPDATE THIS SECTION
         final jsonAgents = jsonData['agents'] != null
             ? List<String>.from(jsonData['agents'])
             : [];
@@ -423,7 +454,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             ? List<String>.from(hiveData['agents'])
             : [];
 
-        // Handle both string and map formats for agents
         List<String> processedHiveAgents = [];
         if (hiveData['agents'] != null && hiveData['agents'] is List) {
           for (var agent in hiveData['agents']) {
@@ -435,14 +465,11 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           }
         }
 
-        // Create a set to avoid duplicates
         Set<String> uniqueAgents = Set.from(jsonAgents);
         uniqueAgents.addAll(processedHiveAgents);
 
-        // Convert back to list
         agents = uniqueAgents.toList();
 
-        // Combine transports - UPDATE THIS SECTION
         final jsonTransports = jsonData['transports'] != null
             ? List<String>.from(jsonData['transports'])
             : [];
@@ -450,7 +477,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             ? List<String>.from(hiveData['transports'])
             : [];
 
-        // Handle both string and map formats for transports
         List<String> processedHiveTransports = [];
         if (hiveData['transports'] != null && hiveData['transports'] is List) {
           for (var transport in hiveData['transports']) {
@@ -462,28 +488,16 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           }
         }
 
-        // Create a set to avoid duplicates
         Set<String> uniqueTransports = Set.from(jsonTransports);
         uniqueTransports.addAll(processedHiveTransports);
 
-        // Convert back to list
         transports = uniqueTransports.toList();
 
-        // Combine sampleMtrOptions
-        // final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
-        //     ? List<String>.from(jsonData['sampleMtrOptions'])
-        //     : [];
-        // final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
-        //     ? List<String>.from(hiveData['sampleMtrOptions'])
-        //     : [];
-
-        // Load sample meters from Hive - FIXED PART
         List<String> hiveSampleMeters = [];
         if (hiveData['sampleMeters'] != null &&
             hiveData['sampleMeters'] is List) {
           for (var meter in hiveData['sampleMeters']) {
             if (meter is Map && meter['name'] != null) {
-              // Only add active sample meters
               if (meter['status'] == 'Active') {
                 hiveSampleMeters.add(meter['name'] as String);
               }
@@ -491,7 +505,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           }
         }
 
-        // Combine all sample meter options
         final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
             ? List<String>.from(jsonData['sampleMtrOptions'])
             : [];
@@ -501,27 +514,21 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
         sampleMtrOptions = [
           ...jsonSampleMtrOptions,
-          ...hiveSampleMtrOptions,
           ...hiveSampleMeters,
+          ...hiveSampleMtrOptions,
         ];
-        sampleMtrOptions = sampleMtrOptions
-            .toSet()
-            .toList(); // Remove duplicates
+        sampleMtrOptions = sampleMtrOptions.toSet().toList();
 
-        // Debug: Print final sampleMtrOptions
         print('Final sampleMtrOptions: $sampleMtrOptions');
-        print('Final agents: $agents'); // Add this for debugging
-        print('Final transports: $transports'); // Add this for debugging
+        print('Final agents: $agents');
+        print('Final transports: $transports');
 
         _isLoading = false;
       });
 
-      // Debug: Print loaded data
       print('Combined parties: $parties');
-      print('Combined ofTypes: $ofTypes');
     } catch (e) {
       print('Error loading data from sources: $e');
-      // Fallback to defaults
       _useDefaultData();
     }
   }
@@ -534,11 +541,12 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         'Kumar Mills',
         'Shree Textiles',
       ];
+      // --- ofTypes is already set with defaults in the state variable ---
       ofTypes = ['Regular', 'Mix', 'Plain'];
       widths = ['44"', '54"', '58"', '60"'];
       sampleOptions = ['Yes', 'No', 'Sample Only'];
       agents = ['Raju Sharma', 'Vijay Kumar', 'Anil Reddy', 'Sunil Patel'];
-      transports = ['DTDC', 'FedEx', 'Delhivery', 'Blue Dart']; // Add this line
+      transports = ['DTDC', 'FedEx', 'Delhivery', 'Blue Dart'];
       sampleMtrOptions = ['2.5', '5.0', '7.5', '10.0'];
       _isLoading = false;
     });
@@ -548,7 +556,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     try {
       print('Initializing Hive box with default values');
 
-      // Set default values only if keys don't exist
       if (!box.containsKey('parties')) {
         await box.put('parties', [
           'Manish Textiles',
@@ -557,9 +564,10 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           'Shree Textiles',
         ]);
       }
-      if (!box.containsKey('ofTypes')) {
-        await box.put('ofTypes', ['Regular', 'Mix', 'Plain']);
-      }
+      // --- We don't need to initialize 'ofTypes' here anymore ---
+      // if (!box.containsKey('ofTypes')) {
+      //   await box.put('ofTypes', ['Regular', 'Mix', 'Plain']);
+      // }
       if (!box.containsKey('widths')) {
         await box.put('widths', ['44"', '54"', '58"', '60"']);
       }
@@ -575,7 +583,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         ]);
       }
       if (!box.containsKey('transports')) {
-        // Add this block
         await box.put('transports', [
           'DTDC',
           'FedEx',
@@ -593,19 +600,17 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       print('Error initializing box with defaults: $e');
     }
   }
-  // In your NewOrderSetupPage, update the _saveDataToStorage method:
 
   Future<void> _saveDataToStorage() async {
     try {
       final box = Hive.box('appData');
 
-      // Convert all lists to List<String> to ensure type safety
       final List<String> partiesToSave = parties
           .map((e) => e.toString())
           .toList();
-      final List<String> ofTypesToSave = ofTypes
-          .map((e) => e.toString())
-          .toList();
+      // --- We no longer save ofTypes directly to Hive here ---
+      // final List<String> ofTypesToSave =
+      //     ofTypes.map((e) => e.toString()).toList();
       final List<String> widthsToSave = widths
           .map((e) => e.toString())
           .toList();
@@ -619,23 +624,19 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           .map((e) => e.toString())
           .toList();
 
-      // Save data with explicit await to ensure it's written to disk
       await box.put('parties', partiesToSave);
-      await box.put('ofTypes', ofTypesToSave);
+      // await box.put('ofTypes', ofTypesToSave); // Not needed
       await box.put('widths', widthsToSave);
       await box.put('sampleOptions', sampleOptionsToSave);
       await box.put('agents', agentsToSave);
       await box.put('sampleMtrOptions', sampleMtrOptionsToSave);
 
-      // Explicitly flush to disk
       await box.flush();
 
-      // Verify data was saved
       print('Saved parties: ${box.get('parties')}');
       print('Data saved successfully');
     } catch (e) {
       print('Error saving data: $e');
-      // Show error to user
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving data: $e'),
@@ -647,14 +648,12 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
   Future<void> _saveOrderToHive() async {
     try {
-      // Ensure the orders box is open
       if (!Hive.isBoxOpen('orders')) {
         await Hive.openBox('orders');
       }
 
       final box = Hive.box('orders');
 
-      // Create order data map
       final Map<String, dynamic> orderData = {
         'party': selectedParty,
         'type': ofType,
@@ -664,35 +663,27 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         'sampleRequired': sampleRequired,
         'sampleMtr': _showSampleMtrField ? selectedSampleMtr : null,
         'agent': selectedAgent,
-        'status': 'pending', // Default status
-        'date': _formatDate(DateTime.now()), // Use simple date format
-        'orders': 0, // Initial order count
+        'status': 'pending',
+        'date': _formatDate(DateTime.now()),
+        'orders': 0,
       };
 
-      // Generate a unique key for the order
       final String key = 'order_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Save the order
       await box.put(key, orderData);
-
-      // Explicitly flush to disk
       await box.flush();
 
       print('Order saved successfully with key: $key');
 
-      // Notify that orders have been updated
       OrderService().notifyOrderUpdated();
 
-      // Mark the party as mapped
       await _markPartyAsMapped(selectedParty!);
 
-      // Mark the sample meter as mapped if it's used
       if (_showSampleMtrField && selectedSampleMtr != null) {
         await _markSampleMeterAsMapped(selectedSampleMtr);
       }
     } catch (e) {
       print('Error saving order: $e');
-      // Show error to user
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving order: $e'),
@@ -702,7 +693,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  // Add this new method to mark a sample meter as mapped
   Future<void> _markSampleMeterAsMapped(String meterName) async {
     try {
       if (!Hive.isBoxOpen('appData')) {
@@ -712,7 +702,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       final box = Hive.box('appData');
       List<Map<String, dynamic>> sampleMeters = [];
 
-      // Get existing sample meters
       final existingSampleMeters = box.get('sampleMeters');
       if (existingSampleMeters != null) {
         if (existingSampleMeters is List) {
@@ -724,7 +713,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
       }
 
-      // Find and update the sample meter
       for (int i = 0; i < sampleMeters.length; i++) {
         if (sampleMeters[i]['name'] == meterName) {
           sampleMeters[i]['isMapped'] = true;
@@ -732,7 +720,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
       }
 
-      // Save to Hive
       await box.put('sampleMeters', sampleMeters);
       await box.flush();
 
@@ -742,7 +729,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  // Add this new method to _NewOrderSetupPageState:
   Future<void> _markPartyAsMapped(String partyName) async {
     try {
       if (!Hive.isBoxOpen('appData')) {
@@ -752,7 +738,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       final box = Hive.box('appData');
       List<Map<String, dynamic>> partiesData = [];
 
-      // Get existing parties
       final existingParties = box.get('parties');
       if (existingParties != null) {
         if (existingParties is List) {
@@ -760,7 +745,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             if (party is Map) {
               partiesData.add(Map<String, dynamic>.from(party));
             } else if (party is String) {
-              // Handle legacy data format
               partiesData.add({
                 'name': party,
                 'agent': null,
@@ -772,7 +756,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
       }
 
-      // Find and update the party
       for (int i = 0; i < partiesData.length; i++) {
         if (partiesData[i]['name'] == partyName) {
           partiesData[i]['isMapped'] = true;
@@ -780,7 +763,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
       }
 
-      // Save to Hive
       await box.put('parties', partiesData);
       await box.flush();
 
@@ -819,14 +801,12 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         print('Updated parties from Hive: $updatedParties');
       }
 
-      // Also update agents and transports
       await _loadAgentsAndTransports();
     } catch (e) {
       print('Error updating party data: $e');
     }
   }
 
-  // Add this helper function to format the date
   String _formatDate(DateTime date) {
     final DateFormat formatter = DateFormat('dd MMM yyyy');
     return formatter.format(date);
@@ -845,7 +825,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       final box = Hive.box('appData');
       List<Map<String, dynamic>> partiesData = [];
 
-      // Get existing parties
       final existingParties = box.get('parties');
       if (existingParties != null) {
         if (existingParties is List) {
@@ -853,7 +832,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             if (party is Map) {
               partiesData.add(Map<String, dynamic>.from(party));
             } else if (party is String) {
-              // Handle legacy data format
               partiesData.add({
                 'name': party,
                 'agent': null,
@@ -865,12 +843,10 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
       }
 
-      // Check if party already exists
       final existingIndex = partiesData.indexWhere(
         (p) => p['name'] == partyName,
       );
       if (existingIndex != -1) {
-        // Update existing party
         partiesData[existingIndex] = {
           'name': partyName,
           'agent': agent,
@@ -878,7 +854,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           'isMapped': partiesData[existingIndex]['isMapped'] ?? false,
         };
       } else {
-        // Add new party at the beginning of the list
         partiesData.insert(0, {
           'name': partyName,
           'agent': agent,
@@ -887,18 +862,15 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         });
       }
 
-      // Save to Hive
       await box.put('parties', partiesData);
       await box.flush();
 
-      // Update local state - add to the beginning of the list
       setState(() {
         if (!parties.contains(partyName)) {
           parties.insert(0, partyName);
         }
         selectedParty = partyName;
 
-        // Add new agent if provided and not already in the list
         if (agent != null && !agents.contains(agent)) {
           agents.add(agent);
           selectedAgent = agent;
@@ -909,13 +881,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-  // Check if Sample Mtr field should be shown
   bool get _showSampleMtrField {
     return sampleRequired == 'Yes' || sampleRequired == 'Sample Only';
   }
-
-  // Rest of your code remains the same...
-  // (Keep all the existing UI code from _buildMobileView onwards)
 
   @override
   Widget build(BuildContext context) {
@@ -978,7 +946,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           _buildDefaultMetersField(),
           const SizedBox(height: 16),
           _buildSampleRequiredField(),
-          // Only show Sample Mtr field if Sample Required is 'Yes' or 'Sample Only'
           if (_showSampleMtrField) ...[
             const SizedBox(height: 16),
             _buildSampleMtrField(),
@@ -1018,7 +985,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             ],
           ),
           const SizedBox(height: 24),
-          // Conditionally show Sample Required and Sample Mtr fields
           if (_showSampleMtrField)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1071,7 +1037,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                     ),
                     child: DropdownButtonFormField<String>(
                       value: selectedParty,
-                      // Fixed: Check parties instead of agents
                       hint: Text(
                         parties.isEmpty
                             ? 'Loading parties...'
@@ -1127,7 +1092,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                 IconButton(
                   icon: const Icon(Icons.add, color: Color(0xFF529FF3)),
                   onPressed: () {
-                    // Ensure agents and transports are loaded before showing dialog
                     if (agents.isEmpty || transports.isEmpty) {
                       _loadAgentsAndTransports().then((_) {
                         _showAddNewPartyDialog();
@@ -1145,7 +1109,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     );
   }
 
-  // Add this helper method to get party image path
   String? _getPartyImage(String partyName) {
     try {
       if (!Hive.isBoxOpen('appData')) {
@@ -1182,7 +1145,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       },
     ).then((result) {
       if (result != null) {
-        // Add the party using the service
         PartyService()
             .addParty(
               result['name'],
@@ -1204,15 +1166,12 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
               status: result['status'],
             )
             .then((_) {
-              // Reload the parties
               _updatePartyDataFromHive();
 
-              // Set the selected party to the newly added one
               setState(() {
                 selectedParty = result['name'];
               });
 
-              // Show success message
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Party added successfully'),
@@ -1221,7 +1180,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
               );
             })
             .catchError((error) {
-              // Show error message
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Error adding party: $error'),
@@ -1277,7 +1235,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       final box = Hive.box('appData');
       List<Map<String, dynamic>> partiesData = [];
 
-      // Get existing parties
       final existingParties = box.get('parties');
       if (existingParties != null) {
         if (existingParties is List) {
@@ -1285,7 +1242,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
             if (party is Map) {
               partiesData.add(Map<String, dynamic>.from(party));
             } else if (party is String) {
-              // Handle legacy data format
               partiesData.add({
                 'name': party,
                 'agent': null,
@@ -1297,12 +1253,10 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         }
       }
 
-      // Check if party already exists
       final existingIndex = partiesData.indexWhere(
         (p) => p['name'] == partyName,
       );
       if (existingIndex != -1) {
-        // Update existing party
         partiesData[existingIndex] = {
           'name': partyName,
           'agent': agent,
@@ -1310,7 +1264,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           'isMapped': partiesData[existingIndex]['isMapped'] ?? false,
         };
       } else {
-        // Add new party at the beginning of the list
         partiesData.insert(0, {
           'name': partyName,
           'agent': agent,
@@ -1319,11 +1272,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         });
       }
 
-      // Save to Hive
       await box.put('parties', partiesData);
       await box.flush();
 
-      // Update local state immediately
       setState(() {
         if (!parties.contains(partyName)) {
           parties.insert(0, partyName);
@@ -1331,7 +1282,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
         if (agent != null && !agents.contains(agent)) {
           agents.add(agent);
-          // Also save the updated agents list to Hive
           _saveAgentsToStorage();
         }
       });
@@ -1346,15 +1296,11 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     try {
       final box = Hive.box('appData');
 
-      // Convert all agents to List<String> to ensure type safety
       final List<String> agentsToSave = agents
           .map((e) => e.toString())
           .toList();
 
-      // Save data with explicit await to ensure it's written to disk
       await box.put('agents', agentsToSave);
-
-      // Explicitly flush to disk
       await box.flush();
 
       print('Agents data saved successfully');
@@ -1455,245 +1401,14 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.add, color: Color(0xFF529FF3)),
-                  onPressed: _showAddNewTypeDialog,
+                  // --- THIS IS THE KEY CHANGE ---
+                  onPressed: _showAddNewTypeDialog, // Call the new method
                 ),
               ],
             ),
           ],
         ),
       ),
-    );
-  }
-
-  void _showAddNewTypeDialog() {
-    TextEditingController newTypeController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: const Color(0xFFFFFFFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              // Set only width constraint, keep original height
-              insetPadding: const EdgeInsets.all(16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.9,
-                  // Remove maxHeight to keep original dialog height
-                ),
-                child: Column(
-                  mainAxisSize:
-                      MainAxisSize.min, // This keeps the dialog compact
-                  children: [
-                    // Header with title and close button
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16.0),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          topRight: Radius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Add O/F Type',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.pop(context);
-                            },
-                            child: const Icon(
-                              Icons.close,
-                              color: Color(0xFF767676),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Horizontal divider
-                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                    // Content without Expanded to keep compact
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Type Name Field in a card
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFFFFF),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.grey.withOpacity(0.3),
-                              ),
-                            ),
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Text(
-                                      'Type Name: *',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: newTypeController,
-                                  inputFormatters: [
-                                    NoLeadingOrMultipleSpacesFormatter(),
-                                  ],
-                                  decoration: const InputDecoration(
-                                    hintText: 'e.g. Next Season, Special',
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  onEditingComplete: () {
-                                    // Trim trailing spaces when editing is complete
-                                    newTypeController.text = newTypeController
-                                        .text
-                                        .trim();
-                                    setState(() {});
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Information text with icon in a box
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEBF8FF),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(0xFF3182CE),
-                              ),
-                            ),
-                            padding: const EdgeInsets.all(12.0),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.info_outline,
-                                  color: Color(0xFF3182CE),
-                                ),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                  child: Text(
-                                    'This will be added to master and available for future orders.',
-                                    style: TextStyle(color: Color(0xFF3182CE)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Horizontal divider
-                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                    // Buttons - Fixed at bottom
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: TextButton(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
-                                child: const Text(
-                                  'Cancel',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: TextButton(
-                                onPressed: () async {
-                                  // Trim any trailing spaces before saving
-                                  String typeName = newTypeController.text
-                                      .trim();
-                                  if (typeName.isNotEmpty) {
-                                    setState(() {
-                                      ofTypes.add(typeName);
-                                      ofType = typeName;
-                                    });
-
-                                    // Save to Hive
-                                    await _saveDataToStorage();
-
-                                    Navigator.pop(context);
-
-                                    // Show success message
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Type added successfully',
-                                        ),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: const Text(
-                                  'Save to Master',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -1772,26 +1487,19 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     showDialog(
       context: context,
       builder: (context) {
-        return AddWidthDialog(
-          // Pass the loaded active products to the dialog
-          activeProducts: activeProducts,
-        );
+        return AddWidthDialog(activeProducts: activeProducts);
       },
     ).then((result) {
       if (result != null) {
-        // Add the width using the service
         WidthService()
             .addWidth(result['product'], result['width'])
             .then((_) {
-              // Reload the widths
               _loadWidths();
 
-              // Set the selected width to the newly added one
               setState(() {
                 selectedWidth = result['width'].toString() + '"';
               });
 
-              // Show success message
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Width added successfully'),
@@ -1800,7 +1508,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
               );
             })
             .catchError((error) {
-              // Show error message
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Error adding width: $error'),
@@ -1814,26 +1521,18 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
 
   Future<void> _loadWidths() async {
     try {
-      // Use the WidthService to get widths
       List<Map<String, dynamic>> widthsData = await WidthService().getWidths();
 
-      // Convert WidthService widths to strings with " at the end
       List<String> serviceWidths = widthsData
           .map((width) => width['width'].toString() + '"')
           .toList();
 
-      // Combine existing widths with service widths
       setState(() {
-        // Create a set to avoid duplicates
         Set<String> combinedWidths = Set.from(widths);
-
-        // Add service widths to the set
         combinedWidths.addAll(serviceWidths);
 
-        // Convert back to list and sort
         widths = combinedWidths.toList();
         widths.sort((a, b) {
-          // Extract numeric value for comparison
           double aNum = double.tryParse(a.replaceAll('"', '')) ?? 0;
           double bNum = double.tryParse(b.replaceAll('"', '')) ?? 0;
           return aNum.compareTo(bNum);
@@ -1843,10 +1542,9 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       print('Loaded ${widths.length} widths from combined sources');
     } catch (e) {
       print('Error loading widths: $e');
-      // Don't replace existing widths, just ensure we have defaults
       if (widths.isEmpty) {
         setState(() {
-          widths = ['44"', '54"', '58"', '60"']; // Fallback to defaults
+          widths = ['44"', '54"', '58"', '60"'];
         });
       }
     }
@@ -1970,7 +1668,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                 ),
               ),
               onEditingComplete: () {
-                // Trim trailing spaces when editing is complete
                 defaultMetersController.text = defaultMetersController.text
                     .trim();
                 setState(() {});
@@ -2131,7 +1828,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     );
   }
 
-  // Modified _buildStartCapturingButton to save order and navigate to TextileDetailsPage
   Widget _buildStartCapturingButton() {
     return SizedBox(
       width: double.infinity,
@@ -2139,7 +1835,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
         onPressed: () async {
           if (selectedParty != null) {
             if (widget.isEditMode) {
-              // In edit mode, just return the updated values back to textile_details
               Navigator.pop(context, {
                 'ofType': ofType,
                 'selectedWidth': selectedWidth,
@@ -2150,14 +1845,10 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                 'selectedSampleMtr': selectedSampleMtr,
               });
             } else {
-              // In new mode, save order and navigate to textile_details
-              // Save order to Hive
               await _saveOrderToHive();
 
-              // Notify that orders have been updated
               OrderService().notifyOrderUpdated();
 
-              // Navigate to TextileDetailsPage with all selected values
               final result = await Navigator.push<Map<String, dynamic>>(
                 context,
                 MaterialPageRoute(
@@ -2174,7 +1865,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
                 ),
               );
 
-              // If user clicked "Edit Defaults", update the values here
               if (result != null && result['isEditMode'] != true) {
                 setState(() {
                   ofType = result['ofType'] ?? ofType;
@@ -2192,7 +1882,6 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
               }
             }
           } else {
-            // Show error message if party is not selected
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Please select a party name'),

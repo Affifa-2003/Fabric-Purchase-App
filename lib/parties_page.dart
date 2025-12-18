@@ -393,7 +393,7 @@ class _PartiesPageState extends State<PartiesPage> {
                                     ),
                                   ),
                                   title: Text(
-                                    '${party['name']} (${party['code']})',
+                                    '${party['name']}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontSize: 16,

@@ -14,51 +14,61 @@ class QualityService {
       }
 
       final box = Hive.box('appData');
-      
+
       final qualitiesData = box.get('qualities');
       List<Map<String, dynamic>> qualities = [];
-      
+
       if (qualitiesData != null) {
         if (qualitiesData is List) {
-          qualities = qualitiesData.map((item) {
-            if (item is Map) {
-              // Ensure all values have the correct types
-              Map<String, dynamic> qualityMap = Map<String, dynamic>.from(item);
-              
-              // Ensure product is a string and not empty
-              if (qualityMap['product'] is! String || qualityMap['product'].toString().trim().isEmpty) {
-                // Skip items without a valid product name
+          qualities = qualitiesData
+              .map((item) {
+                if (item is Map) {
+                  // Ensure all values have the correct types
+                  Map<String, dynamic> qualityMap = Map<String, dynamic>.from(
+                    item,
+                  );
+
+                  // Ensure product is a string and not empty
+                  if (qualityMap['product'] is! String ||
+                      qualityMap['product'].toString().trim().isEmpty) {
+                    // Skip items without a valid product name
+                    return null;
+                  }
+
+                  // Ensure quality is a string
+                  if (qualityMap['quality'] is! String) {
+                    qualityMap['quality'] =
+                        qualityMap['quality']?.toString() ?? '';
+                  }
+
+                  // Ensure code is a string
+                  if (qualityMap['code'] is! String) {
+                    qualityMap['code'] = qualityMap['code']?.toString() ?? '';
+                  }
+
+                  // Ensure description is a string
+                  if (qualityMap['description'] is! String) {
+                    qualityMap['description'] =
+                        qualityMap['description']?.toString() ?? '';
+                  }
+
+                  // Ensure status is a string and default to 'Active'
+                  if (qualityMap['status'] is! String ||
+                      qualityMap['status'].toString().trim().isEmpty) {
+                    qualityMap['status'] = 'Active';
+                  }
+
+                  return qualityMap;
+                }
+                // Skip invalid items
                 return null;
-              }
-              
-              // Ensure quality is a string
-              if (qualityMap['quality'] is! String) {
-                qualityMap['quality'] = qualityMap['quality']?.toString() ?? '';
-              }
-              
-              // Ensure code is a string
-              if (qualityMap['code'] is! String) {
-                qualityMap['code'] = qualityMap['code']?.toString() ?? '';
-              }
-              
-              // Ensure description is a string
-              if (qualityMap['description'] is! String) {
-                qualityMap['description'] = qualityMap['description']?.toString() ?? '';
-              }
-              
-              // Ensure status is a string and default to 'Active'
-              if (qualityMap['status'] is! String || qualityMap['status'].toString().trim().isEmpty) {
-                qualityMap['status'] = 'Active';
-              }
-              
-              return qualityMap;
-            }
-            // Skip invalid items
-            return null;
-          }).where((item) => item != null).cast<Map<String, dynamic>>().toList();
+              })
+              .where((item) => item != null)
+              .cast<Map<String, dynamic>>()
+              .toList();
         }
       }
-      
+
       return qualities;
     } catch (e) {
       print('Error getting qualities: $e');
@@ -66,7 +76,13 @@ class QualityService {
     }
   }
 
-  Future<void> addQuality(String product, String quality, {String? code, String? description, String? status}) async {
+  Future<void> addQuality(
+    String product,
+    String quality, {
+    String? code,
+    String? description,
+    String? status,
+  }) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -74,31 +90,33 @@ class QualityService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing qualities
       List<Map<String, dynamic>> qualities = await getQualities();
-      
+
       // Check if this quality already exists for this product
-      bool exists = qualities.any((q) => 
-        q['product'] == product && q['quality'] == quality);
-      
+      bool exists = qualities.any(
+        (q) => q['product'] == product && q['quality'] == quality,
+      );
+
       if (exists) {
         throw Exception('This quality already exists for the selected product');
       }
-      
+
       // Add new quality
       qualities.insert(0, {
         'product': product,
         'quality': quality,
         'code': code ?? '', // Default to empty string if not provided
-        'description': description ?? '', // Default to empty string if not provided
+        'description':
+            description ?? '', // Default to empty string if not provided
         'status': status ?? 'Active', // Default to 'Active' if not provided
       });
-      
+
       // Save to Hive
       await box.put('qualities', qualities);
       await box.flush();
-      
+
       print('Quality added successfully');
     } catch (e) {
       print('Error adding quality: $e');
@@ -106,7 +124,15 @@ class QualityService {
     }
   }
 
-  Future<void> updateQuality(String oldProduct, String oldQuality, String newProduct, String newQuality, {String? code, String? description, String? status}) async {
+  Future<void> updateQuality(
+    String oldProduct,
+    String oldQuality,
+    String newProduct,
+    String newQuality, {
+    String? code,
+    String? description,
+    String? status,
+  }) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -114,40 +140,50 @@ class QualityService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing qualities
       List<Map<String, dynamic>> qualities = await getQualities();
-      
+
       // Find the index of the quality to update
-      int index = qualities.indexWhere((q) => 
-        q['product'] == oldProduct && q['quality'] == oldQuality);
-      
+      int index = qualities.indexWhere(
+        (q) => q['product'] == oldProduct && q['quality'] == oldQuality,
+      );
+
       if (index == -1) {
         throw Exception('Quality not found');
       }
-      
+
       // Check if this quality already exists for this product (excluding current entry)
-      bool exists = qualities.any((q) => 
-        q['product'] == newProduct && q['quality'] == newQuality && 
-        (q['product'] != oldProduct || q['quality'] != oldQuality));
-      
+      bool exists = qualities.any(
+        (q) =>
+            q['product'] == newProduct &&
+            q['quality'] == newQuality &&
+            (q['product'] != oldProduct || q['quality'] != oldQuality),
+      );
+
       if (exists) {
         throw Exception('This quality already exists for the selected product');
       }
-      
+
       // Update quality
       qualities[index] = {
         'product': newProduct,
         'quality': newQuality,
-        'code': code ?? qualities[index]['code'], // Use existing code if not provided
-        'description': description ?? qualities[index]['description'], // Use existing description if not provided
-        'status': status ?? qualities[index]['status'], // Use existing status if not provided
+        'code':
+            code ??
+            qualities[index]['code'], // Use existing code if not provided
+        'description':
+            description ??
+            qualities[index]['description'], // Use existing description if not provided
+        'status':
+            status ??
+            qualities[index]['status'], // Use existing status if not provided
       };
-      
+
       // Save to Hive
       await box.put('qualities', qualities);
       await box.flush();
-      
+
       print('Quality updated successfully');
     } catch (e) {
       print('Error updating quality: $e');
@@ -163,17 +199,19 @@ class QualityService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing qualities
       List<Map<String, dynamic>> qualities = await getQualities();
-      
+
       // Remove quality
-      qualities.removeWhere((q) => q['product'] == product && q['quality'] == quality);
-      
+      qualities.removeWhere(
+        (q) => q['product'] == product && q['quality'] == quality,
+      );
+
       // Save to Hive
       await box.put('qualities', qualities);
       await box.flush();
-      
+
       print('Quality deleted successfully');
     } catch (e) {
       print('Error deleting quality: $e');

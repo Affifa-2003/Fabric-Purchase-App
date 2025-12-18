@@ -36,7 +36,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize width field
     if (widget.isEditMode && widget.initialWidth != null) {
       // If initialWidth is a string, use it directly
@@ -47,23 +47,23 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
         widthController.text = widget.initialWidth?.toString() ?? '';
       }
     }
-    
+
     // Initialize product field
     if (widget.isEditMode && widget.initialProduct != null) {
       // Set the selected product value
       selectedProductValue = widget.initialProduct;
-      
+
       // If we're not using dropdown (no active products), set the text field
       if (widget.activeProducts == null || widget.activeProducts!.isEmpty) {
         productController.text = widget.initialProduct!;
       }
     }
-    
+
     // Initialize description field
     if (widget.isEditMode && widget.initialDescription != null) {
       descriptionController.text = widget.initialDescription!;
     }
-    
+
     // Initialize status field
     if (widget.isEditMode && widget.initialStatus != null) {
       selectedStatus = widget.initialStatus!;
@@ -82,9 +82,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       // Set constraints to make dialog responsive
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
@@ -160,7 +158,9 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                           DropdownButtonFormField<String>(
                             value: selectedProductValue,
                             decoration: InputDecoration(
-                              hintText: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                              hintText:
+                                  widget.activeProducts != null &&
+                                      widget.activeProducts!.isNotEmpty
                                   ? 'Select a product'
                                   : 'No products available',
                               border: const OutlineInputBorder(),
@@ -169,11 +169,15 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                                 vertical: 8,
                               ),
                               filled: true,
-                              fillColor: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                              fillColor:
+                                  widget.activeProducts != null &&
+                                      widget.activeProducts!.isNotEmpty
                                   ? Colors.white
                                   : Colors.grey[100],
                             ),
-                            items: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            items:
+                                widget.activeProducts != null &&
+                                    widget.activeProducts!.isNotEmpty
                                 ? widget.activeProducts!.map((product) {
                                     return DropdownMenuItem<String>(
                                       value: product['name'],
@@ -181,7 +185,9 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                                     );
                                   }).toList()
                                 : [], // Empty list when no products
-                            onChanged: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            onChanged:
+                                widget.activeProducts != null &&
+                                    widget.activeProducts!.isNotEmpty
                                 ? (value) {
                                     setState(() {
                                       selectedProductValue = value;
@@ -189,7 +195,9 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                                   }
                                 : null, // Disable when no products
                             isExpanded: true,
-                            icon: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            icon:
+                                widget.activeProducts != null &&
+                                    widget.activeProducts!.isNotEmpty
                                 ? const Icon(Icons.arrow_drop_down)
                                 : null, // Hide dropdown icon when disabled
                           ),
@@ -197,7 +205,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Width Field
                     Container(
                       decoration: BoxDecoration(
@@ -223,7 +231,8 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                             inputFormatters: [
                               NoLeadingOrMultipleSpacesFormatter(),
                             ],
-                            keyboardType: TextInputType.number, // Only allow integers
+                            keyboardType:
+                                TextInputType.number, // Only allow integers
                             decoration: const InputDecoration(
                               hintText: 'e.g. 72',
                               border: OutlineInputBorder(),
@@ -237,7 +246,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Description Field
                     Container(
                       decoration: BoxDecoration(
@@ -270,7 +279,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Status Field
                     Container(
                       decoration: BoxDecoration(
@@ -353,7 +362,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
 
             // Horizontal divider
             const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-            
+
             // Buttons - Fixed at bottom
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -383,17 +392,22 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                        color:
+                            widget.activeProducts != null &&
+                                widget.activeProducts!.isNotEmpty
                             ? const Color(0xFF10B981)
-                            : Colors.grey[400], // Grey out button when no products
+                            : Colors
+                                  .grey[400], // Grey out button when no products
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: TextButton(
-                        onPressed: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                        onPressed:
+                            widget.activeProducts != null &&
+                                widget.activeProducts!.isNotEmpty
                             ? () async {
                                 // Get product name from dropdown
                                 String productName = selectedProductValue ?? '';
-                                
+
                                 // Validate required fields
                                 if (productName.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -404,7 +418,7 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                                   );
                                   return;
                                 }
-                                
+
                                 if (widthController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -414,24 +428,29 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                                   );
                                   return;
                                 }
-                                
+
                                 // Parse width value as integer
-                                int? widthValue = int.tryParse(widthController.text.trim());
+                                int? widthValue = int.tryParse(
+                                  widthController.text.trim(),
+                                );
                                 if (widthValue == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Please enter a valid width value'),
+                                      content: Text(
+                                        'Please enter a valid width value',
+                                      ),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
                                   return;
                                 }
-                                
+
                                 // Return the width data to caller
                                 Navigator.pop(context, {
                                   'product': productName,
                                   'width': widthValue, // This is now an integer
-                                  'description': descriptionController.text.trim(),
+                                  'description': descriptionController.text
+                                      .trim(),
                                   'status': selectedStatus,
                                 });
                               }

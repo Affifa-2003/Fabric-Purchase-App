@@ -39,39 +39,39 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize weave type field
     if (widget.isEditMode && widget.initialWeaveType != null) {
       weaveTypeController.text = widget.initialWeaveType!;
     }
-    
+
     // Initialize code field
     if (widget.isEditMode && widget.initialCode != null) {
       codeController.text = widget.initialCode!;
     }
-    
+
     // Initialize description field
     if (widget.isEditMode && widget.initialDescription != null) {
       descriptionController.text = widget.initialDescription!;
     }
-    
+
     // Initialize status field
     if (widget.isEditMode && widget.initialStatus != null) {
       selectedStatus = widget.initialStatus!;
     }
-    
+
     // Initialize product field
     if (widget.isEditMode && widget.initialProduct != null) {
       // Set the selected product value
       selectedProductValue = widget.initialProduct;
-      
+
       // If we're not using dropdown (no active products), set the text field
       if (widget.activeProducts == null || widget.activeProducts!.isEmpty) {
         productController.text = widget.initialProduct!;
       }
     }
   }
- 
+
   @override
   void dispose() {
     weaveTypeController.dispose();
@@ -85,9 +85,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: const Color(0xFFFFFFFF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       // Set constraints to make dialog responsive
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
@@ -163,7 +161,9 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                           DropdownButtonFormField<String>(
                             value: selectedProductValue,
                             decoration: InputDecoration(
-                              hintText: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                              hintText:
+                                  widget.activeProducts != null &&
+                                      widget.activeProducts!.isNotEmpty
                                   ? 'Select a product'
                                   : 'No products available',
                               border: const OutlineInputBorder(),
@@ -172,11 +172,15 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                 vertical: 8,
                               ),
                               filled: true,
-                              fillColor: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                              fillColor:
+                                  widget.activeProducts != null &&
+                                      widget.activeProducts!.isNotEmpty
                                   ? Colors.white
                                   : Colors.grey[100],
                             ),
-                            items: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            items:
+                                widget.activeProducts != null &&
+                                    widget.activeProducts!.isNotEmpty
                                 ? widget.activeProducts!.map((product) {
                                     return DropdownMenuItem<String>(
                                       value: product['name'],
@@ -184,7 +188,9 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                     );
                                   }).toList()
                                 : [], // Empty list when no products
-                            onChanged: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            onChanged:
+                                widget.activeProducts != null &&
+                                    widget.activeProducts!.isNotEmpty
                                 ? (value) {
                                     setState(() {
                                       selectedProductValue = value;
@@ -192,7 +198,9 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                   }
                                 : null, // Disable when no products
                             isExpanded: true,
-                            icon: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                            icon:
+                                widget.activeProducts != null &&
+                                    widget.activeProducts!.isNotEmpty
                                 ? const Icon(Icons.arrow_drop_down)
                                 : null, // Hide dropdown icon when disabled
                           ),
@@ -200,7 +208,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Code Field
                     Container(
                       decoration: BoxDecoration(
@@ -239,7 +247,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Weave Type Name Field
                     Container(
                       decoration: BoxDecoration(
@@ -278,7 +286,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Description Field
                     Container(
                       decoration: BoxDecoration(
@@ -311,7 +319,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Status Field
                     Container(
                       decoration: BoxDecoration(
@@ -394,7 +402,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
 
             // Horizontal divider
             const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-            
+
             // Buttons - Fixed at bottom
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -424,17 +432,22 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                        color:
+                            widget.activeProducts != null &&
+                                widget.activeProducts!.isNotEmpty
                             ? const Color(0xFF10B981)
-                            : Colors.grey[400], // Grey out button when no products
+                            : Colors
+                                  .grey[400], // Grey out button when no products
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: TextButton(
-                        onPressed: widget.activeProducts != null && widget.activeProducts!.isNotEmpty
+                        onPressed:
+                            widget.activeProducts != null &&
+                                widget.activeProducts!.isNotEmpty
                             ? () async {
                                 // Get product name from dropdown
                                 String productName = selectedProductValue ?? '';
-                                
+
                                 // Validate required fields
                                 if (productName.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -445,7 +458,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                   );
                                   return;
                                 }
-                                
+
                                 if (codeController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -455,13 +468,14 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                   );
                                   return;
                                 }
-                                
+
                                 // Return the weave type data to caller
                                 Navigator.pop(context, {
                                   'product': productName,
                                   'code': codeController.text.trim(),
                                   'name': weaveTypeController.text.trim(),
-                                  'description': descriptionController.text.trim(),
+                                  'description': descriptionController.text
+                                      .trim(),
                                   'status': selectedStatus,
                                 });
                               }

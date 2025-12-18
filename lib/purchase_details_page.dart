@@ -24,14 +24,15 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   late StreamSubscription<void> _orderUpdateSubscription;
 
   @override
-void initState() {
-  super.initState();
-  _loadPartyData();
-  // Listen for OrderService updates so this page reloads when designs/orders change
-  _orderUpdateSubscription = OrderService().orderUpdateStream.listen((_) {
-    _loadCapturedDesigns();
-  });
-}
+  void initState() {
+    super.initState();
+    _loadPartyData();
+    // Listen for OrderService updates so this page reloads when designs/orders change
+    _orderUpdateSubscription = OrderService().orderUpdateStream.listen((_) {
+      _loadCapturedDesigns();
+    });
+  }
+
   @override
   void dispose() {
     _orderUpdateSubscription.cancel();
@@ -39,82 +40,85 @@ void initState() {
   }
 
   Future<void> _loadPartyData() async {
-  try {
-    // Only load from Hive, no JSON loading
-    await _ensureAllTextileTypes(); // Add this line
-    await _loadCapturedDesigns();
+    try {
+      // Only load from Hive, no JSON loading
+      await _ensureAllTextileTypes(); // Add this line
+      await _loadCapturedDesigns();
 
-    // Create a default structure for all parties
-    setState(() {
-      partyData = {
-        'summary': {'d': 0, 'ch': 0, 'mtr': 0},
-        'textiles': [],
-      };
-      _isLoading = false;
-    });
-  } catch (e) {
-    print('Error loading party data: $e');
-    // Fallback to default data if loading fails
-    setState(() {
-      partyData = {
-        'summary': {'d': 0, 'ch': 0, 'mtr': 0},
-        'textiles': [],
-      };
-      _isLoading = false;
-    });
-  }
-}
-  Future<void> _ensureAllTextileTypes() async {
-  try {
-    if (!Hive.isBoxOpen('designs')) {
-      await Hive.openBox('designs');
+      // Create a default structure for all parties
+      setState(() {
+        partyData = {
+          'summary': {'d': 0, 'ch': 0, 'mtr': 0},
+          'textiles': [],
+        };
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading party data: $e');
+      // Fallback to default data if loading fails
+      setState(() {
+        partyData = {
+          'summary': {'d': 0, 'ch': 0, 'mtr': 0},
+          'textiles': [],
+        };
+        _isLoading = false;
+      });
     }
+  }
 
-    final box = Hive.box('designs');
-    
-    // Get all textile types for this party
-    Set<String> textileTypes = {};
-    for (var key in box.keys) {
-      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-        // Extract textile type from key (format: designs_partyName_textileType)
-        final parts = key.split('_');
-        if (parts.length >= 3) {
-          textileTypes.add(parts.sublist(2).join('_')); // Join remaining parts in case textile type has underscores
+  Future<void> _ensureAllTextileTypes() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
+
+      final box = Hive.box('designs');
+
+      // Get all textile types for this party
+      Set<String> textileTypes = {};
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          // Extract textile type from key (format: designs_partyName_textileType)
+          final parts = key.split('_');
+          if (parts.length >= 3) {
+            textileTypes.add(
+              parts.sublist(2).join('_'),
+            ); // Join remaining parts in case textile type has underscores
+          }
         }
       }
-    }
-    
-    // Ensure all textile types have at least one design entry
-    for (var type in textileTypes) {
-      final key = 'designs_${widget.partyName}_$type';
-      final designs = box.get(key);
-      
-      if (designs == null || (designs is List && designs.isEmpty)) {
-        // Create a placeholder design if none exists
-        await box.put(key, [
-          {
-            'sNo': 1,
-            'designNo': '-',
-            'choices': 0,
-            'meters': 0,
-            'mode': 'Design',
-            'timestamp': DateTime.now().toIso8601String(),
-            'ofType': type,
-            'weave': '',
-            'quality': '',
-            'width': '58"',
-            'ref': '-',
-            'photos': [],
-          }
-        ]);
+
+      // Ensure all textile types have at least one design entry
+      for (var type in textileTypes) {
+        final key = 'designs_${widget.partyName}_$type';
+        final designs = box.get(key);
+
+        if (designs == null || (designs is List && designs.isEmpty)) {
+          // Create a placeholder design if none exists
+          await box.put(key, [
+            {
+              'sNo': 1,
+              'designNo': '-',
+              'choices': 0,
+              'meters': 0,
+              'mode': 'Design',
+              'timestamp': DateTime.now().toIso8601String(),
+              'ofType': type,
+              'weave': '',
+              'quality': '',
+              'width': '58"',
+              'ref': '-',
+              'photos': [],
+            },
+          ]);
+        }
       }
+
+      await box.flush();
+    } catch (e) {
+      print('Error ensuring all textile types: $e');
     }
-    
-    await box.flush();
-  } catch (e) {
-    print('Error ensuring all textile types: $e');
   }
-}
 
   Future<void> _loadCapturedDesigns() async {
     try {
@@ -149,10 +153,10 @@ void initState() {
           groupedDesigns[type]!.add(design);
         }
       });
-      
+
       // Update the orders box with the correct count
       await _updateOrdersCount();
-      
+
       // print('Loaded ${capturedDesigns.length} captured designs from Hive');
     } catch (e) {
       print('Error loading captured designs: $e');
@@ -164,44 +168,44 @@ void initState() {
       if (!Hive.isBoxOpen('orders')) {
         await Hive.openBox('orders');
       }
-      
+
       final ordersBox = Hive.box('orders');
-      
+
       // Find the order for this party
       final existingOrder = ordersBox.values.firstWhere(
         (order) => order['party'] == widget.partyName,
         orElse: () => null,
       );
-      
+
       if (existingOrder != null) {
         // Create a set to track unique textile types
         Set<String> uniqueTextileTypes = {};
-        
+
         // Find all unique textile types for this party
         for (var design in capturedDesigns) {
           // Check if the design has meaningful data
-          if (design['ofType'] != null && 
+          if (design['ofType'] != null &&
               design['ofType'].toString().isNotEmpty &&
-              design['width'] != null && 
+              design['width'] != null &&
               design['width'].toString().isNotEmpty) {
             // Add the textile type to our set
             uniqueTextileTypes.add(design['ofType']);
           }
         }
-        
+
         // The order count is the number of unique textile types
         existingOrder['orders'] = uniqueTextileTypes.length;
-        
+
         // Update status based on orders count
         if (uniqueTextileTypes.length > 0) {
           existingOrder['status'] = 'mixed';
         } else {
           existingOrder['status'] = 'pending';
         }
-        
+
         // Save the updated order
         await ordersBox.put(existingOrder['party'], existingOrder);
-        
+
         // Notify listeners that orders have been updated
         OrderService().notifyOrderUpdated();
       }
@@ -306,17 +310,20 @@ void initState() {
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        TextileDetailsPage(
-                                          partyName: widget.partyName,
-                                          textileType: d['ofType'] ?? '',
-                                          selectedWidth: d['width'] ?? '58"',
-                                          defaultChoices: (d['choices'] is num) ? (d['choices'] as num).toInt() : 2, // Safe cast
-                                          defaultMeters: (d['meters'] is num) ? (d['meters'] as num).toInt() : 100, // Safe cast
-                                          sampleRequired: 'Yes',
-                                          selectedSampleMtr: null,
-                                          lockOFType: true,
-                                        ),
+                                    builder: (context) => TextileDetailsPage(
+                                      partyName: widget.partyName,
+                                      textileType: d['ofType'] ?? '',
+                                      selectedWidth: d['width'] ?? '58"',
+                                      defaultChoices: (d['choices'] is num)
+                                          ? (d['choices'] as num).toInt()
+                                          : 2, // Safe cast
+                                      defaultMeters: (d['meters'] is num)
+                                          ? (d['meters'] as num).toInt()
+                                          : 100, // Safe cast
+                                      sampleRequired: 'Yes',
+                                      selectedSampleMtr: null,
+                                      lockOFType: true,
+                                    ),
                                   ),
                                 );
                               }
@@ -324,8 +331,7 @@ void initState() {
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     mainAxisAlignment:
@@ -356,9 +362,7 @@ void initState() {
                                                       fontSize: 16,
                                                       fontWeight:
                                                           FontWeight.bold,
-                                                      color: Color(
-                                                        0xFF1F2937,
-                                                      ),
+                                                      color: Color(0xFF1F2937),
                                                     ),
                                                   ),
                                                 ],
@@ -392,9 +396,13 @@ void initState() {
                                     for (var d in designs) {
                                       totalDesigns += 1;
                                       // Safe cast for choices
-                                      totalChoices += (d['choices'] is num) ? (d['choices'] as num).toInt() : 0;
+                                      totalChoices += (d['choices'] is num)
+                                          ? (d['choices'] as num).toInt()
+                                          : 0;
                                       // Safe cast for meters
-                                      totalMeters += (d['meters'] is num) ? (d['meters'] as num).toInt() : 0;
+                                      totalMeters += (d['meters'] is num)
+                                          ? (d['meters'] as num).toInt()
+                                          : 0;
                                     }
 
                                     return [
@@ -438,7 +446,7 @@ void initState() {
                           ),
                         );
                       }).toList(),
-                      
+
                       // Show a message if no designs are found
                       if (groupedDesigns.isEmpty)
                         Container(
@@ -494,7 +502,8 @@ void initState() {
       final m = d['meters'];
       if (m is int) {
         totalMeters += m;
-      } else if (m is double) { // Corrected condition
+      } else if (m is double) {
+        // Corrected condition
         totalMeters += m.toInt();
       } else {
         totalMeters += int.tryParse(m?.toString() ?? '0') ?? 0;
@@ -530,6 +539,7 @@ void initState() {
       ),
     );
   }
+
   Widget _buildSummaryItem(
     String label,
     String value, {

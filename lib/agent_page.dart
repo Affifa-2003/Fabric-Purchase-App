@@ -25,7 +25,7 @@ class _AgentsPageState extends State<AgentsPage> {
   bool _isLoading = true;
   late Box appDataBox;
   TextEditingController _searchController = TextEditingController();
-  
+
   // Focus nodes for mobile number fields
   List<FocusNode> _mobileFocusNodes = [];
 
@@ -60,12 +60,12 @@ class _AgentsPageState extends State<AgentsPage> {
   bool _validateMobileNumber(String mobile) {
     // Remove any non-digit characters
     String digitsOnly = mobile.replaceAll(RegExp(r'[^\d]'), '');
-    
+
     // Check if it's exactly 10 digits and starts with 6-9
     if (digitsOnly.length != 10) {
       return false;
     }
-    
+
     // Check if first digit is between 6 and 9
     int firstDigit = int.parse(digitsOnly[0]);
     return firstDigit >= 6 && firstDigit <= 9;
@@ -482,10 +482,14 @@ class _AgentsPageState extends State<AgentsPage> {
                                 hintText: 'e.g. John Smith',
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _nameError ? Colors.red : Colors.grey,
+                                    color: _nameError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _nameError ? 'Agent name is required' : null,
+                                errorText: _nameError
+                                    ? 'Agent name is required'
+                                    : null,
                               ),
                               onChanged: (value) {
                                 setDialogState(() {
@@ -509,10 +513,14 @@ class _AgentsPageState extends State<AgentsPage> {
                                 hintText: 'e.g. JSM',
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _codeError ? Colors.red : Colors.grey,
+                                    color: _codeError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _codeError ? 'Agent code is required' : null,
+                                errorText: _codeError
+                                    ? 'Agent code is required'
+                                    : null,
                               ),
                               onChanged: (value) {
                                 setDialogState(() {
@@ -562,13 +570,16 @@ class _AgentsPageState extends State<AgentsPage> {
                                         hintText: 'e.g. 9876543210',
                                         border: OutlineInputBorder(
                                           borderSide: BorderSide(
-                                            color: _mobileErrors[index] ? Colors.red : Colors.grey,
+                                            color: _mobileErrors[index]
+                                                ? Colors.red
+                                                : Colors.grey,
                                           ),
                                         ),
                                         errorText: _mobileErrors[index]
                                             ? 'Mobile number must start with 6, 7, 8, or 9'
                                             : null,
-                                        suffixIcon: index == mobileNumbers.length - 1
+                                        suffixIcon:
+                                            index == mobileNumbers.length - 1
                                             ? IconButton(
                                                 icon: const Icon(
                                                   Icons.add_circle,
@@ -577,9 +588,13 @@ class _AgentsPageState extends State<AgentsPage> {
                                                 onPressed: () {
                                                   setDialogState(() {
                                                     mobileNumbers.add('');
-                                                    mobileControllers.add(TextEditingController());
+                                                    mobileControllers.add(
+                                                      TextEditingController(),
+                                                    );
                                                     _mobileErrors.add(false);
-                                                    _mobileFocusNodes.add(FocusNode());
+                                                    _mobileFocusNodes.add(
+                                                      FocusNode(),
+                                                    );
                                                   });
                                                 },
                                               )
@@ -590,11 +605,20 @@ class _AgentsPageState extends State<AgentsPage> {
                                                 ),
                                                 onPressed: () {
                                                   setDialogState(() {
-                                                    if (mobileNumbers.length > 1) {
-                                                      mobileNumbers.removeAt(index);
-                                                      mobileControllers.removeAt(index).dispose();
-                                                      _mobileErrors.removeAt(index);
-                                                      _mobileFocusNodes.removeAt(index).dispose();
+                                                    if (mobileNumbers.length >
+                                                        1) {
+                                                      mobileNumbers.removeAt(
+                                                        index,
+                                                      );
+                                                      mobileControllers
+                                                          .removeAt(index)
+                                                          .dispose();
+                                                      _mobileErrors.removeAt(
+                                                        index,
+                                                      );
+                                                      _mobileFocusNodes
+                                                          .removeAt(index)
+                                                          .dispose();
                                                     }
                                                   });
                                                 },
@@ -603,7 +627,10 @@ class _AgentsPageState extends State<AgentsPage> {
                                       onChanged: (value) {
                                         mobileNumbers[index] = value;
                                         // Only update error state, don't trigger full rebuild
-                                        if (value.trim().isNotEmpty && !_validateMobileNumber(value.trim())) {
+                                        if (value.trim().isNotEmpty &&
+                                            !_validateMobileNumber(
+                                              value.trim(),
+                                            )) {
                                           if (!_mobileErrors[index]) {
                                             setDialogState(() {
                                               _mobileErrors[index] = true;
@@ -635,14 +662,20 @@ class _AgentsPageState extends State<AgentsPage> {
                                 hintText: 'e.g. john@example.com',
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _emailError ? Colors.red : Colors.grey,
+                                    color: _emailError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _emailError ? 'Please enter a valid email address' : null,
+                                errorText: _emailError
+                                    ? 'Please enter a valid email address'
+                                    : null,
                               ),
                               onChanged: (value) {
                                 setDialogState(() {
-                                  _emailError = value.trim().isEmpty || !_isValidEmail(value.trim());
+                                  _emailError =
+                                      value.trim().isEmpty ||
+                                      !_isValidEmail(value.trim());
                                 });
                               },
                             ),
@@ -704,10 +737,14 @@ class _AgentsPageState extends State<AgentsPage> {
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _agentTypeError ? Colors.red : Colors.grey,
+                                    color: _agentTypeError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _agentTypeError ? 'Agent type is required' : null,
+                                errorText: _agentTypeError
+                                    ? 'Agent type is required'
+                                    : null,
                               ),
                             ),
                           ),
@@ -736,10 +773,14 @@ class _AgentsPageState extends State<AgentsPage> {
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _gradeError ? Colors.red : Colors.grey,
+                                    color: _gradeError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _gradeError ? 'Grade is required' : null,
+                                errorText: _gradeError
+                                    ? 'Grade is required'
+                                    : null,
                               ),
                             ),
                           ),
@@ -767,10 +808,14 @@ class _AgentsPageState extends State<AgentsPage> {
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _statusError ? Colors.red : Colors.grey,
+                                    color: _statusError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _statusError ? 'Status is required' : null,
+                                errorText: _statusError
+                                    ? 'Status is required'
+                                    : null,
                               ),
                             ),
                           ),
@@ -846,9 +891,13 @@ class _AgentsPageState extends State<AgentsPage> {
                               onPressed: () async {
                                 // Validate all fields
                                 setDialogState(() {
-                                  _nameError = nameController.text.trim().isEmpty;
-                                  _codeError = codeController.text.trim().isEmpty;
-                                  
+                                  _nameError = nameController.text
+                                      .trim()
+                                      .isEmpty;
+                                  _codeError = codeController.text
+                                      .trim()
+                                      .isEmpty;
+
                                   // Validate mobile numbers
                                   bool hasValidMobileNumber = mobileNumbers.any(
                                     (number) => number.trim().isNotEmpty,
@@ -856,22 +905,37 @@ class _AgentsPageState extends State<AgentsPage> {
                                   if (!hasValidMobileNumber) {
                                     _mobileErrors[0] = true;
                                   } else {
-                                    for (int i = 0; i < mobileNumbers.length; i++) {
-                                      _mobileErrors[i] = mobileNumbers[i].trim().isNotEmpty && 
-                                          !_validateMobileNumber(mobileNumbers[i].trim());
+                                    for (
+                                      int i = 0;
+                                      i < mobileNumbers.length;
+                                      i++
+                                    ) {
+                                      _mobileErrors[i] =
+                                          mobileNumbers[i].trim().isNotEmpty &&
+                                          !_validateMobileNumber(
+                                            mobileNumbers[i].trim(),
+                                          );
                                     }
                                   }
-                                  
-                                  _emailError = emailController.text.trim().isEmpty || 
-                                      !_isValidEmail(emailController.text.trim());
+
+                                  _emailError =
+                                      emailController.text.trim().isEmpty ||
+                                      !_isValidEmail(
+                                        emailController.text.trim(),
+                                      );
                                   _agentTypeError = selectedAgentType == null;
                                   _gradeError = selectedGrade == null;
                                   _statusError = selectedStatus == null;
                                 });
 
                                 // Check if there are any errors
-                                if (_nameError || _codeError || _mobileErrors.any((error) => error) || 
-                                    _emailError || _agentTypeError || _gradeError || _statusError) {
+                                if (_nameError ||
+                                    _codeError ||
+                                    _mobileErrors.any((error) => error) ||
+                                    _emailError ||
+                                    _agentTypeError ||
+                                    _gradeError ||
+                                    _statusError) {
                                   return;
                                 }
 
@@ -883,7 +947,9 @@ class _AgentsPageState extends State<AgentsPage> {
                                 // Create new agent object
                                 final newAgent = {
                                   'name': nameController.text.trim(),
-                                  'code': codeController.text.trim().toUpperCase(),
+                                  'code': codeController.text
+                                      .trim()
+                                      .toUpperCase(),
                                   'mobileNumbers': validMobileNumbers,
                                   'email': emailController.text.trim(),
                                   'state': stateController.text.trim(),
@@ -970,7 +1036,10 @@ class _AgentsPageState extends State<AgentsPage> {
     bool _statusError = false;
 
     // Initialize focus nodes for existing mobile numbers
-    _mobileFocusNodes = List.generate(mobileNumbers.length, (index) => FocusNode());
+    _mobileFocusNodes = List.generate(
+      mobileNumbers.length,
+      (index) => FocusNode(),
+    );
 
     showDialog(
       context: context,
@@ -1046,10 +1115,14 @@ class _AgentsPageState extends State<AgentsPage> {
                                 hintText: 'e.g. John Smith',
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _nameError ? Colors.red : Colors.grey,
+                                    color: _nameError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _nameError ? 'Agent name is required' : null,
+                                errorText: _nameError
+                                    ? 'Agent name is required'
+                                    : null,
                               ),
                               onChanged: (value) {
                                 setDialogState(() {
@@ -1073,10 +1146,14 @@ class _AgentsPageState extends State<AgentsPage> {
                                 hintText: 'e.g. JSM',
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _codeError ? Colors.red : Colors.grey,
+                                    color: _codeError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _codeError ? 'Agent code is required' : null,
+                                errorText: _codeError
+                                    ? 'Agent code is required'
+                                    : null,
                               ),
                               onChanged: (value) {
                                 setDialogState(() {
@@ -1121,13 +1198,16 @@ class _AgentsPageState extends State<AgentsPage> {
                                         hintText: 'e.g. 9876543210',
                                         border: OutlineInputBorder(
                                           borderSide: BorderSide(
-                                            color: _mobileErrors[index] ? Colors.red : Colors.grey,
+                                            color: _mobileErrors[index]
+                                                ? Colors.red
+                                                : Colors.grey,
                                           ),
                                         ),
                                         errorText: _mobileErrors[index]
                                             ? 'Mobile number must start with 6, 7, 8, or 9'
                                             : null,
-                                        suffixIcon: index == mobileNumbers.length - 1
+                                        suffixIcon:
+                                            index == mobileNumbers.length - 1
                                             ? IconButton(
                                                 icon: const Icon(
                                                   Icons.add_circle,
@@ -1136,9 +1216,13 @@ class _AgentsPageState extends State<AgentsPage> {
                                                 onPressed: () {
                                                   setDialogState(() {
                                                     mobileNumbers.add('');
-                                                    mobileControllers.add(TextEditingController());
+                                                    mobileControllers.add(
+                                                      TextEditingController(),
+                                                    );
                                                     _mobileErrors.add(false);
-                                                    _mobileFocusNodes.add(FocusNode());
+                                                    _mobileFocusNodes.add(
+                                                      FocusNode(),
+                                                    );
                                                   });
                                                 },
                                               )
@@ -1149,11 +1233,20 @@ class _AgentsPageState extends State<AgentsPage> {
                                                 ),
                                                 onPressed: () {
                                                   setDialogState(() {
-                                                    if (mobileNumbers.length > 1) {
-                                                      mobileNumbers.removeAt(index);
-                                                      mobileControllers.removeAt(index).dispose();
-                                                      _mobileErrors.removeAt(index);
-                                                      _mobileFocusNodes.removeAt(index).dispose();
+                                                    if (mobileNumbers.length >
+                                                        1) {
+                                                      mobileNumbers.removeAt(
+                                                        index,
+                                                      );
+                                                      mobileControllers
+                                                          .removeAt(index)
+                                                          .dispose();
+                                                      _mobileErrors.removeAt(
+                                                        index,
+                                                      );
+                                                      _mobileFocusNodes
+                                                          .removeAt(index)
+                                                          .dispose();
                                                     }
                                                   });
                                                 },
@@ -1162,7 +1255,10 @@ class _AgentsPageState extends State<AgentsPage> {
                                       onChanged: (value) {
                                         mobileNumbers[index] = value;
                                         // Only update error state, don't trigger full rebuild
-                                        if (value.trim().isNotEmpty && !_validateMobileNumber(value.trim())) {
+                                        if (value.trim().isNotEmpty &&
+                                            !_validateMobileNumber(
+                                              value.trim(),
+                                            )) {
                                           if (!_mobileErrors[index]) {
                                             setDialogState(() {
                                               _mobileErrors[index] = true;
@@ -1194,14 +1290,20 @@ class _AgentsPageState extends State<AgentsPage> {
                                 hintText: 'e.g. john@example.com',
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _emailError ? Colors.red : Colors.grey,
+                                    color: _emailError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _emailError ? 'Please enter a valid email address' : null,
+                                errorText: _emailError
+                                    ? 'Please enter a valid email address'
+                                    : null,
                               ),
                               onChanged: (value) {
                                 setDialogState(() {
-                                  _emailError = value.trim().isEmpty || !_isValidEmail(value.trim());
+                                  _emailError =
+                                      value.trim().isEmpty ||
+                                      !_isValidEmail(value.trim());
                                 });
                               },
                             ),
@@ -1263,10 +1365,14 @@ class _AgentsPageState extends State<AgentsPage> {
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _agentTypeError ? Colors.red : Colors.grey,
+                                    color: _agentTypeError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _agentTypeError ? 'Agent type is required' : null,
+                                errorText: _agentTypeError
+                                    ? 'Agent type is required'
+                                    : null,
                               ),
                             ),
                           ),
@@ -1295,10 +1401,14 @@ class _AgentsPageState extends State<AgentsPage> {
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _gradeError ? Colors.red : Colors.grey,
+                                    color: _gradeError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _gradeError ? 'Grade is required' : null,
+                                errorText: _gradeError
+                                    ? 'Grade is required'
+                                    : null,
                               ),
                             ),
                           ),
@@ -1326,10 +1436,14 @@ class _AgentsPageState extends State<AgentsPage> {
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderSide: BorderSide(
-                                    color: _statusError ? Colors.red : Colors.grey,
+                                    color: _statusError
+                                        ? Colors.red
+                                        : Colors.grey,
                                   ),
                                 ),
-                                errorText: _statusError ? 'Status is required' : null,
+                                errorText: _statusError
+                                    ? 'Status is required'
+                                    : null,
                               ),
                             ),
                           ),
@@ -1405,9 +1519,13 @@ class _AgentsPageState extends State<AgentsPage> {
                               onPressed: () async {
                                 // Validate all fields
                                 setDialogState(() {
-                                  _nameError = nameController.text.trim().isEmpty;
-                                  _codeError = codeController.text.trim().isEmpty;
-                                  
+                                  _nameError = nameController.text
+                                      .trim()
+                                      .isEmpty;
+                                  _codeError = codeController.text
+                                      .trim()
+                                      .isEmpty;
+
                                   // Validate mobile numbers
                                   bool hasValidMobileNumber = mobileNumbers.any(
                                     (number) => number.trim().isNotEmpty,
@@ -1415,22 +1533,37 @@ class _AgentsPageState extends State<AgentsPage> {
                                   if (!hasValidMobileNumber) {
                                     _mobileErrors[0] = true;
                                   } else {
-                                    for (int i = 0; i < mobileNumbers.length; i++) {
-                                      _mobileErrors[i] = mobileNumbers[i].trim().isNotEmpty && 
-                                          !_validateMobileNumber(mobileNumbers[i].trim());
+                                    for (
+                                      int i = 0;
+                                      i < mobileNumbers.length;
+                                      i++
+                                    ) {
+                                      _mobileErrors[i] =
+                                          mobileNumbers[i].trim().isNotEmpty &&
+                                          !_validateMobileNumber(
+                                            mobileNumbers[i].trim(),
+                                          );
                                     }
                                   }
-                                  
-                                  _emailError = emailController.text.trim().isEmpty || 
-                                      !_isValidEmail(emailController.text.trim());
+
+                                  _emailError =
+                                      emailController.text.trim().isEmpty ||
+                                      !_isValidEmail(
+                                        emailController.text.trim(),
+                                      );
                                   _agentTypeError = selectedAgentType == null;
                                   _gradeError = selectedGrade == null;
                                   _statusError = selectedStatus == null;
                                 });
 
                                 // Check if there are any errors
-                                if (_nameError || _codeError || _mobileErrors.any((error) => error) || 
-                                    _emailError || _agentTypeError || _gradeError || _statusError) {
+                                if (_nameError ||
+                                    _codeError ||
+                                    _mobileErrors.any((error) => error) ||
+                                    _emailError ||
+                                    _agentTypeError ||
+                                    _gradeError ||
+                                    _statusError) {
                                   return;
                                 }
 
@@ -1442,7 +1575,9 @@ class _AgentsPageState extends State<AgentsPage> {
                                 // Create updated agent object
                                 final updatedAgent = {
                                   'name': nameController.text.trim(),
-                                  'code': codeController.text.trim().toUpperCase(),
+                                  'code': codeController.text
+                                      .trim()
+                                      .toUpperCase(),
                                   'mobileNumbers': validMobileNumbers,
                                   'email': emailController.text.trim(),
                                   'state': stateController.text.trim(),
@@ -1803,16 +1938,16 @@ class FirstDigitMobileNumberFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     String text = newValue.text;
-    
+
     // If empty, allow
     if (text.isEmpty) {
       return newValue;
     }
-    
+
     // Check first digit
     if (text.length == 1) {
       int firstDigit = int.tryParse(text) ?? 0;
-      
+
       // If first digit is valid (6-9), just allow it
       if (firstDigit >= 6 && firstDigit <= 9) {
         // Don't move focus automatically, just validate
@@ -1823,7 +1958,7 @@ class FirstDigitMobileNumberFormatter extends TextInputFormatter {
         return oldValue; // Return old value to prevent invalid input
       }
     }
-    
+
     // Limit to 10 digits
     if (text.length > 10) {
       return TextEditingValue(
@@ -1831,7 +1966,7 @@ class FirstDigitMobileNumberFormatter extends TextInputFormatter {
         selection: const TextSelection.collapsed(offset: 10),
       );
     }
-    
+
     return newValue;
   }
 }

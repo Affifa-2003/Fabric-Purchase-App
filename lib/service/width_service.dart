@@ -14,57 +14,65 @@ class WidthService {
       }
 
       final box = Hive.box('appData');
-      
+
       final widthsData = box.get('widths');
       List<Map<String, dynamic>> widths = [];
-      
+
       if (widthsData != null) {
         if (widthsData is List) {
-          widths = widthsData.map((item) {
-            if (item is Map) {
-              // Ensure all values have the correct types
-              Map<String, dynamic> widthMap = Map<String, dynamic>.from(item);
-              
-              // Ensure product is a string and not empty
-              if (widthMap['product'] is! String || widthMap['product'].toString().trim().isEmpty) {
-                // Skip items without a valid product name
+          widths = widthsData
+              .map((item) {
+                if (item is Map) {
+                  // Ensure all values have the correct types
+                  Map<String, dynamic> widthMap = Map<String, dynamic>.from(
+                    item,
+                  );
+
+                  // Ensure product is a string and not empty
+                  if (widthMap['product'] is! String ||
+                      widthMap['product'].toString().trim().isEmpty) {
+                    // Skip items without a valid product name
+                    return null;
+                  }
+
+                  // Ensure width is an integer
+                  if (widthMap['width'] is int) {
+                    // Keep as integer
+                  } else if (widthMap['width'] is double) {
+                    widthMap['width'] = (widthMap['width'] as double).toInt();
+                  } else if (widthMap['width'] is String) {
+                    widthMap['width'] = int.tryParse(widthMap['width']) ?? 0;
+                  } else {
+                    widthMap['width'] = 0;
+                  }
+
+                  // Ensure description is a string (can be empty)
+                  if (widthMap['description'] is! String) {
+                    widthMap['description'] = '';
+                  }
+
+                  // Ensure status is a string and default to 'Active' if not set
+                  if (widthMap['status'] is! String ||
+                      widthMap['status'].toString().trim().isEmpty) {
+                    widthMap['status'] = 'Active';
+                  }
+
+                  return widthMap;
+                }
+                // If it's a string (old format), skip it since it doesn't have a product name
+                if (item is String) {
+                  // Skip string items without product names
+                  return null;
+                }
+                // Skip invalid items
                 return null;
-              }
-              
-              // Ensure width is an integer
-              if (widthMap['width'] is int) {
-                // Keep as integer
-              } else if (widthMap['width'] is double) {
-                widthMap['width'] = (widthMap['width'] as double).toInt();
-              } else if (widthMap['width'] is String) {
-                widthMap['width'] = int.tryParse(widthMap['width']) ?? 0;
-              } else {
-                widthMap['width'] = 0;
-              }
-              
-              // Ensure description is a string (can be empty)
-              if (widthMap['description'] is! String) {
-                widthMap['description'] = '';
-              }
-              
-              // Ensure status is a string and default to 'Active' if not set
-              if (widthMap['status'] is! String || widthMap['status'].toString().trim().isEmpty) {
-                widthMap['status'] = 'Active';
-              }
-              
-              return widthMap;
-            }
-            // If it's a string (old format), skip it since it doesn't have a product name
-            if (item is String) {
-              // Skip string items without product names
-              return null;
-            }
-            // Skip invalid items
-            return null;
-          }).where((item) => item != null).cast<Map<String, dynamic>>().toList();
+              })
+              .where((item) => item != null)
+              .cast<Map<String, dynamic>>()
+              .toList();
         }
       }
-      
+
       return widths;
     } catch (e) {
       print('Error getting widths: $e');
@@ -72,7 +80,12 @@ class WidthService {
     }
   }
 
-  Future<void> addWidth(String product, int width, {String? description, String? status}) async {
+  Future<void> addWidth(
+    String product,
+    int width, {
+    String? description,
+    String? status,
+  }) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -80,30 +93,32 @@ class WidthService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing widths
       List<Map<String, dynamic>> widths = await getWidths();
-      
+
       // Check if this width already exists for this product
-      bool exists = widths.any((w) => 
-        w['product'] == product && w['width'] == width);
-      
+      bool exists = widths.any(
+        (w) => w['product'] == product && w['width'] == width,
+      );
+
       if (exists) {
         throw Exception('This width already exists for the selected product');
       }
-      
+
       // Add new width
       widths.insert(0, {
         'product': product,
         'width': width, // Store as integer
-        'description': description ?? '', // Default to empty string if not provided
+        'description':
+            description ?? '', // Default to empty string if not provided
         'status': status ?? 'Active', // Default to 'Active' if not provided
       });
-      
+
       // Save to Hive
       await box.put('widths', widths);
       await box.flush();
-      
+
       print('Width added successfully');
     } catch (e) {
       print('Error adding width: $e');
@@ -111,7 +126,14 @@ class WidthService {
     }
   }
 
-  Future<void> updateWidth(String oldProduct, int oldWidth, String newProduct, int newWidth, {String? description, String? status}) async {
+  Future<void> updateWidth(
+    String oldProduct,
+    int oldWidth,
+    String newProduct,
+    int newWidth, {
+    String? description,
+    String? status,
+  }) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -119,39 +141,47 @@ class WidthService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing widths
       List<Map<String, dynamic>> widths = await getWidths();
-      
+
       // Find the index of the width to update
-      int index = widths.indexWhere((w) => 
-        w['product'] == oldProduct && w['width'] == oldWidth);
-      
+      int index = widths.indexWhere(
+        (w) => w['product'] == oldProduct && w['width'] == oldWidth,
+      );
+
       if (index == -1) {
         throw Exception('Width not found');
       }
-      
+
       // Check if this width already exists for this product (excluding current entry)
-      bool exists = widths.any((w) => 
-        w['product'] == newProduct && w['width'] == newWidth && 
-        (w['product'] != oldProduct || w['width'] != oldWidth));
-      
+      bool exists = widths.any(
+        (w) =>
+            w['product'] == newProduct &&
+            w['width'] == newWidth &&
+            (w['product'] != oldProduct || w['width'] != oldWidth),
+      );
+
       if (exists) {
         throw Exception('This width already exists for the selected product');
       }
-      
+
       // Update width
       widths[index] = {
         'product': newProduct,
         'width': newWidth, // Store as integer
-        'description': description ?? widths[index]['description'], // Use existing description if not provided
-        'status': status ?? widths[index]['status'], // Use existing status if not provided
+        'description':
+            description ??
+            widths[index]['description'], // Use existing description if not provided
+        'status':
+            status ??
+            widths[index]['status'], // Use existing status if not provided
       };
-      
+
       // Save to Hive
       await box.put('widths', widths);
       await box.flush();
-      
+
       print('Width updated successfully');
     } catch (e) {
       print('Error updating width: $e');
@@ -167,17 +197,17 @@ class WidthService {
       }
 
       final box = Hive.box('appData');
-      
+
       // Get existing widths
       List<Map<String, dynamic>> widths = await getWidths();
-      
+
       // Remove width
       widths.removeWhere((w) => w['product'] == product && w['width'] == width);
-      
+
       // Save to Hive
       await box.put('widths', widths);
       await box.flush();
-      
+
       print('Width deleted successfully');
     } catch (e) {
       print('Error deleting width: $e');

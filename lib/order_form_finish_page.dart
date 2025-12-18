@@ -34,11 +34,11 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
   final TextEditingController _commentsController = TextEditingController();
   final TextEditingController _fromNoController = TextEditingController();
   final TextEditingController _toNoController = TextEditingController();
-  
+
   // Add image picker
   final ImagePicker _imagePicker = ImagePicker();
   File? _orderFormPhoto;
-  
+
   // Hive boxes
   late Box appDataBox;
   late Box orderFormsBox;
@@ -53,15 +53,17 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
     try {
       // Get the boxes (they should already be open from main.dart)
       appDataBox = Hive.box('appData');
-      
+
       // Check if orderForms box is open, if not open it
       if (!Hive.isBoxOpen('orderForms')) {
         orderFormsBox = await Hive.openBox('orderForms');
       } else {
         orderFormsBox = Hive.box('orderForms');
       }
-      
-      print('Hive boxes are open: ${Hive.isBoxOpen('appData')} and ${Hive.isBoxOpen('orderForms')}');
+
+      print(
+        'Hive boxes are open: ${Hive.isBoxOpen('appData')} and ${Hive.isBoxOpen('orderForms')}',
+      );
     } catch (e) {
       print('Error initializing Hive: $e');
     }
@@ -173,7 +175,7 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                   source: ImageSource.camera,
                   preferredCameraDevice: CameraDevice.rear,
                 );
-                
+
                 if (pickedFile != null) {
                   setState(() {
                     _orderFormPhoto = File(pickedFile.path);
@@ -194,10 +196,7 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                 child: _orderFormPhoto != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(6),
-                        child: Image.file(
-                          _orderFormPhoto!,
-                          fit: BoxFit.cover,
-                        ),
+                        child: Image.file(_orderFormPhoto!, fit: BoxFit.cover),
                       )
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -286,7 +285,8 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                 Expanded(
                   child: TextField(
                     controller: _fromNoController,
-                    keyboardType: TextInputType.number, // Added numeric keyboard
+                    keyboardType:
+                        TextInputType.number, // Added numeric keyboard
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                       NoLeadingOrMultipleSpacesFormatter(),
@@ -315,7 +315,8 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
                 Expanded(
                   child: TextField(
                     controller: _toNoController,
-                    keyboardType: TextInputType.number, // Added numeric keyboard
+                    keyboardType:
+                        TextInputType.number, // Added numeric keyboard
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                       NoLeadingOrMultipleSpacesFormatter(),
@@ -439,9 +440,7 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
             const SizedBox(height: 12),
             TextField(
               controller: _commentsController,
-              inputFormatters: [
-                NoLeadingOrMultipleSpacesFormatter(),
-              ],
+              inputFormatters: [NoLeadingOrMultipleSpacesFormatter()],
               maxLines: 4,
               decoration: InputDecoration(
                 hintText:
@@ -530,7 +529,8 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
       };
 
       // Generate a unique key for this order form
-      final orderFormKey = 'orderForm_${widget.partyName}_${DateTime.now().millisecondsSinceEpoch}';
+      final orderFormKey =
+          'orderForm_${widget.partyName}_${DateTime.now().millisecondsSinceEpoch}';
 
       // Save the order form data to Hive
       await orderFormsBox.put(orderFormKey, orderFormData);
@@ -550,25 +550,23 @@ class _OrderFormFinishPageState extends State<OrderFormFinishPage> {
   }
 
   void _showSuccessMessageAndNavigate() {
-  // Show success message
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Dummy PO Created! Order sent to office for processing.'),
-      duration: Duration(seconds: 2),
-      backgroundColor: Color(0xFF10B981),
-    ),
-  );
-
-  // Navigate to HomePage after a short delay
-  Future.delayed(const Duration(seconds: 1), () {
-    // Use pushAndRemoveUntil to clear the navigation stack
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const HomePage(),
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Dummy PO Created! Order sent to office for processing.'),
+        duration: Duration(seconds: 2),
+        backgroundColor: Color(0xFF10B981),
       ),
-      (route) => false, // This removes all routes from the stack
     );
-  });
-}
+
+    // Navigate to HomePage after a short delay
+    Future.delayed(const Duration(seconds: 1), () {
+      // Use pushAndRemoveUntil to clear the navigation stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+        (route) => false, // This removes all routes from the stack
+      );
+    });
+  }
 }

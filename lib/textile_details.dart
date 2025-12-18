@@ -17,6 +17,7 @@ import 'dart:async';
 import 'package:purchase_app/service/width_service.dart';
 import 'package:purchase_app/service/quality_service.dart';
 import 'package:purchase_app/widgets/quality_dialog.dart';
+import 'package:purchase_app/service/order_form_type_service.dart';
 
 enum FilterType { mode, ofType }
 
@@ -73,7 +74,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   List<Map<String, dynamic>> products = [];
   List<Map<String, dynamic>> activeProducts = [];
-
+  
   Map<String, dynamic>? _savedFormState;
   // Form state
   List<XFile> capturedPhotos = []; // Changed to list for multiple photos
@@ -136,89 +137,95 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   // Full screen photo preview state
   int? _previewPhotoIndex;
 
- @override
-void initState() {
-  super.initState();
-  // Initialize with values from new_order_setup_page
-  selectedOFType = widget.textileType;
-  selectedWidth = widget.selectedWidth;
-  defaultChoices = widget.defaultChoices;
-  defaultMeters = widget.defaultMeters;
-  sampleRequired = widget.sampleRequired;
-  selectedSampleMtr = widget.selectedSampleMtr;
-  defaultMetersController = TextEditingController(
-    text: defaultMeters.toString(),
-  );
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with values from new_order_setup_page
+    selectedOFType = widget.textileType;
+    selectedWidth = widget.selectedWidth;
+    defaultChoices = widget.defaultChoices;
+    defaultMeters = widget.defaultMeters;
+    sampleRequired = widget.sampleRequired;
+    selectedSampleMtr = widget.selectedSampleMtr;
+    defaultMetersController = TextEditingController(
+      text: defaultMeters.toString(),
+    );
 
-  _scrollController = ScrollController();
-  _scrollController.addListener(_scrollListener);
+    _scrollController = ScrollController();
+    _scrollController.addListener(_scrollListener);
 
-  // Initialize choices, meters and party design controllers
-  _choicesController = TextEditingController(text: defaultChoices.toString());
-  defaultMetersController = TextEditingController(
-    text: defaultMeters.toString(),
-  );
-  _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
-  // Initialize current default values
-  currentDefaultOFType = widget.textileType;
-  currentDefaultWidth = widget.selectedWidth;
-  currentDefaultChoices = widget.defaultChoices;
-  currentDefaultMeters = widget.defaultMeters;
+    // Initialize choices, meters and party design controllers
+    _choicesController = TextEditingController(text: defaultChoices.toString());
+    defaultMetersController = TextEditingController(
+      text: defaultMeters.toString(),
+    );
+    _partyDesignController = TextEditingController(text: partyDesignNo ?? '');
+    // Initialize current default values
+    currentDefaultOFType = widget.textileType;
+    currentDefaultWidth = widget.selectedWidth;
+    currentDefaultChoices = widget.defaultChoices;
+    currentDefaultMeters = widget.defaultMeters;
 
-  _initializeHiveAndLoadData().then((_) {
-    // Load other data from sources
-    _loadDataFromSources().then((_) {
-      // Load weave types from service AFTER loading data from sources
-      _loadWeaveTypesFromService();
+    _initializeHiveAndLoadData().then((_) {
+      // Load other data from sources
+      _loadDataFromSources().then((_) {
+        // Load weave types from service AFTER loading data from sources
+        _loadWeaveTypesFromService();
+
+        // Load qualities from service AFTER loading data from sources
+        _loadQualitiesFromService();
+
+         _loadOrderFormTypesFromService();
+      });
+
+      // Load widths from the service to get the latest list
+      _loadWidthsFromService();
       
-      // Load qualities from service AFTER loading data from sources
-      _loadQualitiesFromService();
+      _loadProducts();
     });
-    
-    // Load widths from the service to get the latest list
-    _loadWidthsFromService(); 
-
-    _loadProducts();
-  });
-}
-  
-  Future<void> _loadProducts() async {
-  try {
-    // Load data from Hive
-    List<Map<String, dynamic>> hiveProducts = [];
-    
-    // Ensure the box is open
-    if (!Hive.isBoxOpen('appData')) {
-      await Hive.openBox('appData');
-    }
-
-    final box = Hive.box('appData');
-    
-    final productsData = box.get('products');
-    if (productsData != null) {
-      // Handle different types of data
-      if (productsData is List) {
-        hiveProducts = productsData.map((item) {
-          if (item is Map) {
-            return Map<String, dynamic>.from(item);
-          }
-          return <String, dynamic>{};
-        }).toList();
-      }
-    }
-    
-    setState(() {
-      products = hiveProducts;
-      // Filter only active products
-      activeProducts = products.where((product) => 
-        product['status'] == 'Active').toList();
-    });
-    
-    print('Loaded ${products.length} products (${activeProducts.length} active)');
-  } catch (e) {
-    print('Error loading products: $e');
   }
-}
+
+  Future<void> _loadProducts() async {
+    try {
+      // Load data from Hive
+      List<Map<String, dynamic>> hiveProducts = [];
+
+      // Ensure the box is open
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      final box = Hive.box('appData');
+
+      final productsData = box.get('products');
+      if (productsData != null) {
+        // Handle different types of data
+        if (productsData is List) {
+          hiveProducts = productsData.map((item) {
+            if (item is Map) {
+              return Map<String, dynamic>.from(item);
+            }
+            return <String, dynamic>{};
+          }).toList();
+        }
+      }
+
+      setState(() {
+        products = hiveProducts;
+        // Filter only active products
+        activeProducts = products
+            .where((product) => product['status'] == 'Active')
+            .toList();
+      });
+
+      print(
+        'Loaded ${products.length} products (${activeProducts.length} active)',
+      );
+    } catch (e) {
+      print('Error loading products: $e');
+    }
+  }
+
   Future<void> _initializeHiveAndLoadData() async {
     try {
       // Get the boxes (they should already be open from main.dart)
@@ -251,42 +258,46 @@ void initState() {
   }
 
   // Add this method inside your _TextileDetailsPageState class
-Future<void> _loadWidthsFromService() async {
-  try {
-    // Use the WidthService to get widths
-    List<Map<String, dynamic>> widthsData = await WidthService().getWidths();
-    
-    // Convert WidthService widths to strings with " at the end
-    List<String> serviceWidths = widthsData.map((width) => width['width'].toString() + '"').toList();
-    
-    setState(() {
-      // Create a set to avoid duplicates
-      Set<String> combinedWidths = Set.from(widthOptions); // Start with existing widths
-      
-      // Add service widths to the set
-      combinedWidths.addAll(serviceWidths);
-      
-      // Convert back to list and sort
-      widthOptions = combinedWidths.toList();
-      widthOptions.sort((a, b) {
-        // Extract numeric value for comparison
-        double aNum = double.tryParse(a.replaceAll('"', '')) ?? 0;
-        double bNum = double.tryParse(b.replaceAll('"', '')) ?? 0;
-        return aNum.compareTo(bNum);
-      });
-    });
-    
-    print('Loaded ${widthOptions.length} widths from WidthService');
-  } catch (e) {
-    print('Error loading widths from service: $e');
-    // Don't replace existing widths, just ensure we have defaults
-    if (widthOptions.isEmpty) {
+  Future<void> _loadWidthsFromService() async {
+    try {
+      // Use the WidthService to get widths
+      List<Map<String, dynamic>> widthsData = await WidthService().getWidths();
+
+      // Convert WidthService widths to strings with " at the end
+      List<String> serviceWidths = widthsData
+          .map((width) => width['width'].toString() + '"')
+          .toList();
+
       setState(() {
-        widthOptions = ['44"', '54"', '58"', '60"']; // Fallback to defaults
+        // Create a set to avoid duplicates
+        Set<String> combinedWidths = Set.from(
+          widthOptions,
+        ); // Start with existing widths
+
+        // Add service widths to the set
+        combinedWidths.addAll(serviceWidths);
+
+        // Convert back to list and sort
+        widthOptions = combinedWidths.toList();
+        widthOptions.sort((a, b) {
+          // Extract numeric value for comparison
+          double aNum = double.tryParse(a.replaceAll('"', '')) ?? 0;
+          double bNum = double.tryParse(b.replaceAll('"', '')) ?? 0;
+          return aNum.compareTo(bNum);
+        });
       });
+
+      print('Loaded ${widthOptions.length} widths from WidthService');
+    } catch (e) {
+      print('Error loading widths from service: $e');
+      // Don't replace existing widths, just ensure we have defaults
+      if (widthOptions.isEmpty) {
+        setState(() {
+          widthOptions = ['44"', '54"', '58"', '60"']; // Fallback to defaults
+        });
+      }
     }
   }
-}
 
   Future<void> _reinitializeHive() async {
     try {
@@ -310,176 +321,190 @@ Future<void> _loadWidthsFromService() async {
   }
 
   Future<String> _saveImageToDevice(XFile image) async {
-  try {
-    Directory? directory;
-    String location = "";
+    try {
+      Directory? directory;
+      String location = "";
 
-    // --- Platform-specific logic to determine the save directory ---
-    if (Platform.isIOS) {
-      // For iOS, use the app's private documents directory.
-      // This is the standard and recommended location for app-specific files.
-      final appDirectory = await getApplicationDocumentsDirectory();
-      directory = Directory('${appDirectory.path}/ManishTextiles');
-      location = "App Documents";
-      print("iOS detected. Saving to app's documents directory.");
-    } else if (Platform.isAndroid) {
-      // For Android, use the existing logic to save to the Downloads directory.
-      try {
-        // For Android 10 and above
-        directory = Directory('/storage/emulated/0/Download');
-        
-        if (await directory.exists()) {
-          location = "Download Directory";
-        }
-      } catch (e) {
-        print("Error accessing primary Download directory on Android: $e");
-      }
-      
-      // If the primary directory doesn't exist or is not accessible, try an alternative path.
-      if (directory == null || !await directory.exists()) {
+      // --- Platform-specific logic to determine the save directory ---
+      if (Platform.isIOS) {
+        // For iOS, use the app's private documents directory.
+        // This is the standard and recommended location for app-specific files.
+        final appDirectory = await getApplicationDocumentsDirectory();
+        directory = Directory('${appDirectory.path}/ManishTextiles');
+        location = "App Documents";
+        print("iOS detected. Saving to app's documents directory.");
+      } else if (Platform.isAndroid) {
+        // For Android, use the existing logic to save to the Downloads directory.
         try {
-          final externalDir = await getExternalStorageDirectory();
-          if (externalDir != null) {
-            directory = Directory('${externalDir.path}/Download');
-            if (await directory.exists()) {
-              location = "Download Directory";
-            }
+          // For Android 10 and above
+          directory = Directory('/storage/emulated/0/Download');
+
+          if (await directory.exists()) {
+            location = "Download Directory";
           }
         } catch (e) {
-          print("Error accessing alternative Download directory on Android: $e");
+          print("Error accessing primary Download directory on Android: $e");
         }
-      }
-    }
 
-    // --- Fallback for all platforms if the above fails ---
-    if (directory == null || !await directory.exists()) {
-      print("Using fallback directory: App Documents");
-      final appDirectory = await getApplicationDocumentsDirectory();
-      directory = Directory('${appDirectory.path}/ManishTextiles');
-      location = "App Documents";
-    }
-
-    // Create the directory if it doesn't exist
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
-    }
-    
-    // --- The rest of the logic remains UNCHANGED ---
-    // Check if the image is already saved to avoid duplicates
-    final List<FileSystemEntity> files = await directory.list().toList();
-    for (var file in files) {
-      if (file is File && path.basename(file.path).startsWith('PurchaseApp_')) {
-        // Compare file sizes to check if it's the same image
-        final int savedFileSize = await file.length();
-        final int newFileSize = await image.length();
-        
-        if (savedFileSize == newFileSize) {
-          // It's likely the same image, return the existing path
-          print("Image already exists in $location: ${file.path}");
-          return file.path;
-        }
-      }
-    }
-    
-    // Generate a unique filename using timestamp and app identifier
-    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final String fileName = 'PurchaseApp_$timestamp.jpg';
-    final String filePath = path.join(directory.path, fileName);
-    
-    // Save the image file
-    await image.saveTo(filePath);
-    
-    print("Image saved to $location: $filePath");
-    return filePath;
-  } catch (e) {
-    print('Error saving image to device: $e');
-    rethrow;
-  }
-}
-
-/// Checks for saved images on the device, handling both Android and iOS.
-/// On Android, it checks the Downloads folder.
-/// On iOS, it checks the app's private documents directory.
-Future<void> _checkSavedImages() async {
-  try {
-    Directory? directory;
-    String location = "";
-
-    // --- Platform-specific logic to find the directory with images ---
-    if (Platform.isIOS) {
-      // For iOS, only check the app's documents directory.
-      final appDirectory = await getApplicationDocumentsDirectory();
-      directory = Directory('${appDirectory.path}/ManishTextiles');
-      location = "App Documents";
-      print("iOS detected. Checking for images in app's documents directory.");
-    } else if (Platform.isAndroid) {
-      // For Android, use the existing logic to check the Downloads folder.
-      // Try primary Downloads directory first
-      try {
-        directory = Directory('/storage/emulated/0/Download');
-        if (await directory.exists()) {
-          final List<FileSystemEntity> allFiles = await directory.list().toList();
-          final List<FileSystemEntity> appFiles = allFiles
-              .where((file) => path.basename(file.path).startsWith('PurchaseApp_'))
-              .toList();
-        
-          if (appFiles.isNotEmpty) {
-            location = "Download Directory";
-            _showImageListDialog(appFiles, location);
-            return;
+        // If the primary directory doesn't exist or is not accessible, try an alternative path.
+        if (directory == null || !await directory.exists()) {
+          try {
+            final externalDir = await getExternalStorageDirectory();
+            if (externalDir != null) {
+              directory = Directory('${externalDir.path}/Download');
+              if (await directory.exists()) {
+                location = "Download Directory";
+              }
+            }
+          } catch (e) {
+            print(
+              "Error accessing alternative Download directory on Android: $e",
+            );
           }
         }
-      } catch (e) {
-        print("Error checking primary Download directory on Android: $e");
       }
-      
-      // Try alternative Downloads directory paths
-      try {
-        final externalDir = await getExternalStorageDirectory();
-        if (externalDir != null) {
-          directory = Directory('${externalDir.path}/Download');
+
+      // --- Fallback for all platforms if the above fails ---
+      if (directory == null || !await directory.exists()) {
+        print("Using fallback directory: App Documents");
+        final appDirectory = await getApplicationDocumentsDirectory();
+        directory = Directory('${appDirectory.path}/ManishTextiles');
+        location = "App Documents";
+      }
+
+      // Create the directory if it doesn't exist
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+
+      // --- The rest of the logic remains UNCHANGED ---
+      // Check if the image is already saved to avoid duplicates
+      final List<FileSystemEntity> files = await directory.list().toList();
+      for (var file in files) {
+        if (file is File &&
+            path.basename(file.path).startsWith('PurchaseApp_')) {
+          // Compare file sizes to check if it's the same image
+          final int savedFileSize = await file.length();
+          final int newFileSize = await image.length();
+
+          if (savedFileSize == newFileSize) {
+            // It's likely the same image, return the existing path
+            print("Image already exists in $location: ${file.path}");
+            return file.path;
+          }
+        }
+      }
+
+      // Generate a unique filename using timestamp and app identifier
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final String fileName = 'PurchaseApp_$timestamp.jpg';
+      final String filePath = path.join(directory.path, fileName);
+
+      // Save the image file
+      await image.saveTo(filePath);
+
+      print("Image saved to $location: $filePath");
+      return filePath;
+    } catch (e) {
+      print('Error saving image to device: $e');
+      rethrow;
+    }
+  }
+
+  /// Checks for saved images on the device, handling both Android and iOS.
+  /// On Android, it checks the Downloads folder.
+  /// On iOS, it checks the app's private documents directory.
+  Future<void> _checkSavedImages() async {
+    try {
+      Directory? directory;
+      String location = "";
+
+      // --- Platform-specific logic to find the directory with images ---
+      if (Platform.isIOS) {
+        // For iOS, only check the app's documents directory.
+        final appDirectory = await getApplicationDocumentsDirectory();
+        directory = Directory('${appDirectory.path}/ManishTextiles');
+        location = "App Documents";
+        print(
+          "iOS detected. Checking for images in app's documents directory.",
+        );
+      } else if (Platform.isAndroid) {
+        // For Android, use the existing logic to check the Downloads folder.
+        // Try primary Downloads directory first
+        try {
+          directory = Directory('/storage/emulated/0/Download');
           if (await directory.exists()) {
-            final List<FileSystemEntity> allFiles = await directory.list().toList();
-            final List<FileSystemEntity> appFiles = allFiles
-                .where((file) => path.basename(file.path).startsWith('PurchaseApp_'))
+            final List<FileSystemEntity> allFiles = await directory
+                .list()
                 .toList();
-          
+            final List<FileSystemEntity> appFiles = allFiles
+                .where(
+                  (file) => path.basename(file.path).startsWith('PurchaseApp_'),
+                )
+                .toList();
+
             if (appFiles.isNotEmpty) {
               location = "Download Directory";
               _showImageListDialog(appFiles, location);
               return;
             }
           }
+        } catch (e) {
+          print("Error checking primary Download directory on Android: $e");
         }
-      } catch (e) {
-        print("Error checking alternative Download directory on Android: $e");
-      }
-    }
 
-    // --- Fallback for all platforms ---
-    if (directory == null || !await directory.exists()) {
-      print("Using fallback directory to check for images: App Documents");
-      final appDirectory = await getApplicationDocumentsDirectory();
-      directory = Directory('${appDirectory.path}/ManishTextiles');
-      location = "App Documents";
+        // Try alternative Downloads directory paths
+        try {
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            directory = Directory('${externalDir.path}/Download');
+            if (await directory.exists()) {
+              final List<FileSystemEntity> allFiles = await directory
+                  .list()
+                  .toList();
+              final List<FileSystemEntity> appFiles = allFiles
+                  .where(
+                    (file) =>
+                        path.basename(file.path).startsWith('PurchaseApp_'),
+                  )
+                  .toList();
+
+              if (appFiles.isNotEmpty) {
+                location = "Download Directory";
+                _showImageListDialog(appFiles, location);
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          print("Error checking alternative Download directory on Android: $e");
+        }
+      }
+
+      // --- Fallback for all platforms ---
+      if (directory == null || !await directory.exists()) {
+        print("Using fallback directory to check for images: App Documents");
+        final appDirectory = await getApplicationDocumentsDirectory();
+        directory = Directory('${appDirectory.path}/ManishTextiles');
+        location = "App Documents";
+      }
+
+      if (await directory.exists()) {
+        final List<FileSystemEntity> files = await directory.list().toList();
+        _showImageListDialog(files, location);
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('No saved images found')));
+      }
+    } catch (e) {
+      print('Error checking saved images: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
-    
-    if (await directory.exists()) {
-      final List<FileSystemEntity> files = await directory.list().toList();
-      _showImageListDialog(files, location);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No saved images found')),
-      );
-    }
-  } catch (e) {
-    print('Error checking saved images: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error: $e')),
-    );
   }
-}
-  
+
   // Add this function to display the list of saved images
   void _showImageListDialog(List<FileSystemEntity> files, String location) {
     showDialog(
@@ -516,24 +541,20 @@ Future<void> _checkSavedImages() async {
       ),
     );
   }
-  
+
   // Add this function to view a single image
   void _viewImage(String imagePath) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: Text('Image Preview'),
-          ),
-          body: Center(
-            child: Image.file(File(imagePath)),
-          ),
+          appBar: AppBar(title: Text('Image Preview')),
+          body: Center(child: Image.file(File(imagePath))),
         ),
       ),
     );
   }
-  
+
   // Updated method to load data from both JSON and Hive
   Future<void> _loadDataFromSources() async {
     try {
@@ -624,8 +645,8 @@ Future<void> _checkSavedImages() async {
         // widthOptions = widthOptions.toSet().toList(); // Remove duplicates
         // widthOptions.sort();
         if (widthOptions.isEmpty) {
-      widthOptions = ['44"', '54"', '58"', '60"'];
-    }
+          widthOptions = ['44"', '54"', '58"', '60"'];
+        }
 
         // Combine Qualities from order_data.json + textile_designs.json + Hive
         final jsonQualities = jsonOrderData['qualities'] != null
@@ -878,107 +899,115 @@ Future<void> _checkSavedImages() async {
     );
   }
 
-   Future<void> _loadCapturedDesigns() async {
-  try {
-    if (!Hive.isBoxOpen('designs')) {
-      await Hive.openBox('designs');
-    }
+  Future<void> _loadCapturedDesigns() async {
+    try {
+      if (!Hive.isBoxOpen('designs')) {
+        await Hive.openBox('designs');
+      }
 
-    final box = Hive.box('designs');
-    List<Map<String, dynamic>> allDesigns = [];
+      final box = Hive.box('designs');
+      List<Map<String, dynamic>> allDesigns = [];
 
-    // Load all designs for all textile types of this party
-    for (var key in box.keys) {
-      if (key is String && key.startsWith('designs_${widget.partyName}_')) {
-        final designs = box.get(key);
-        if (designs is List) {
-          allDesigns.addAll(
-            designs.map((d) => Map<String, dynamic>.from(d as Map)),
+      // Load all designs for all textile types of this party
+      for (var key in box.keys) {
+        if (key is String && key.startsWith('designs_${widget.partyName}_')) {
+          final designs = box.get(key);
+          if (designs is List) {
+            allDesigns.addAll(
+              designs.map((d) => Map<String, dynamic>.from(d as Map)),
+            );
+          }
+        }
+      }
+
+      // Filter designs by the current textileType (O/F Type)
+      List<Map<String, dynamic>> filteredDesigns = allDesigns
+          .where((design) => design['ofType'] == widget.textileType)
+          .toList();
+
+      // Reset S.No to start from 1 for each textile type
+      for (int i = 0; i < filteredDesigns.length; i++) {
+        filteredDesigns[i]['sNo'] = i + 1;
+
+        // Ensure weave and quality fields exist
+        if (filteredDesigns[i]['weave'] == null) {
+          filteredDesigns[i]['weave'] = '';
+          print(
+            'Added missing weave field to design ${filteredDesigns[i]['sNo']}',
           );
         }
-      }
-    }
 
-    // Filter designs by the current textileType (O/F Type)
-    List<Map<String, dynamic>> filteredDesigns = allDesigns
-        .where((design) => design['ofType'] == widget.textileType)
-        .toList();
+        if (filteredDesigns[i]['quality'] == null) {
+          filteredDesigns[i]['quality'] = '';
+          print(
+            'Added missing quality field to design ${filteredDesigns[i]['sNo']}',
+          );
+        }
 
-    // Reset S.No to start from 1 for each textile type
-    for (int i = 0; i < filteredDesigns.length; i++) {
-      filteredDesigns[i]['sNo'] = i + 1;
-      
-      // Ensure weave and quality fields exist
-      if (filteredDesigns[i]['weave'] == null) {
-        filteredDesigns[i]['weave'] = '';
-        print('Added missing weave field to design ${filteredDesigns[i]['sNo']}');
-      }
-      
-      if (filteredDesigns[i]['quality'] == null) {
-        filteredDesigns[i]['quality'] = '';
-        print('Added missing quality field to design ${filteredDesigns[i]['sNo']}');
-      }
-      
-      // Handle migration from Base64 to file paths if needed
-      if (filteredDesigns[i]['photos'] != null && filteredDesigns[i]['photoPaths'] == null) {
-        List<String> photoPaths = [];
-        List<String> photoBase64List = List<String>.from(filteredDesigns[i]['photos']);
-        
-        for (String base64 in photoBase64List) {
-          try {
-            // Convert Base64 to XFile
-            XFile photo = await _base64ToXFile(base64);
-            // Save to device storage
-            String filePath = await _saveImageToDevice(photo);
-            photoPaths.add(filePath);
-          } catch (e) {
-            print('Error migrating photo from Base64: $e');
+        // Handle migration from Base64 to file paths if needed
+        if (filteredDesigns[i]['photos'] != null &&
+            filteredDesigns[i]['photoPaths'] == null) {
+          List<String> photoPaths = [];
+          List<String> photoBase64List = List<String>.from(
+            filteredDesigns[i]['photos'],
+          );
+
+          for (String base64 in photoBase64List) {
+            try {
+              // Convert Base64 to XFile
+              XFile photo = await _base64ToXFile(base64);
+              // Save to device storage
+              String filePath = await _saveImageToDevice(photo);
+              photoPaths.add(filePath);
+            } catch (e) {
+              print('Error migrating photo from Base64: $e');
+            }
           }
+
+          // Update the design with file paths and remove Base64
+          filteredDesigns[i]['photoPaths'] = photoPaths;
+          filteredDesigns[i].remove('photos');
+
+          // Save the updated design back to Hive
+          await _saveCapturedDesignToHive();
         }
-        
-        // Update the design with file paths and remove Base64
-        filteredDesigns[i]['photoPaths'] = photoPaths;
-        filteredDesigns[i].remove('photos');
-        
-        // Save the updated design back to Hive
-        await _saveCapturedDesignToHive();
       }
-    }
 
-    setState(() {
-      capturedDesigns = filteredDesigns;
-    });
+      setState(() {
+        capturedDesigns = filteredDesigns;
+      });
 
-    // Update summary values based on filtered designs
-    _updateSummaryValues();
+      // Update summary values based on filtered designs
+      _updateSummaryValues();
 
-    // If an initial design was provided, select it for editing
-    if (widget.initialDesign != null) {
-      try {
-        final init = widget.initialDesign!;
-        // Find matching design by ref or designNo
-        int foundIndex = -1;
-        for (int i = 0; i < capturedDesigns.length; i++) {
-          final d = capturedDesigns[i];
-          if ((init['ref'] != null && d['ref'] == init['ref']) ||
-              (init['designNo'] != null &&
-                  d['designNo'] == init['designNo'])) {
-            foundIndex = i;
-            break;
+      // If an initial design was provided, select it for editing
+      if (widget.initialDesign != null) {
+        try {
+          final init = widget.initialDesign!;
+          // Find matching design by ref or designNo
+          int foundIndex = -1;
+          for (int i = 0; i < capturedDesigns.length; i++) {
+            final d = capturedDesigns[i];
+            if ((init['ref'] != null && d['ref'] == init['ref']) ||
+                (init['designNo'] != null &&
+                    d['designNo'] == init['designNo'])) {
+              foundIndex = i;
+              break;
+            }
           }
+          if (foundIndex != -1) {
+            _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
+          }
+        } catch (e) {
+          print('Error applying initial design: $e');
         }
-        if (foundIndex != -1) {
-          _selectDesignForEditing(capturedDesigns[foundIndex], foundIndex);
-        }
-      } catch (e) {
-        print('Error applying initial design: $e');
       }
+    } catch (e) {
+      print('Error loading designs: $e');
     }
-  } catch (e) {
-    print('Error loading designs: $e');
   }
-}
-    Widget _buildCheckImagesButton() {
+
+  Widget _buildCheckImagesButton() {
     return ElevatedButton.icon(
       onPressed: _checkSavedImages,
       icon: Icon(Icons.image),
@@ -990,131 +1019,137 @@ Future<void> _checkSavedImages() async {
     );
   }
 
+  void _addOrUpdateDesign({
+    required int? choices,
+    required int? meters,
+    required String? designNo,
+    required String mode,
+  }) async {
+    // Get all current values from the form state and controllers
+    // This ensures we are using the latest user input
+    final currentChoices =
+        choices ?? int.tryParse(_choicesController.text) ?? defaultChoices;
+    final currentMeters =
+        meters ?? int.tryParse(defaultMetersController.text) ?? defaultMeters;
+    final currentDesignNo = designNo?.isNotEmpty == true
+        ? designNo
+        : _partyDesignController.text;
+    final currentMode = selectedMode;
+    final currentWeave = selectedWeave; // Get from state
+    final currentQuality = selectedQuality; // Get from state
+    final currentWidth = selectedWidth;
+    final currentOFType = selectedOFType;
 
-     void _addOrUpdateDesign({
-  required int? choices,
-  required int? meters,
-  required String? designNo,
-  required String mode,
-}) async {
-  // Get all current values from the form state and controllers
-  // This ensures we are using the latest user input
-  final currentChoices = choices ?? int.tryParse(_choicesController.text) ?? defaultChoices;
-  final currentMeters = meters ?? int.tryParse(defaultMetersController.text) ?? defaultMeters;
-  final currentDesignNo = designNo?.isNotEmpty == true ? designNo : _partyDesignController.text;
-  final currentMode = selectedMode;
-  final currentWeave = selectedWeave; // Get from state
-  final currentQuality = selectedQuality; // Get from state
-  final currentWidth = selectedWidth;
-  final currentOFType = selectedOFType;
-
-  // For updates, use the original ref if not a new design
-  String currentRef;
-  if (_editingDesignIndex != null) {
-    // Use the ref of the design being edited
-    currentRef = capturedDesigns[_editingDesignIndex!]['ref'] ?? '';
-  } else {
-    // Generate a new ref
-    int typeCount = capturedDesigns.length + 1;
-    String refPrefix = currentOFType.toUpperCase().substring(0, 3);
-    currentRef = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
-  }
-
-  // Save captured photos to device storage and get file paths
-  List<String> photoPaths = [];
-  
-  // Check if we're editing an existing design
-  if (_editingDesignIndex != null) {
-    // For existing designs, check if the photos are already saved
-    final existingDesign = capturedDesigns[_editingDesignIndex!];
-    if (existingDesign['photoPaths'] != null) {
-      // Use existing photo paths
-      photoPaths = List<String>.from(existingDesign['photoPaths']);
-    }
-  }
-  
-  // Only save new photos that aren't already in the photoPaths list
-  for (XFile photo in capturedPhotos) {
-    bool alreadySaved = false;
-    
-    // Check if this photo is already saved by comparing file sizes
-    for (String path in photoPaths) {
-      try {
-        final File savedFile = File(path);
-        if (await savedFile.exists()) {
-          final int savedFileSize = await savedFile.length();
-          final int newFileSize = await photo.length();
-          
-          if (savedFileSize == newFileSize) {
-            alreadySaved = true;
-            break;
-          }
-        }
-      } catch (e) {
-        print('Error checking saved file: $e');
-      }
-    }
-    
-    if (!alreadySaved) {
-      String filePath = await _saveImageToDevice(photo);
-      if (!photoPaths.contains(filePath)) {
-        photoPaths.add(filePath);
-      }
-    }
-  }
-
-  // Create the design map with all the captured values
-  final updatedDesign = {
-    'sNo': _editingDesignIndex != null ? capturedDesigns[_editingDesignIndex!]['sNo'] : capturedDesigns.length + 1,
-    'designNo': currentDesignNo!.isNotEmpty ? currentDesignNo : '-',
-    'choices': currentChoices,
-    'meters': currentMeters,
-    'mode': currentMode,
-    'timestamp': DateTime.now().toIso8601String(),
-    'ofType': currentOFType,
-    'weave': currentWeave, // Explicitly use the captured value
-    'quality': currentQuality, // Explicitly use the captured value
-    'width': currentWidth,
-    'ref': currentRef,
-    'photoPaths': photoPaths,
-  };
-
-  setState(() {
+    // For updates, use the original ref if not a new design
+    String currentRef;
     if (_editingDesignIndex != null) {
-      // Update existing design with the new map
-      capturedDesigns[_editingDesignIndex!] = updatedDesign;
-      _editingDesignIndex = null;
-      _savedFormState = null; // Clear the saved state
+      // Use the ref of the design being edited
+      currentRef = capturedDesigns[_editingDesignIndex!]['ref'] ?? '';
     } else {
-      // Add new design with the new map
-      capturedDesigns.add(updatedDesign);
+      // Generate a new ref
+      int typeCount = capturedDesigns.length + 1;
+      String refPrefix = currentOFType.toUpperCase().substring(0, 3);
+      currentRef = '$refPrefix-${typeCount.toString().padLeft(3, '0')}';
     }
-  });
 
-  _updateSummaryValues();
-  
-  // Save to Hive AFTER the state has been updated
-  await _saveCapturedDesignToHive();
-  await _saveSummaryValuesToHive();
+    // Save captured photos to device storage and get file paths
+    List<String> photoPaths = [];
 
-  // Only clear party design number, quality, and weave
-  _clearSelectedFields();
+    // Check if we're editing an existing design
+    if (_editingDesignIndex != null) {
+      // For existing designs, check if the photos are already saved
+      final existingDesign = capturedDesigns[_editingDesignIndex!];
+      if (existingDesign['photoPaths'] != null) {
+        // Use existing photo paths
+        photoPaths = List<String>.from(existingDesign['photoPaths']);
+      }
+    }
 
-  // Clear captured photos after saving
-  setState(() {
-    capturedPhotos = [];
-  });
+    // Only save new photos that aren't already in the photoPaths list
+    for (XFile photo in capturedPhotos) {
+      bool alreadySaved = false;
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        _editingDesignIndex != null
-            ? 'Design updated successfully'
-            : 'Design added successfully',
+      // Check if this photo is already saved by comparing file sizes
+      for (String path in photoPaths) {
+        try {
+          final File savedFile = File(path);
+          if (await savedFile.exists()) {
+            final int savedFileSize = await savedFile.length();
+            final int newFileSize = await photo.length();
+
+            if (savedFileSize == newFileSize) {
+              alreadySaved = true;
+              break;
+            }
+          }
+        } catch (e) {
+          print('Error checking saved file: $e');
+        }
+      }
+
+      if (!alreadySaved) {
+        String filePath = await _saveImageToDevice(photo);
+        if (!photoPaths.contains(filePath)) {
+          photoPaths.add(filePath);
+        }
+      }
+    }
+
+    // Create the design map with all the captured values
+    final updatedDesign = {
+      'sNo': _editingDesignIndex != null
+          ? capturedDesigns[_editingDesignIndex!]['sNo']
+          : capturedDesigns.length + 1,
+      'designNo': currentDesignNo!.isNotEmpty ? currentDesignNo : '-',
+      'choices': currentChoices,
+      'meters': currentMeters,
+      'mode': currentMode,
+      'timestamp': DateTime.now().toIso8601String(),
+      'ofType': currentOFType,
+      'weave': currentWeave, // Explicitly use the captured value
+      'quality': currentQuality, // Explicitly use the captured value
+      'width': currentWidth,
+      'ref': currentRef,
+      'photoPaths': photoPaths,
+    };
+
+    setState(() {
+      if (_editingDesignIndex != null) {
+        // Update existing design with the new map
+        capturedDesigns[_editingDesignIndex!] = updatedDesign;
+        _editingDesignIndex = null;
+        _savedFormState = null; // Clear the saved state
+      } else {
+        // Add new design with the new map
+        capturedDesigns.add(updatedDesign);
+      }
+    });
+
+    _updateSummaryValues();
+
+    // Save to Hive AFTER the state has been updated
+    await _saveCapturedDesignToHive();
+    await _saveSummaryValuesToHive();
+
+    // Only clear party design number, quality, and weave
+    _clearSelectedFields();
+
+    // Clear captured photos after saving
+    setState(() {
+      capturedPhotos = [];
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _editingDesignIndex != null
+              ? 'Design updated successfully'
+              : 'Design added successfully',
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   // Update the _clearSelectedFields method to clear only party design number, quality, and weave
   void _clearSelectedFields() {
     setState(() {
@@ -1127,132 +1162,137 @@ Future<void> _checkSavedImages() async {
   }
 
   void _selectDesignForEditing(Map<String, dynamic> design, int index) async {
-  // Add debug prints
-  print('Loading design for editing: $design');
-  print('Weave from design: ${design['weave']}');
-  print('Quality from design: ${design['quality']}');
-  
-  // Save current form state before editing
-  _savedFormState = {
-    'partyDesignNo': partyDesignNo,
-    'selectedMode': selectedMode,
-    'selectedQuality': selectedQuality,
-    'selectedWeave': selectedWeave,
-    'selectedOFType': selectedOFType,
-    'selectedWidth': selectedWidth,
-    'defaultChoices': defaultChoices,
-    'defaultMeters': defaultMeters,
-    'capturedPhotos': capturedPhotos,
-  };
+    // Add debug prints
+    print('Loading design for editing: $design');
+    print('Weave from design: ${design['weave']}');
+    print('Quality from design: ${design['quality']}');
 
-  // Load photos if available
-  List<XFile> photos = [];
-  if (design['photoPaths'] != null && design['photoPaths'] is List) {
-    List<String> photoPaths = List<String>.from(design['photoPaths']);
-    for (String filePath in photoPaths) {
-      try {
-        // Check if the file exists before creating XFile
-        final file = File(filePath);
-        if (await file.exists()) {
+    // Save current form state before editing
+    _savedFormState = {
+      'partyDesignNo': partyDesignNo,
+      'selectedMode': selectedMode,
+      'selectedQuality': selectedQuality,
+      'selectedWeave': selectedWeave,
+      'selectedOFType': selectedOFType,
+      'selectedWidth': selectedWidth,
+      'defaultChoices': defaultChoices,
+      'defaultMeters': defaultMeters,
+      'capturedPhotos': capturedPhotos,
+    };
+
+    // Load photos if available
+    List<XFile> photos = [];
+    if (design['photoPaths'] != null && design['photoPaths'] is List) {
+      List<String> photoPaths = List<String>.from(design['photoPaths']);
+      for (String filePath in photoPaths) {
+        try {
+          // Check if the file exists before creating XFile
+          final file = File(filePath);
+          if (await file.exists()) {
+            photos.add(XFile(filePath));
+          } else {
+            print('File not found: $filePath');
+          }
+        } catch (e) {
+          print('Error loading photo from path: $e');
+        }
+      }
+    } else if (design['photos'] != null && design['photos'] is List) {
+      // Handle legacy Base64 format for backward compatibility
+      List<String> photoBase64List = List<String>.from(design['photos']);
+      for (String base64 in photoBase64List) {
+        try {
+          XFile photo = await _base64ToXFile(base64);
+          // Save to device storage and update the design
+          String filePath = await _saveImageToDevice(photo);
           photos.add(XFile(filePath));
-        } else {
-          print('File not found: $filePath');
+
+          // Update the design to use file paths instead of Base64
+          if (design['photoPaths'] == null) {
+            design['photoPaths'] = [];
+          }
+          design['photoPaths'].add(filePath);
+        } catch (e) {
+          print('Error converting Base64 to file: $e');
         }
-      } catch (e) {
-        print('Error loading photo from path: $e');
       }
+
+      // Remove Base64 data and save updated design
+      design.remove('photos');
+      await _saveCapturedDesignToHive();
     }
-  } else if (design['photos'] != null && design['photos'] is List) {
-    // Handle legacy Base64 format for backward compatibility
-    List<String> photoBase64List = List<String>.from(design['photos']);
-    for (String base64 in photoBase64List) {
-      try {
-        XFile photo = await _base64ToXFile(base64);
-        // Save to device storage and update the design
-        String filePath = await _saveImageToDevice(photo);
-        photos.add(XFile(filePath));
-        
-        // Update the design to use file paths instead of Base64
-        if (design['photoPaths'] == null) {
-          design['photoPaths'] = [];
+
+    // Now update the state with all the values in a single setState call
+    setState(() {
+      _editingDesignIndex = index;
+
+      // Populate all form fields with the selected design's data
+      partyDesignNo = design['designNo'].toString() != '-'
+          ? design['designNo'].toString()
+          : null;
+      _partyDesignController.text = design['designNo'].toString() != '-'
+          ? design['designNo'].toString()
+          : '';
+      selectedMode = design['mode'].toString();
+
+      // Update controllers with proper values
+      _choicesController.text = design['choices'].toString();
+      defaultMetersController.text = design['meters'].toStringAsFixed(0);
+
+      // Update defaultMeters to match the design
+      defaultMeters = design['meters'] as int;
+
+      // Now populate all the additional fields from the design data
+      selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
+
+      // Fix for weave type - ensure it's properly set
+      final weaveValue = design['weave']?.toString();
+      print('Setting weave to: $weaveValue');
+      if (weaveValue != null &&
+          weaveValue.isNotEmpty &&
+          weaves.contains(weaveValue)) {
+        selectedWeave = weaveValue;
+      } else {
+        // If weave is not in the list, add it to the list first
+        if (weaveValue != null && weaveValue.isNotEmpty) {
+          weaves.add(weaveValue);
+          _saveWeavesToHive(); // Save the updated weaves list to Hive
         }
-        design['photoPaths'].add(filePath);
-      } catch (e) {
-        print('Error converting Base64 to file: $e');
+        selectedWeave = weaveValue ?? (weaves.isNotEmpty ? weaves.first : null);
+        print('Weave not found in list, setting to: $selectedWeave');
       }
-    }
-    
-    // Remove Base64 data and save updated design
-    design.remove('photos');
-    await _saveCapturedDesignToHive();
+
+      // Fix for quality - ensure it's properly set
+      final qualityValue = design['quality']?.toString();
+      print('Setting quality to: $qualityValue');
+      if (qualityValue != null &&
+          qualityValue.isNotEmpty &&
+          qualities.contains(qualityValue)) {
+        selectedQuality = qualityValue;
+      } else {
+        // If quality is not in the list, add it to the list first
+        if (qualityValue != null && qualityValue.isNotEmpty) {
+          qualities.add(qualityValue);
+          _saveQualitiesToHive(); // Save the updated qualities list to Hive
+        }
+        selectedQuality =
+            qualityValue ?? (qualities.isNotEmpty ? qualities.first : null);
+        print('Quality not found in list, setting to: $selectedQuality');
+      }
+
+      selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
+
+      // Update default values if needed
+      defaultChoices = design['choices'] as int;
+
+      // Update captured photos
+      capturedPhotos = photos;
+    });
+
+    // Add a final debug print to confirm the values
+    print('Final values - Weave: $selectedWeave, Quality: $selectedQuality');
   }
 
-  // Now update the state with all the values in a single setState call
-  setState(() {
-    _editingDesignIndex = index;
-
-    // Populate all form fields with the selected design's data
-    partyDesignNo = design['designNo'].toString() != '-'
-        ? design['designNo'].toString()
-        : null;
-    _partyDesignController.text = design['designNo'].toString() != '-'
-        ? design['designNo'].toString()
-        : '';
-    selectedMode = design['mode'].toString();
-
-    // Update controllers with proper values
-    _choicesController.text = design['choices'].toString();
-    defaultMetersController.text = design['meters'].toStringAsFixed(0);
-
-    // Update defaultMeters to match the design
-    defaultMeters = design['meters'] as int;
-
-    // Now populate all the additional fields from the design data
-    selectedOFType = design['ofType']?.toString() ?? currentDefaultOFType;
-    
-    // Fix for weave type - ensure it's properly set
-    final weaveValue = design['weave']?.toString();
-    print('Setting weave to: $weaveValue');
-    if (weaveValue != null && weaveValue.isNotEmpty && weaves.contains(weaveValue)) {
-      selectedWeave = weaveValue;
-    } else {
-      // If weave is not in the list, add it to the list first
-      if (weaveValue != null && weaveValue.isNotEmpty) {
-        weaves.add(weaveValue);
-        _saveWeavesToHive(); // Save the updated weaves list to Hive
-      }
-      selectedWeave = weaveValue ?? (weaves.isNotEmpty ? weaves.first : null);
-      print('Weave not found in list, setting to: $selectedWeave');
-    }
-    
-    // Fix for quality - ensure it's properly set
-    final qualityValue = design['quality']?.toString();
-    print('Setting quality to: $qualityValue');
-    if (qualityValue != null && qualityValue.isNotEmpty && qualities.contains(qualityValue)) {
-      selectedQuality = qualityValue;
-    } else {
-      // If quality is not in the list, add it to the list first
-      if (qualityValue != null && qualityValue.isNotEmpty) {
-        qualities.add(qualityValue);
-        _saveQualitiesToHive(); // Save the updated qualities list to Hive
-      }
-      selectedQuality = qualityValue ?? (qualities.isNotEmpty ? qualities.first : null);
-      print('Quality not found in list, setting to: $selectedQuality');
-    }
-    
-    selectedWidth = design['width']?.toString() ?? currentDefaultWidth;
-
-    // Update default values if needed
-    defaultChoices = design['choices'] as int;
-    
-    // Update captured photos
-    capturedPhotos = photos;
-  });
-  
-  // Add a final debug print to confirm the values
-  print('Final values - Weave: $selectedWeave, Quality: $selectedQuality');
-}
-  
   void _clearEditingState() {
     if (_savedFormState != null) {
       setState(() {
@@ -2034,315 +2074,342 @@ Future<void> _checkSavedImages() async {
   }
 
   // Add this method to load weave types from the service
-Future<void> _loadWeaveTypesFromService() async {
-  try {
-    // Use the WeaveTypeService to get weave types
-    List<Map<String, dynamic>> weaveTypesData = await WeaveTypeService().getWeaveTypes();
-    
-    // Extract unique weave type names from the service data
-    Set<String> serviceWeaveTypes = {};
-    for (var weaveTypeData in weaveTypesData) {
-      if (weaveTypeData['name'] != null && weaveTypeData['name'].toString().isNotEmpty) {
-        serviceWeaveTypes.add(weaveTypeData['name'].toString());
+  Future<void> _loadWeaveTypesFromService() async {
+    try {
+      // Use the WeaveTypeService to get weave types
+      List<Map<String, dynamic>> weaveTypesData = await WeaveTypeService()
+          .getWeaveTypes();
+
+      // Extract unique weave type names from the service data
+      Set<String> serviceWeaveTypes = {};
+      for (var weaveTypeData in weaveTypesData) {
+        if (weaveTypeData['name'] != null &&
+            weaveTypeData['name'].toString().isNotEmpty) {
+          serviceWeaveTypes.add(weaveTypeData['name'].toString());
+        }
+      }
+
+      setState(() {
+        // Create a set to avoid duplicates
+        Set<String> combinedWeaveTypes = Set.from(weaves);
+
+        // Add service weave types to the set
+        combinedWeaveTypes.addAll(serviceWeaveTypes);
+
+        // Convert back to list and sort
+        weaves = combinedWeaveTypes.toList();
+        weaves.sort();
+      });
+
+      print(
+        'Loaded ${weaves.length} weave types from service (${serviceWeaveTypes.length} from service)',
+      );
+    } catch (e) {
+      print('Error loading weave types from service: $e');
+      // Don't replace existing weave types, just ensure we have defaults
+      if (weaves.isEmpty) {
+        setState(() {
+          weaves = [
+            'Twill',
+            'Oxford',
+            'Dobby',
+            'Flannel',
+            'Satin',
+          ]; // Fallback to defaults
+        });
       }
     }
-    
-    setState(() {
-      // Create a set to avoid duplicates
-      Set<String> combinedWeaveTypes = Set.from(weaves);
-      
-      // Add service weave types to the set
-      combinedWeaveTypes.addAll(serviceWeaveTypes);
-      
-      // Convert back to list and sort
-      weaves = combinedWeaveTypes.toList();
-      weaves.sort();
-    });
-    
-    print('Loaded ${weaves.length} weave types from service (${serviceWeaveTypes.length} from service)');
-  } catch (e) {
-    print('Error loading weave types from service: $e');
-    // Don't replace existing weave types, just ensure we have defaults
-    if (weaves.isEmpty) {
-      setState(() {
-        weaves = ['Twill', 'Oxford', 'Dobby', 'Flannel', 'Satin']; // Fallback to defaults
-      });
-    }
   }
-}
 
+  Widget _buildWeaveTypeSection() {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Weave Type: *',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return WeaveTypeDialog(
+                          activeProducts:
+                              activeProducts, // Pass the active products
+                        );
+                      },
+                    ).then((result) {
+                      if (result != null) {
+                        // Add the weave type using the service
+                        WeaveTypeService()
+                            .addWeaveType(
+                              result['product'],
+                              result['code'],
+                              name: result['name'],
+                              description: result['description'],
+                              status: result['status'],
+                            )
+                            .then((_) {
+                              // Reload the weave types
+                              _loadWeaveTypesFromService();
 
-Widget _buildWeaveTypeSection() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Weave Type: *',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return WeaveTypeDialog(
-                        activeProducts: activeProducts, // Pass the active products
-                      );
-                    },
-                  ).then((result) {
-                    if (result != null) {
-                      // Add the weave type using the service
-                      WeaveTypeService().addWeaveType(
-                        result['product'], 
-                        result['code'],
-                        name: result['name'],
-                        description: result['description'],
-                        status: result['status']
-                      ).then((_) {
-                        // Reload the weave types
-                        _loadWeaveTypesFromService();
-                        
-                        // Set the selected weave type to the newly added one
-                        setState(() {
-                          selectedWeave = result['name'];
-                        });
-                        
-                        // Show success message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Weave type added successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }).catchError((error) {
-                        // Show error message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error adding weave type: $error'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      });
-                    }
-                  });
-                },
-                child: const Text(
-                  '+',
-                  style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: weaves.map((weave) {
-              bool isSelected = selectedWeave == weave;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedWeave = weave;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+                              // Set the selected weave type to the newly added one
+                              setState(() {
+                                selectedWeave = result['name'];
+                              });
+
+                              // Show success message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Weave type added successfully',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            })
+                            .catchError((error) {
+                              // Show error message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Error adding weave type: $error',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            });
+                      }
+                    });
+                  },
+                  child: const Text(
+                    '+',
+                    style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
                   ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFF2563EB)
-                        : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(6),
-                    border: isSelected
-                        ? Border.all(color: const Color(0xFF2563EB))
-                        : Border.all(color: Colors.grey.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    weave,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                      fontWeight: FontWeight.w600,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: weaves.map((weave) {
+                bool isSelected = selectedWeave == weave;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      selectedWeave = weave;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF2563EB)
+                          : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(6),
+                      border: isSelected
+                          ? Border.all(color: const Color(0xFF2563EB))
+                          : Border.all(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      weave,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
-Future<void> _loadQualitiesFromService() async {
-  try {
-    // Use the QualityService to get qualities
-    List<Map<String, dynamic>> qualitiesData = await QualityService().getQualities();
-    
-    // Extract unique quality names
-    Set<String> uniqueQualities = {};
-    for (var qualityData in qualitiesData) {
-      if (qualityData['quality'] != null && qualityData['quality'].toString().isNotEmpty) {
-        uniqueQualities.add(qualityData['quality'].toString());
+    );
+  }
+
+  Future<void> _loadQualitiesFromService() async {
+    try {
+      // Use the QualityService to get qualities
+      List<Map<String, dynamic>> qualitiesData = await QualityService()
+          .getQualities();
+
+      // Extract unique quality names
+      Set<String> uniqueQualities = {};
+      for (var qualityData in qualitiesData) {
+        if (qualityData['quality'] != null &&
+            qualityData['quality'].toString().isNotEmpty) {
+          uniqueQualities.add(qualityData['quality'].toString());
+        }
+      }
+
+      setState(() {
+        // Create a new set with existing qualities
+        Set<String> combinedQualities = Set.from(qualities);
+
+        // Add service qualities to the set
+        combinedQualities.addAll(uniqueQualities);
+
+        // Convert back to list and sort
+        qualities = combinedQualities.toList();
+        qualities.sort();
+      });
+
+      print(
+        'Loaded ${qualities.length} total qualities (${uniqueQualities.length} from service)',
+      );
+    } catch (e) {
+      print('Error loading qualities from service: $e');
+      // Don't replace existing qualities, just ensure we have defaults
+      if (qualities.isEmpty) {
+        setState(() {
+          qualities = ['PC', 'Cotton', 'CP', 'Linen']; // Fallback to defaults
+        });
       }
     }
-    
-    setState(() {
-      // Create a new set with existing qualities
-      Set<String> combinedQualities = Set.from(qualities);
-      
-      // Add service qualities to the set
-      combinedQualities.addAll(uniqueQualities);
-      
-      // Convert back to list and sort
-      qualities = combinedQualities.toList();
-      qualities.sort();
-    });
-    
-    print('Loaded ${qualities.length} total qualities (${uniqueQualities.length} from service)');
-  } catch (e) {
-    print('Error loading qualities from service: $e');
-    // Don't replace existing qualities, just ensure we have defaults
-    if (qualities.isEmpty) {
-      setState(() {
-        qualities = ['PC', 'Cotton', 'CP', 'Linen']; // Fallback to defaults
-      });
-    }
   }
-}
-  
+
   Widget _buildQualitySection() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Quality: *',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return QualityDialog(
-                        activeProducts: activeProducts, // Pass the active products
-                      );
-                    },
-                  ).then((result) {
-                    if (result != null) {
-                      // Add the quality using the service
-                      QualityService().addQuality(result['product'], result['quality']).then((_) {
-                        // Reload the qualities
-                        _loadQualitiesFromService();
-                        
-                        // Set the selected quality to the newly added one
-                        setState(() {
-                          selectedQuality = result['quality'];
-                        });
-                        
-                        // Show success message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Quality added successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }).catchError((error) {
-                        // Show error message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error adding quality: $error'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      });
-                    }
-                  });
-                },
-                child: const Text(
-                  '+',
-                  style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: qualities.map((quality) {
-              bool isSelected = selectedQuality == quality;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedQuality = quality;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Quality: *',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
                   ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFF2563EB)
-                        : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(6),
-                    border: isSelected
-                        ? Border.all(color: const Color(0xFF2563EB))
-                        : Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return QualityDialog(
+                          activeProducts:
+                              activeProducts, // Pass the active products
+                        );
+                      },
+                    ).then((result) {
+                      if (result != null) {
+                        // Add the quality using the service
+                        QualityService()
+                            .addQuality(result['product'], result['quality'])
+                            .then((_) {
+                              // Reload the qualities
+                              _loadQualitiesFromService();
+
+                              // Set the selected quality to the newly added one
+                              setState(() {
+                                selectedQuality = result['quality'];
+                              });
+
+                              // Show success message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Quality added successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            })
+                            .catchError((error) {
+                              // Show error message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error adding quality: $error'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            });
+                      }
+                    });
+                  },
+                  child: const Text(
+                    '+',
+                    style: TextStyle(fontSize: 20, color: Color(0xFF2563EB)),
                   ),
-                  child: Text(
-                    quality,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                      fontWeight: FontWeight.w600,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: qualities.map((quality) {
+                bool isSelected = selectedQuality == quality;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      selectedQuality = quality;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF2563EB)
+                          : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(6),
+                      border: isSelected
+                          ? Border.all(color: const Color(0xFF2563EB))
+                          : Border.all(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      quality,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   // Add Weave Type Dialog
   Widget _buildAddWeaveDialog() {
     return Stack(
@@ -3028,265 +3095,273 @@ Future<void> _loadQualitiesFromService() async {
 
   // Add Width Dialog
   Widget _buildAddWidthDialog() {
-  return Stack(
-    children: [
-      // Background overlay
-      GestureDetector(
-        onTap: () {
-          setState(() {
-            _showAddWidthDialog = false;
-          });
-        },
-        child: Container(
-          color: Colors.black.withOpacity(0.5),
-          width: double.infinity,
-          height: double.infinity,
-        ),
-      ),
-
-      // Dialog content
-      Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width > 600
-              ? 500
-              : double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    return Stack(
+      children: [
+        // Background overlay
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _showAddWidthDialog = false;
+            });
+          },
+          child: Container(
+            color: Colors.black.withOpacity(0.5),
+            width: double.infinity,
+            height: double.infinity,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Dialog header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+        ),
+
+        // Dialog content
+        Center(
+          child: Container(
+            width: MediaQuery.of(context).size.width > 600
+                ? 500
+                : double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Dialog header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Add Width',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Add Width',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _showAddWidthDialog = false;
-                        });
-                      },
-                      child: const Icon(Icons.close, color: Colors.black),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Dialog body
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Width Name field
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFFFF),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Width: *',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF374151),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _widthController,
-                            decoration: InputDecoration(
-                              hintText: 'e.g., 44", 58", 60"',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Info message
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFDBEAFE)),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF2563EB),
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'This will be added to master and available immediately.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF1E40AF),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Dialog footer
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    // Cancel button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           setState(() {
                             _showAddWidthDialog = false;
                           });
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          foregroundColor: Colors.white,
+                        child: const Icon(Icons.close, color: Colors.black),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Dialog body
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Width Name field
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFFFF),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Width: *',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _widthController,
+                              decoration: InputDecoration(
+                                hintText: 'e.g., 44", 58", 60"',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Info message
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFDBEAFE)),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(
+                              Icons.info_outline,
+                              color: Color(0xFF2563EB),
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'This will be added to master and available immediately.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF1E40AF),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Dialog footer
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Cancel button
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _showAddWidthDialog = false;
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Save to Master button (UPDATED)
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          if (_widthController.text.isNotEmpty) {
-                            try {
-                              // Extract numeric value from the input (e.g., "58" from "58\"")
-                              String widthStr = _widthController.text;
-                              if (widthStr.endsWith('"')) {
-                                widthStr = widthStr.substring(0, widthStr.length - 1);
-                              }
-                              double? widthValue = double.tryParse(widthStr);
+                      const SizedBox(width: 12),
+                      // Save to Master button (UPDATED)
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (_widthController.text.isNotEmpty) {
+                              try {
+                                // Extract numeric value from the input (e.g., "58" from "58\"")
+                                String widthStr = _widthController.text;
+                                if (widthStr.endsWith('"')) {
+                                  widthStr = widthStr.substring(
+                                    0,
+                                    widthStr.length - 1,
+                                  );
+                                }
+                                double? widthValue = double.tryParse(widthStr);
 
-                              if (widthValue != null) {
-                                // Use WidthService to add the width. We'll use "General" as the product.
-                                await WidthService().addWidth("General", widthValue as int);
+                                if (widthValue != null) {
+                                  // Use WidthService to add the width. We'll use "General" as the product.
+                                  await WidthService().addWidth(
+                                    "General",
+                                    widthValue as int,
+                                  );
 
-                                // Reload widths from the service to get the updated list immediately
-                                await _loadWidthsFromService();
+                                  // Reload widths from the service to get the updated list immediately
+                                  await _loadWidthsFromService();
 
-                                // Set the selected width to the newly added one and close the dialog
-                                setState(() {
-                                  selectedWidth = _widthController.text; // Use the original text from the controller
-                                  _showAddWidthDialog = false;
-                                });
+                                  // Set the selected width to the newly added one and close the dialog
+                                  setState(() {
+                                    selectedWidth = _widthController
+                                        .text; // Use the original text from the controller
+                                    _showAddWidthDialog = false;
+                                  });
 
-                                _widthController.clear();
+                                  _widthController.clear();
 
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Width added successfully'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  // Handle case where parsing fails
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Invalid width format. Please enter a number.',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                // Handle any other errors from the service
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Width added successfully'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              } else {
-                                // Handle case where parsing fails
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Invalid width format. Please enter a number.'),
+                                  SnackBar(
+                                    content: Text('Error adding width: $e'),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                               }
-                            } catch (e) {
-                              // Handle any other errors from the service
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error adding width: $e'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
                             }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text(
-                          'Save to Master',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text(
+                            'Save to Master',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    ],
-  );
-}
-
+      ],
+    );
+  }
 
   Widget _buildDetailHeading(String text) {
     return Text(
@@ -3346,90 +3421,91 @@ Future<void> _loadQualitiesFromService() async {
   }
 
   Widget _buildCapturePhotoSection() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          const Text(
-            'Capture Photo:',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          // Photo capture area
-          if (capturedPhotos.isEmpty && _pendingPhotos.isEmpty)
-            _buildEmptyCaptureArea()
-          else
-            _buildPhotoGrid(),
-
-          const SizedBox(height: 12),
-          
-          // Capture button
-          InkWell(
-            onTap: () async {
-              setState(() {
-                _isCapturingMultiple = true;
-                _pendingPhotos.clear();
-              });
-              await _captureMultiplePhotos();
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF2563EB).withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Capture Photos',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // ADD THIS SECTION - The "Check Saved Images" button
-          // const SizedBox(height: 12),
-          // _buildCheckImagesButton(), // <-- ADD THIS LINE
-        ],
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
       ),
-    ),
-  );
-}
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            const Text(
+              'Capture Photo:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Photo capture area
+            if (capturedPhotos.isEmpty && _pendingPhotos.isEmpty)
+              _buildEmptyCaptureArea()
+            else
+              _buildPhotoGrid(),
+
+            const SizedBox(height: 12),
+
+            // Capture button
+            InkWell(
+              onTap: () async {
+                setState(() {
+                  _isCapturingMultiple = true;
+                  _pendingPhotos.clear();
+                });
+                await _captureMultiplePhotos();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [const Color(0xFF4F46E5), const Color(0xFF2563EB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Capture Photos',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ADD THIS SECTION - The "Check Saved Images" button
+            // const SizedBox(height: 12),
+            // _buildCheckImagesButton(), // <-- ADD THIS LINE
+          ],
+        ),
+      ),
+    );
+  }
+
   // Add this new method to handle multiple photo capture
   Future<void> _captureMultiplePhotos() async {
     try {
@@ -4373,8 +4449,7 @@ Future<void> _loadQualitiesFromService() async {
                 int choices =
                     int.tryParse(_choicesController.text) ?? defaultChoices;
                 int meters =
-                    int.tryParse(defaultMetersController.text) ??
-                    defaultMeters;
+                    int.tryParse(defaultMetersController.text) ?? defaultMeters;
 
                 // Add or update design
                 _addOrUpdateDesign(
@@ -4441,381 +4516,382 @@ Future<void> _loadQualitiesFromService() async {
   }
 
   Widget _buildCapturedDesignsSection() {
-  // Determine which filter options to show based on currentFilterType
-  List<String> filterOptions = [];
-  if (currentFilterType == FilterType.mode) {
-    filterOptions = ['All', 'Design', 'Sample'];
-  } else {
-    filterOptions = ['All', ...ofTypes];
-  }
-
-  // Filter designs based on selected tab and filter type
-  List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
-    design,
-  ) {
+    // Determine which filter options to show based on currentFilterType
+    List<String> filterOptions = [];
     if (currentFilterType == FilterType.mode) {
-      if (selectedFilter == 'All') return true;
-      if (selectedFilter == 'Design') return design['mode'] == 'Design';
-      if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
+      filterOptions = ['All', 'Design', 'Sample'];
     } else {
-      // FilterType.ofType
-      if (selectedFilter == 'All') return true;
-      return design['ofType'] == selectedFilter;
+      filterOptions = ['All', ...ofTypes];
     }
-    return true;
-  }).toList();
 
-  return Container(
-    color: Colors.white,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header with close button - ADD TOP PADDING HERE
-        Container(
-          padding: const EdgeInsets.only(
-            left: 12, 
-            right: 12, 
-            top: 30, // Add top padding to move header down
-            bottom: 12, // Keep bottom padding
-          ), 
-          decoration: BoxDecoration(color: primaryColor),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'All Captured Designs:', // Show the current O/F Type
-                style: const TextStyle(
-                  fontSize: 14, // Reduced font size
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  Navigator.of(context).pop(); // Close the drawer
-                },
-              ),
-            ],
-          ),
-        ),
+    // Filter designs based on selected tab and filter type
+    List<Map<String, dynamic>> filteredDesigns = capturedDesigns.where((
+      design,
+    ) {
+      if (currentFilterType == FilterType.mode) {
+        if (selectedFilter == 'All') return true;
+        if (selectedFilter == 'Design') return design['mode'] == 'Design';
+        if (selectedFilter == 'Sample') return design['mode'] == 'Sample';
+      } else {
+        // FilterType.ofType
+        if (selectedFilter == 'All') return true;
+        return design['ofType'] == selectedFilter;
+      }
+      return true;
+    }).toList();
 
-        // Rest of the widget remains the same
-        // Filter type selector (Mode or O/F Type)
-        Container(
-          padding: const EdgeInsets.all(12), // Reduced padding
-          child: Row(
-            children: [
-              Text(
-                'Filter by:',
-                style: TextStyle(
-                  fontSize: 12, // Reduced font size
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
-                ),
-              ),
-              const SizedBox(width: 8), // Reduced spacing
-              // Mode filter button
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    currentFilterType = FilterType.mode;
-                    selectedFilter =
-                        'All'; // Reset to All when switching filter types
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8, // Reduced padding
-                    vertical: 4, // Reduced padding
-                  ),
-                  margin: const EdgeInsets.only(right: 6), // Reduced margin
-                  decoration: BoxDecoration(
-                    color: currentFilterType == FilterType.mode
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: currentFilterType == FilterType.mode
-                          ? const Color(0xFF2563EB)
-                          : Colors.transparent,
-                    ),
-                  ),
-                  child: Text(
-                    'Mode',
-                    style: TextStyle(
-                      fontSize: 12, // Reduced font size
-                      color: currentFilterType == FilterType.mode
-                          ? Colors.white
-                          : const Color(0xFF1F2937),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              // O/F Type filter button
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    currentFilterType = FilterType.ofType;
-                    selectedFilter =
-                        'All'; // Reset to All when switching filter types
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8, // Reduced padding
-                    vertical: 4, // Reduced padding
-                  ),
-                  decoration: BoxDecoration(
-                    color: currentFilterType == FilterType.ofType
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: currentFilterType == FilterType.ofType
-                          ? const Color(0xFF2563EB)
-                          : Colors.transparent,
-                    ),
-                  ),
-                  child: Text(
-                    'O/F Type',
-                    style: TextStyle(
-                      fontSize: 12, // Reduced font size
-                      color: currentFilterType == FilterType.ofType
-                          ? Colors.white
-                          : const Color(0xFF1F2937),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Filter tabs
-        Container(
-          padding: const EdgeInsets.all(12), // Reduced padding
-          child: Wrap(
-            children: filterOptions.map((filter) {
-              bool isSelected = selectedFilter == filter;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedFilter = filter;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8, // Reduced padding
-                    vertical: 4, // Reduced padding
-                  ),
-                  margin: const EdgeInsets.only(
-                    left: 6,
-                    bottom: 6,
-                  ), // Reduced margin
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFFFEE2E2)
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFFEF4444)
-                          : Colors.transparent,
-                    ),
-                  ),
-                  child: Text(
-                    filter,
-                    style: TextStyle(
-                      fontSize: 12, // Reduced font size
-                      color: isSelected
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF1F2937),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-
-        // Design list or empty state
-        if (filteredDesigns.isEmpty)
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with close button - ADD TOP PADDING HERE
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16), // Reduced padding
-            margin: const EdgeInsets.all(12), // Reduced margin
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(6), // Reduced border radius
-              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            padding: const EdgeInsets.only(
+              left: 12,
+              right: 12,
+              top: 30, // Add top padding to move header down
+              bottom: 12, // Keep bottom padding
             ),
-            child: Text(
-              currentFilterType == FilterType.mode
-                  ? 'No ${selectedFilter.toLowerCase()} designs captured yet. Start capturing photos!'
-                  : 'No ${selectedFilter} designs captured yet. Start capturing photos!',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF9CA3AF),
-              ), // Reduced font size
+            decoration: BoxDecoration(color: primaryColor),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'All Captured Designs:', // Show the current O/F Type
+                  style: const TextStyle(
+                    fontSize: 14, // Reduced font size
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close the drawer
+                  },
+                ),
+              ],
             ),
-          )
-        else
-          // Card view for designs
-          Expanded(
-            child: ListView.builder(
-              // Updated padding with more space on the right
-              padding: const EdgeInsets.only(
-                left: 15.0, // Keep left padding
-                top: 20.0, // Keep top padding
-                bottom: 20.0, // Keep bottom padding
-                right: 40.0, // Reduced right padding to match left
-              ),
-              itemCount: filteredDesigns.length,
-              itemBuilder: (context, index) {
-                final design = filteredDesigns[index];
-                final originalIndex = capturedDesigns.indexOf(design);
-                final isEditing =
-                    _editingDesignIndex != null &&
-                    originalIndex == _editingDesignIndex;
+          ),
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8), // Reduced margin
-                  elevation: 1, // Reduced elevation
-                  // Updated card color to match the theme in the image
-                  color: const Color.fromARGB(
-                    255,
-                    238,
-                    245,
-                    251,
-                  ), // Light blue background
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      6,
-                    ), // Reduced border radius
-                    side: BorderSide(
-                      color: isEditing
+          // Rest of the widget remains the same
+          // Filter type selector (Mode or O/F Type)
+          Container(
+            padding: const EdgeInsets.all(12), // Reduced padding
+            child: Row(
+              children: [
+                Text(
+                  'Filter by:',
+                  style: TextStyle(
+                    fontSize: 12, // Reduced font size
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(width: 8), // Reduced spacing
+                // Mode filter button
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      currentFilterType = FilterType.mode;
+                      selectedFilter =
+                          'All'; // Reset to All when switching filter types
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8, // Reduced padding
+                      vertical: 4, // Reduced padding
+                    ),
+                    margin: const EdgeInsets.only(right: 6), // Reduced margin
+                    decoration: BoxDecoration(
+                      color: currentFilterType == FilterType.mode
                           ? const Color(0xFF2563EB)
-                          : Colors.grey.withOpacity(0.3),
-                      width: isEditing ? 1.5 : 1, // Reduced border width
+                          : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: currentFilterType == FilterType.mode
+                            ? const Color(0xFF2563EB)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      'Mode',
+                      style: TextStyle(
+                        fontSize: 12, // Reduced font size
+                        color: currentFilterType == FilterType.mode
+                            ? Colors.white
+                            : const Color(0xFF1F2937),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.of(context).pop(); // Close the drawer first
-                      _selectDesignForEditing(design, originalIndex);
-                    },
-                    borderRadius: BorderRadius.circular(
-                      6,
-                    ), // Reduced border radius
-                    child: Padding(
-                      padding: const EdgeInsets.all(8), // Reduced padding
-                      child: Column(
-                        children: [
-                          // First row: Design Number (left) and Choices (right)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Design Number on the left
-                              Tooltip(
-                                message: 'Design Number',
-                                child: Text(
-                                  design['designNo']?.toString() ?? '-',
-                                  style: const TextStyle(
-                                    fontSize: 12, // Reduced font size
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(
-                                      0xFF1F2937,
-                                    ), // Dark text for better contrast
-                                  ),
-                                ),
-                              ),
-                              // Choices on the right
-                              Tooltip(
-                                message: 'Choices',
-                                child: Text(
-                                  design['choices']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 12, // Reduced font size
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(
-                                      0xFF1F2937,
-                                    ), // Dark text for better contrast
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                ),
+                // O/F Type filter button
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      currentFilterType = FilterType.ofType;
+                      selectedFilter =
+                          'All'; // Reset to All when switching filter types
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8, // Reduced padding
+                      vertical: 4, // Reduced padding
+                    ),
+                    decoration: BoxDecoration(
+                      color: currentFilterType == FilterType.ofType
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: currentFilterType == FilterType.ofType
+                            ? const Color(0xFF2563EB)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      'O/F Type',
+                      style: TextStyle(
+                        fontSize: 12, // Reduced font size
+                        color: currentFilterType == FilterType.ofType
+                            ? Colors.white
+                            : const Color(0xFF1F2937),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-                          const SizedBox(height: 6), // Reduced spacing
-                          // Second row: Meters on the right
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Tooltip(
-                                message: 'Meters',
-                                child: Text(
-                                  (design['meters'] is num)
-                                      ? (design['meters'] as num)
-                                            .toInt()
-                                            .toStringAsFixed(0)
-                                      : design['meters']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 12, // Reduced font size
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(
-                                      0xFF1F2937,
-                                    ), // Dark text for better contrast
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // Show editing indicator if needed
-                          if (isEditing) ...[
-                            const SizedBox(height: 6), // Reduced spacing
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6, // Reduced padding
-                                vertical: 2, // Reduced padding
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFFDBEAFE,
-                                ), // Light blue background for editing indicator
-                                borderRadius: BorderRadius.circular(
-                                  3,
-                                ), // Reduced border radius
-                              ),
-                              child: const Text(
-                                'Currently Editing',
-                                style: TextStyle(
-                                  fontSize: 10, // Reduced font size
-                                  color: Color(
-                                    0xFF1E40AF,
-                                  ), // Dark blue text for editing indicator
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+          // Filter tabs
+          Container(
+            padding: const EdgeInsets.all(12), // Reduced padding
+            child: Wrap(
+              children: filterOptions.map((filter) {
+                bool isSelected = selectedFilter == filter;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      selectedFilter = filter;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8, // Reduced padding
+                      vertical: 4, // Reduced padding
+                    ),
+                    margin: const EdgeInsets.only(
+                      left: 6,
+                      bottom: 6,
+                    ), // Reduced margin
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFFEE2E2)
+                          : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFEF4444)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      filter,
+                      style: TextStyle(
+                        fontSize: 12, // Reduced font size
+                        color: isSelected
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF1F2937),
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 );
-              },
+              }).toList(),
             ),
           ),
-      ],
-    ),
-  );
-}
+
+          // Design list or empty state
+          if (filteredDesigns.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16), // Reduced padding
+              margin: const EdgeInsets.all(12), // Reduced margin
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(6), // Reduced border radius
+                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+              ),
+              child: Text(
+                currentFilterType == FilterType.mode
+                    ? 'No ${selectedFilter.toLowerCase()} designs captured yet. Start capturing photos!'
+                    : 'No ${selectedFilter} designs captured yet. Start capturing photos!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF9CA3AF),
+                ), // Reduced font size
+              ),
+            )
+          else
+            // Card view for designs
+            Expanded(
+              child: ListView.builder(
+                // Updated padding with more space on the right
+                padding: const EdgeInsets.only(
+                  left: 15.0, // Keep left padding
+                  top: 20.0, // Keep top padding
+                  bottom: 20.0, // Keep bottom padding
+                  right: 40.0, // Reduced right padding to match left
+                ),
+                itemCount: filteredDesigns.length,
+                itemBuilder: (context, index) {
+                  final design = filteredDesigns[index];
+                  final originalIndex = capturedDesigns.indexOf(design);
+                  final isEditing =
+                      _editingDesignIndex != null &&
+                      originalIndex == _editingDesignIndex;
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8), // Reduced margin
+                    elevation: 1, // Reduced elevation
+                    // Updated card color to match the theme in the image
+                    color: const Color.fromARGB(
+                      255,
+                      238,
+                      245,
+                      251,
+                    ), // Light blue background
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        6,
+                      ), // Reduced border radius
+                      side: BorderSide(
+                        color: isEditing
+                            ? const Color(0xFF2563EB)
+                            : Colors.grey.withOpacity(0.3),
+                        width: isEditing ? 1.5 : 1, // Reduced border width
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close the drawer first
+                        _selectDesignForEditing(design, originalIndex);
+                      },
+                      borderRadius: BorderRadius.circular(
+                        6,
+                      ), // Reduced border radius
+                      child: Padding(
+                        padding: const EdgeInsets.all(8), // Reduced padding
+                        child: Column(
+                          children: [
+                            // First row: Design Number (left) and Choices (right)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Design Number on the left
+                                Tooltip(
+                                  message: 'Design Number',
+                                  child: Text(
+                                    design['designNo']?.toString() ?? '-',
+                                    style: const TextStyle(
+                                      fontSize: 12, // Reduced font size
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(
+                                        0xFF1F2937,
+                                      ), // Dark text for better contrast
+                                    ),
+                                  ),
+                                ),
+                                // Choices on the right
+                                Tooltip(
+                                  message: 'Choices',
+                                  child: Text(
+                                    design['choices']?.toString() ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 12, // Reduced font size
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(
+                                        0xFF1F2937,
+                                      ), // Dark text for better contrast
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 6), // Reduced spacing
+                            // Second row: Meters on the right
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Tooltip(
+                                  message: 'Meters',
+                                  child: Text(
+                                    (design['meters'] is num)
+                                        ? (design['meters'] as num)
+                                              .toInt()
+                                              .toStringAsFixed(0)
+                                        : design['meters']?.toString() ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 12, // Reduced font size
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(
+                                        0xFF1F2937,
+                                      ), // Dark text for better contrast
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            // Show editing indicator if needed
+                            if (isEditing) ...[
+                              const SizedBox(height: 6), // Reduced spacing
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, // Reduced padding
+                                  vertical: 2, // Reduced padding
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFFDBEAFE,
+                                  ), // Light blue background for editing indicator
+                                  borderRadius: BorderRadius.circular(
+                                    3,
+                                  ), // Reduced border radius
+                                ),
+                                child: const Text(
+                                  'Currently Editing',
+                                  style: TextStyle(
+                                    fontSize: 10, // Reduced font size
+                                    color: Color(
+                                      0xFF1E40AF,
+                                    ), // Dark blue text for editing indicator
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _saveCapturedDesignToHive() async {
     try {
       if (!Hive.isBoxOpen('designs')) {
@@ -4929,13 +5005,38 @@ Future<void> _loadQualitiesFromService() async {
       totalChoices += choicesVal;
 
       final metersVal = (design['meters'] is int)
-        ? design['meters'] as int
-        : int.tryParse(design['meters']?.toString() ?? '0') ?? 0; // Simplified logic
-    totalMeters += metersVal;
+          ? design['meters'] as int
+          : int.tryParse(design['meters']?.toString() ?? '0') ??
+                0; // Simplified logic
+      totalMeters += metersVal;
     }
 
     return {'d': totalDesigns, 'ch': totalChoices, 'mtr': totalMeters};
   }
+
+  // Add this method to load order form types from the service
+Future<void> _loadOrderFormTypesFromService() async {
+  try {
+    // Use the OrderFormTypeService to get order form types
+    List<Map<String, dynamic>> orderFormTypesData = await OrderFormTypeService().getOrderFormTypes();
+    
+    // Extract just the names from the order form types
+    List<String> serviceOfTypes = orderFormTypesData.map((type) => type['name'] as String).toList();
+    
+    setState(() {
+      // Create a set to avoid duplicates
+      Set<String> combinedOfTypes = Set.from(ofTypes);
+      combinedOfTypes.addAll(serviceOfTypes);
+      
+      // Convert back to list
+      ofTypes = combinedOfTypes.toList();
+    });
+    
+    print('Loaded ${ofTypes.length} order form types from service and defaults');
+  } catch (e) {
+    print('Error loading order form types: $e');
+  }
+}
 
   // Method to update the textileData with calculated values
   void _updateSummaryValues() {

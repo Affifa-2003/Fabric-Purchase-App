@@ -33,14 +33,14 @@ class _GradesPageState extends State<GradesPage> {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveGrades = [];
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       appDataBox = Hive.box('appData');
-      
+
       final gradesData = appDataBox.get('grades');
       if (gradesData != null) {
         // Handle different types of data
@@ -53,13 +53,13 @@ class _GradesPageState extends State<GradesPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
         grades = hiveGrades;
         filteredGrades = List.from(grades);
         _isLoading = false;
       });
-      
+
       print('Loaded ${grades.length} grades from Hive');
     } catch (e) {
       print('Error loading grades: $e');
@@ -79,7 +79,7 @@ class _GradesPageState extends State<GradesPage> {
       }
 
       final box = Hive.box('appData');
-      
+
       // Ensure we're saving a list of maps with proper types
       List<Map<String, dynamic>> gradesToSave = grades.map((grade) {
         return {
@@ -87,10 +87,10 @@ class _GradesPageState extends State<GradesPage> {
           'description': grade['description']?.toString() ?? '',
         };
       }).toList();
-      
+
       // Save data with explicit await to ensure it's written to disk
       await box.put('grades', gradesToSave);
-      
+
       // Explicitly flush to disk
       await box.flush();
 
@@ -165,7 +165,10 @@ class _GradesPageState extends State<GradesPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -186,7 +189,9 @@ class _GradesPageState extends State<GradesPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -196,7 +201,9 @@ class _GradesPageState extends State<GradesPage> {
                                 children: [
                                   Text(
                                     'Grade Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -219,13 +226,15 @@ class _GradesPageState extends State<GradesPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Description Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -235,7 +244,9 @@ class _GradesPageState extends State<GradesPage> {
                                 children: [
                                   Text(
                                     'Description:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -291,7 +302,7 @@ class _GradesPageState extends State<GradesPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -336,13 +347,14 @@ class _GradesPageState extends State<GradesPage> {
                                 );
                                 return;
                               }
-                              
+
                               // Create new grade
                               Map<String, dynamic> newGrade = {
                                 'name': nameController.text.trim(),
-                                'description': descriptionController.text.trim(),
+                                'description': descriptionController.text
+                                    .trim(),
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Add to the beginning of the list
@@ -385,8 +397,12 @@ class _GradesPageState extends State<GradesPage> {
   }
 
   void _showEditGradeDialog(Map<String, dynamic> grade, int index) {
-    TextEditingController nameController = TextEditingController(text: grade['name']);
-    TextEditingController descriptionController = TextEditingController(text: grade['description'] ?? '');
+    TextEditingController nameController = TextEditingController(
+      text: grade['name'],
+    );
+    TextEditingController descriptionController = TextEditingController(
+      text: grade['description'] ?? '',
+    );
 
     showDialog(
       context: context,
@@ -431,7 +447,10 @@ class _GradesPageState extends State<GradesPage> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.close, color: Color(0xFF767676)),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF767676),
+                        ),
                       ),
                     ],
                   ),
@@ -452,7 +471,9 @@ class _GradesPageState extends State<GradesPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -462,7 +483,9 @@ class _GradesPageState extends State<GradesPage> {
                                 children: [
                                   Text(
                                     'Grade Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -485,13 +508,15 @@ class _GradesPageState extends State<GradesPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Description Field
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
                           ),
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
@@ -501,7 +526,9 @@ class _GradesPageState extends State<GradesPage> {
                                 children: [
                                   Text(
                                     'Description:',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -554,7 +581,7 @@ class _GradesPageState extends State<GradesPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -599,16 +626,18 @@ class _GradesPageState extends State<GradesPage> {
                                 );
                                 return;
                               }
-                              
+
                               // Check if name is being changed
-                              bool nameChanged = nameController.text.trim() != grade['name'];
-                              
+                              bool nameChanged =
+                                  nameController.text.trim() != grade['name'];
+
                               // Create updated grade
                               Map<String, dynamic> updatedGrade = {
                                 'name': nameController.text.trim(),
-                                'description': descriptionController.text.trim(),
+                                'description': descriptionController.text
+                                    .trim(),
                               };
-                              
+
                               // Update local state immediately
                               setState(() {
                                 // Remove the old grade
@@ -623,7 +652,10 @@ class _GradesPageState extends State<GradesPage> {
 
                               // If name changed, update all related records
                               if (nameChanged) {
-                                await _updateGradeNameInAllRecords(grade['name'], updatedGrade['name']);
+                                await _updateGradeNameInAllRecords(
+                                  grade['name'],
+                                  updatedGrade['name'],
+                                );
                               }
 
                               Navigator.pop(context);
@@ -657,16 +689,19 @@ class _GradesPageState extends State<GradesPage> {
     );
   }
 
-  Future<void> _updateGradeNameInAllRecords(String oldName, String newName) async {
+  Future<void> _updateGradeNameInAllRecords(
+    String oldName,
+    String newName,
+  ) async {
     try {
       // Update grade name in orders box
       if (Hive.isBoxOpen('appData')) {
         final appDataBox = Hive.box('appData');
         final ordersData = appDataBox.get('orders');
-        
+
         if (ordersData != null && ordersData is List) {
           List<Map<String, dynamic>> updatedOrdersData = [];
-          
+
           for (var order in ordersData) {
             Map<String, dynamic> orderMap = Map<String, dynamic>.from(order);
             if (orderMap['grade'] == oldName) {
@@ -674,13 +709,12 @@ class _GradesPageState extends State<GradesPage> {
             }
             updatedOrdersData.add(orderMap);
           }
-          
+
           await appDataBox.put('orders', updatedOrdersData);
           await appDataBox.flush();
           print('Updated grade name in orders box');
         }
       }
-      
     } catch (e) {
       print('Error updating grade name in all records: $e');
     }
@@ -711,7 +745,11 @@ class _GradesPageState extends State<GradesPage> {
             ),
             child: IconButton(
               padding: EdgeInsets.zero, // Remove default padding
-              icon: const Icon(Icons.add, color: Color(0xFF2563EB), size: 24), // Adjusted icon size
+              icon: const Icon(
+                Icons.add,
+                color: Color(0xFF2563EB),
+                size: 24,
+              ), // Adjusted icon size
               onPressed: _showAddNewGradeDialog,
             ),
           ),
@@ -745,7 +783,7 @@ class _GradesPageState extends State<GradesPage> {
                     ),
                   ),
                 ),
-                
+
                 // Grades list
                 Expanded(
                   child: filteredGrades.isEmpty
@@ -784,17 +822,21 @@ class _GradesPageState extends State<GradesPage> {
                       : RefreshIndicator(
                           onRefresh: _loadGrades,
                           child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
                             itemCount: filteredGrades.length,
                             itemBuilder: (context, index) {
                               final grade = filteredGrades[index];
-                              
+
                               return Card(
                                 elevation: 0,
                                 color: const Color(0xFFFFFFFF),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
@@ -822,9 +864,14 @@ class _GradesPageState extends State<GradesPage> {
                                   ),
                                   onTap: () {
                                     // Find the original index in the grades list
-                                    int originalIndex = grades.indexWhere((g) => g['name'] == grade['name']);
+                                    int originalIndex = grades.indexWhere(
+                                      (g) => g['name'] == grade['name'],
+                                    );
                                     if (originalIndex != -1) {
-                                      _showEditGradeDialog(grade, originalIndex);
+                                      _showEditGradeDialog(
+                                        grade,
+                                        originalIndex,
+                                      );
                                     }
                                   },
                                 ),
@@ -839,93 +886,94 @@ class _GradesPageState extends State<GradesPage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> grade) {
-  // Check if grade is used in any orders
-  bool isUsedInOrders = false;
-  
-  // Check if grade is mapped to any agents
-  bool isMappedToAgents = false;
-  
-  try {
-    if (Hive.isBoxOpen('appData')) {
-      final appDataBox = Hive.box('appData');
-      
-      // Check if grade is used in orders
-      final ordersData = appDataBox.get('orders');
-      
-      if (ordersData != null && ordersData is List) {
-        for (var order in ordersData) {
-          if (order is Map && order['grade'] == grade['name']) {
-            isUsedInOrders = true;
-            break;
+    // Check if grade is used in any orders
+    bool isUsedInOrders = false;
+
+    // Check if grade is mapped to any agents
+    bool isMappedToAgents = false;
+
+    try {
+      if (Hive.isBoxOpen('appData')) {
+        final appDataBox = Hive.box('appData');
+
+        // Check if grade is used in orders
+        final ordersData = appDataBox.get('orders');
+
+        if (ordersData != null && ordersData is List) {
+          for (var order in ordersData) {
+            if (order is Map && order['grade'] == grade['name']) {
+              isUsedInOrders = true;
+              break;
+            }
+          }
+        }
+
+        // Check if grade is mapped to agents
+        final agentsData = appDataBox.get('agents');
+
+        if (agentsData != null && agentsData is List) {
+          for (var agent in agentsData) {
+            if (agent is Map && agent['grade'] == grade['name']) {
+              isMappedToAgents = true;
+              break;
+            }
           }
         }
       }
-      
-      // Check if grade is mapped to agents
-      final agentsData = appDataBox.get('agents');
-      
-      if (agentsData != null && agentsData is List) {
-        for (var agent in agentsData) {
-          if (agent is Map && agent['grade'] == grade['name']) {
-            isMappedToAgents = true;
-            break;
-          }
-        }
-      }
+    } catch (e) {
+      print('Error checking if grade is used: $e');
     }
-  } catch (e) {
-    print('Error checking if grade is used: $e');
-  }
-  
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: isUsedInOrders || isMappedToAgents
-            ? Text('This grade is already ${isUsedInOrders ? "used in orders" : ""}${isUsedInOrders && isMappedToAgents ? " and " : ""}${isMappedToAgents ? "mapped to agents" : ""} and cannot be deleted.')
-            : Text('Are you sure you want to delete "${grade['name']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-          if (!isUsedInOrders && !isMappedToAgents)
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: isUsedInOrders || isMappedToAgents
+              ? Text(
+                  'This grade is already ${isUsedInOrders ? "used in orders" : ""}${isUsedInOrders && isMappedToAgents ? " and " : ""}${isMappedToAgents ? "mapped to agents" : ""} and cannot be deleted.',
+                )
+              : Text('Are you sure you want to delete "${grade['name']}"?'),
+          actions: [
             TextButton(
-              onPressed: () async {
-                // Find the original index in the grades list
-                int originalIndex = grades.indexWhere((g) => g['name'] == grade['name']);
-                if (originalIndex != -1) {
-                  // Update local state immediately
-                  setState(() {
-                    grades.removeAt(originalIndex);
-                    _filterGrades(); // Update filtered list
-                  });
-                  
-                  // Save to Hive
-                  await _saveGradesToStorage();
-                  
-                  Navigator.of(context).pop(); // Close dialog
-                  
-                  // Show success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Grade deleted successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text('Delete'),
+              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
             ),
-        ],
-      );
-    },
-  );
-}
+            if (!isUsedInOrders && !isMappedToAgents)
+              TextButton(
+                onPressed: () async {
+                  // Find the original index in the grades list
+                  int originalIndex = grades.indexWhere(
+                    (g) => g['name'] == grade['name'],
+                  );
+                  if (originalIndex != -1) {
+                    // Update local state immediately
+                    setState(() {
+                      grades.removeAt(originalIndex);
+                      _filterGrades(); // Update filtered list
+                    });
+
+                    // Save to Hive
+                    await _saveGradesToStorage();
+
+                    Navigator.of(context).pop(); // Close dialog
+
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Grade deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Delete'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

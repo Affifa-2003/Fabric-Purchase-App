@@ -34,12 +34,12 @@ class _LoginPageState extends State<LoginPage> {
       if (!Hive.isAdapterRegistered(0)) {
         // Register any adapters if needed
       }
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
-      
+
       // Navigate to the HomePage
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const HomePage()),
@@ -132,8 +132,12 @@ class _LoginPageState extends State<LoginPage> {
                         if (_showError)
                           Container(
                             width: double.infinity,
-                            padding: EdgeInsets.all(isTabletOrWeb ? 16.0 : 12.0),
-                            margin: EdgeInsets.only(bottom: isTabletOrWeb ? 24.0 : 16.0),
+                            padding: EdgeInsets.all(
+                              isTabletOrWeb ? 16.0 : 12.0,
+                            ),
+                            margin: EdgeInsets.only(
+                              bottom: isTabletOrWeb ? 24.0 : 16.0,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.red,
                               borderRadius: BorderRadius.circular(8),
@@ -159,7 +163,7 @@ class _LoginPageState extends State<LoginPage> {
                               ],
                             ),
                           ),
-                        
+
                         // App Logo/Icon
                         Container(
                           padding: EdgeInsets.all(isTabletOrWeb ? 20.0 : 16.0),
@@ -298,7 +302,9 @@ class _LoginPageState extends State<LoginPage> {
                                 // Updated icon logic:
                                 // When password is hidden (dots) -> show eye with strike
                                 // When password is visible (text) -> show eye without strike
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
                                 color: primaryColor,
                                 size: fieldIconSize,
                               ),
