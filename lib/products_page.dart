@@ -30,157 +30,192 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Map<String, bool> _isProductMapped(String productName) {
-    try {
-      if (!Hive.isBoxOpen('appData')) {
-        Hive.openBox('appData');
-      }
-     
-      final box = Hive.box('appData');
-     
-      print('Checking if product "$productName" is mapped');
-     
-      Map<String, bool> mappedAttributes = {
-        'variety': false,
-        'colorGroup': false,
-        'sampleMeter': false,
-        'width': false,
-        'weaveType': false,
-        'quality': false,
-      };
-     
-      // Check if product is mapped in orders
-      final ordersData = box.get('orders');
-      print('Orders data: $ordersData');
-     
-      if (ordersData != null && ordersData is List) {
-        for (var order in ordersData) {
-          if (order is Map) {
-            print('Checking order: $order');
-            // Check if product is mapped with Variety, Color Group, or Sample Meter
-            if (order['product'] == productName) {
-              print('Found matching product in order');
-              if (order['variety'] != null) {
-                mappedAttributes['variety'] = true;
-                print('Product is mapped with variety');
-              }
-              if (order['colorGroup'] != null) {
-                mappedAttributes['colorGroup'] = true;
-                print('Product is mapped with color group');
-              }
-              if (order['sampleMeter'] != null) {
-                mappedAttributes['sampleMeter'] = true;
-                print('Product is mapped with sample meter');
-              }
-              if (order['width'] != null) {
-                mappedAttributes['width'] = true;
-                print('Product is mapped with width');
-              }
-              if (order['weaveType'] != null) {
-                mappedAttributes['weaveType'] = true;
-                print('Product is mapped with weave type');
-              }
-              if (order['quality'] != null) {
-                mappedAttributes['quality'] = true;
-                print('Product is mapped with quality');
-              }
+  try {
+    if (!Hive.isBoxOpen('appData')) {
+      Hive.openBox('appData');
+    }
+   
+    final box = Hive.box('appData');
+   
+    print('Checking if product "$productName" is mapped');
+   
+    Map<String, bool> mappedAttributes = {
+      'variety': false,
+      'colorGroup': false,
+      'sampleMeter': false,
+      'width': false,
+      'weaveType': false,
+      'quality': false,
+    };
+   
+    // Check if product is mapped in orders
+    final ordersData = box.get('orders');
+    print('Orders data: $ordersData');
+   
+    if (ordersData != null && ordersData is List) {
+      for (var order in ordersData) {
+        if (order is Map) {
+          print('Checking order: $order');
+          // Check if product matches
+          if (order['product'] == productName) {
+            print('Found matching product in order');
+            if (order['variety'] != null && order['variety'].toString().isNotEmpty) {
+              mappedAttributes['variety'] = true;
+              print('Product is mapped with variety');
+            }
+            if (order['colorGroup'] != null && order['colorGroup'].toString().isNotEmpty) {
+              mappedAttributes['colorGroup'] = true;
+              print('Product is mapped with color group');
+            }
+            if (order['sampleMeter'] != null && order['sampleMeter'].toString().isNotEmpty) {
+              mappedAttributes['sampleMeter'] = true;
+              print('Product is mapped with sample meter');
+            }
+            if (order['width'] != null && order['width'].toString().isNotEmpty) {
+              mappedAttributes['width'] = true;
+              print('Product is mapped with width');
+            }
+            if (order['weaveType'] != null && order['weaveType'].toString().isNotEmpty) {
+              mappedAttributes['weaveType'] = true;
+              print('Product is mapped with weave type');
+            }
+            if (order['quality'] != null && order['quality'].toString().isNotEmpty) {
+              mappedAttributes['quality'] = true;
+              print('Product is mapped with quality');
             }
           }
         }
       }
-     
-      // Check if product is mapped in varieties
-      final varietiesData = box.get('varieties');
-      print('Varieties data: $varietiesData');
-     
-      if (varietiesData != null && varietiesData is List) {
-        for (var variety in varietiesData) {
-          if (variety is Map && variety['product'] == productName) {
+    }
+   
+    // Check if product is mapped in varieties
+    final varietiesData = box.get('varieties');
+    print('Varieties data: $varietiesData');
+   
+    if (varietiesData != null && varietiesData is List) {
+      for (var variety in varietiesData) {
+        if (variety is Map) {
+          // Check both 'product' and 'productName' fields
+          String? varietyProduct = variety['product']?.toString() ?? variety['productName']?.toString();
+          print('Checking variety: $variety, product field: $varietyProduct');
+          if (varietyProduct == productName) {
             mappedAttributes['variety'] = true;
             print('Product is mapped with variety in varieties data');
+            break; // Found it, no need to continue
           }
         }
       }
-     
-      // Check if product is mapped in color groups
-      final colorGroupsData = box.get('colorGroups');
-      print('Color groups data: $colorGroupsData');
-     
-      if (colorGroupsData != null && colorGroupsData is List) {
-        for (var colorGroup in colorGroupsData) {
-          if (colorGroup is Map && colorGroup['product'] == productName) {
+    }
+   
+    // Check if product is mapped in color groups
+    final colorGroupsData = box.get('colorGroups');
+    print('Color groups data: $colorGroupsData');
+   
+    if (colorGroupsData != null && colorGroupsData is List) {
+      for (var colorGroup in colorGroupsData) {
+        if (colorGroup is Map) {
+          // Check both 'product' and 'productName' fields
+          String? colorGroupProduct = colorGroup['product']?.toString() ?? colorGroup['productName']?.toString();
+          print('Checking color group: $colorGroup, product field: $colorGroupProduct');
+          if (colorGroupProduct == productName) {
             mappedAttributes['colorGroup'] = true;
             print('Product is mapped with color group in color groups data');
+            break; // Found it, no need to continue
           }
         }
       }
-     
-      // Check if product is mapped in sample meters
-      final sampleMetersData = box.get('sampleMeters');
-      print('Sample meters data: $sampleMetersData');
-     
-      if (sampleMetersData != null && sampleMetersData is List) {
-        for (var sampleMeter in sampleMetersData) {
-          if (sampleMeter is Map && sampleMeter['product'] == productName) {
+    }
+   
+    // Check if product is mapped in sample meters
+    final sampleMetersData = box.get('sampleMeters');
+    print('Sample meters data: $sampleMetersData');
+   
+    if (sampleMetersData != null && sampleMetersData is List) {
+      for (var sampleMeter in sampleMetersData) {
+        if (sampleMeter is Map) {
+          // Check both 'product' and 'productName' fields
+          String? sampleMeterProduct = sampleMeter['product']?.toString() ?? sampleMeter['productName']?.toString();
+          print('Checking sample meter: $sampleMeter, product field: $sampleMeterProduct');
+          if (sampleMeterProduct == productName) {
             mappedAttributes['sampleMeter'] = true;
             print('Product is mapped with sample meter in sample meters data');
+            break; // Found it, no need to continue
           }
         }
       }
-     
-      // Check if product is mapped in widths
-      final widthsData = box.get('widths');
-      print('Widths data: $widthsData');
-     
-      if (widthsData != null && widthsData is List) {
-        for (var width in widthsData) {
-          if (width is Map && width['product'] == productName) {
+    }
+   
+    // Check if product is mapped in widths
+    final widthsData = box.get('widths');
+    print('Widths data: $widthsData');
+   
+    if (widthsData != null && widthsData is List) {
+      for (var width in widthsData) {
+        if (width is Map) {
+          // Check both 'product' and 'productName' fields
+          String? widthProduct = width['product']?.toString() ?? width['productName']?.toString();
+          print('Checking width: $width, product field: $widthProduct');
+          if (widthProduct == productName) {
             mappedAttributes['width'] = true;
             print('Product is mapped with width in widths data');
+            break; // Found it, no need to continue
           }
         }
       }
-     
-      // Check if product is mapped in weave types
-      final weaveTypesData = box.get('weaveTypes');
-      print('Weave types data: $weaveTypesData');
-     
-      if (weaveTypesData != null && weaveTypesData is List) {
-        for (var weaveType in weaveTypesData) {
-          if (weaveType is Map && weaveType['product'] == productName) {
+    }
+   
+    // Check if product is mapped in weave types
+    final weaveTypesData = box.get('weaveTypes');
+    print('Weave types data: $weaveTypesData');
+   
+    if (weaveTypesData != null && weaveTypesData is List) {
+      for (var weaveType in weaveTypesData) {
+        if (weaveType is Map) {
+          // Check both 'product' and 'productName' fields
+          String? weaveTypeProduct = weaveType['product']?.toString() ?? weaveType['productName']?.toString();
+          print('Checking weave type: $weaveType, product field: $weaveTypeProduct');
+          if (weaveTypeProduct == productName) {
             mappedAttributes['weaveType'] = true;
             print('Product is mapped with weave type in weave types data');
+            break; // Found it, no need to continue
           }
         }
       }
-     
-      // Check if product is mapped in qualities
-      final qualitiesData = box.get('qualities');
-      print('Qualities data: $qualitiesData');
-     
-      if (qualitiesData != null && qualitiesData is List) {
-        for (var quality in qualitiesData) {
-          if (quality is Map && quality['product'] == productName) {
+    }
+   
+    // Check if product is mapped in qualities
+    final qualitiesData = box.get('qualities');
+    print('Qualities data: $qualitiesData');
+   
+    if (qualitiesData != null && qualitiesData is List) {
+      for (var quality in qualitiesData) {
+        if (quality is Map) {
+          // Check both 'product' and 'productName' fields
+          String? qualityProduct = quality['product']?.toString() ?? quality['productName']?.toString();
+          print('Checking quality: $quality, product field: $qualityProduct');
+          if (qualityProduct == productName) {
             mappedAttributes['quality'] = true;
             print('Product is mapped with quality in qualities data');
+            break; // Found it, no need to continue
           }
         }
       }
-     
-      print('Mapped attributes for $productName: $mappedAttributes');
-      return mappedAttributes;
-    } catch (e) {
-      print('Error checking if product is mapped: $e');
-      return {
-        'variety': false,
-        'colorGroup': false,
-        'sampleMeter': false,
-        'width': false,
-        'weaveType': false,
-        'quality': false,
-      };
     }
+   
+    print('Mapped attributes for $productName: $mappedAttributes');
+    return mappedAttributes;
+  } catch (e) {
+    print('Error checking if product is mapped: $e');
+    return {
+      'variety': false,
+      'colorGroup': false,
+      'sampleMeter': false,
+      'width': false,
+      'weaveType': false,
+      'quality': false,
+    };
   }
-
+}
   Future<void> _loadProducts() async {
     try {
       // Load data from Hive
