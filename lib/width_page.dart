@@ -208,55 +208,62 @@ class _WidthPageState extends State<WidthPage> {
     });
   }
 
-  void _showEditWidthDialog(Map<String, dynamic> width, int index) {
-    // Get the current product name and width as integer
-    String currentProduct = width['product']?.toString() ?? '';
-    int currentWidth = width['width'] is int 
-        ? width['width'] 
-        : int.tryParse(width['width']?.toString() ?? '') ?? 0;
-    
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AddWidthDialog(
-          isEditMode: true,
-          initialWidth: currentWidth.toString(), // Pass as string for display
-          initialProduct: currentProduct,
-          activeProducts: activeProducts,
-        );
-      },
-    ).then((result) {
-      if (result != null) {
-        // Update the width using the service
-        WidthService().updateWidth(
-          currentProduct, 
-          currentWidth, 
-          result['product'], 
-          result['width']
-        ).then((_) {
-          // Reload the widths
-          _loadWidths();
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Width updated successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }).catchError((error) {
-          // Show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error updating width: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        });
-      }
-    });
-  }
+  // In WidthPage.dart, update the _showEditWidthDialog method:
 
+void _showEditWidthDialog(Map<String, dynamic> width, int index) {
+  // Get the current product name and width as integer
+  String currentProduct = width['product']?.toString() ?? '';
+  int currentWidth = width['width'] is int 
+      ? width['width'] 
+      : int.tryParse(width['width']?.toString() ?? '') ?? 0;
+  String currentDescription = width['description']?.toString() ?? '';
+  String currentStatus = width['status']?.toString() ?? 'Active';
+  
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AddWidthDialog(
+        isEditMode: true,
+        initialWidth: currentWidth.toString(), // Pass as string for display
+        initialProduct: currentProduct,
+        initialDescription: currentDescription,
+        initialStatus: currentStatus,
+        activeProducts: activeProducts,
+      );
+    },
+  ).then((result) {
+    if (result != null) {
+      // Update the width using the service
+      WidthService().updateWidth(
+        currentProduct, 
+        currentWidth, 
+        result['product'], 
+        result['width'],
+        description: result['description'],
+        status: result['status']
+      ).then((_) {
+        // Reload the widths
+        _loadWidths();
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Width updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }).catchError((error) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating width: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    }
+  });
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(

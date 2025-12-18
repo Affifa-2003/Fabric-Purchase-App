@@ -42,6 +42,16 @@ class WidthService {
                 widthMap['width'] = 0;
               }
               
+              // Ensure description is a string (can be empty)
+              if (widthMap['description'] is! String) {
+                widthMap['description'] = '';
+              }
+              
+              // Ensure status is a string and default to 'Active' if not set
+              if (widthMap['status'] is! String || widthMap['status'].toString().trim().isEmpty) {
+                widthMap['status'] = 'Active';
+              }
+              
               return widthMap;
             }
             // If it's a string (old format), skip it since it doesn't have a product name
@@ -62,7 +72,7 @@ class WidthService {
     }
   }
 
-  Future<void> addWidth(String product, int width) async {
+  Future<void> addWidth(String product, int width, {String? description, String? status}) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -86,6 +96,8 @@ class WidthService {
       widths.insert(0, {
         'product': product,
         'width': width, // Store as integer
+        'description': description ?? '', // Default to empty string if not provided
+        'status': status ?? 'Active', // Default to 'Active' if not provided
       });
       
       // Save to Hive
@@ -99,7 +111,7 @@ class WidthService {
     }
   }
 
-  Future<void> updateWidth(String oldProduct, int oldWidth, String newProduct, int newWidth) async {
+  Future<void> updateWidth(String oldProduct, int oldWidth, String newProduct, int newWidth, {String? description, String? status}) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -132,6 +144,8 @@ class WidthService {
       widths[index] = {
         'product': newProduct,
         'width': newWidth, // Store as integer
+        'description': description ?? widths[index]['description'], // Use existing description if not provided
+        'status': status ?? widths[index]['status'], // Use existing status if not provided
       };
       
       // Save to Hive

@@ -6,6 +6,8 @@ import 'package:purchase_app/utils/input_formatters.dart';
 class AddWidthDialog extends StatefulWidget {
   final String? initialWidth;
   final String? initialProduct;
+  final String? initialDescription;
+  final String? initialStatus;
   final bool isEditMode;
   final List<Map<String, dynamic>>? activeProducts;
 
@@ -13,6 +15,8 @@ class AddWidthDialog extends StatefulWidget {
     Key? key,
     this.initialWidth,
     this.initialProduct,
+    this.initialDescription,
+    this.initialStatus,
     this.isEditMode = false,
     this.activeProducts,
   }) : super(key: key);
@@ -24,7 +28,9 @@ class AddWidthDialog extends StatefulWidget {
 class _AddWidthDialogState extends State<AddWidthDialog> {
   TextEditingController widthController = TextEditingController();
   TextEditingController productController = TextEditingController();
+  TextEditingController descriptionController = TextEditingController();
   String? selectedProductValue;
+  String selectedStatus = 'Active'; // Default to Active
   bool _showProductField = true; // Always show product field
 
   @override
@@ -52,12 +58,23 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
         productController.text = widget.initialProduct!;
       }
     }
+    
+    // Initialize description field
+    if (widget.isEditMode && widget.initialDescription != null) {
+      descriptionController.text = widget.initialDescription!;
+    }
+    
+    // Initialize status field
+    if (widget.isEditMode && widget.initialStatus != null) {
+      selectedStatus = widget.initialStatus!;
+    }
   }
 
   @override
   void dispose() {
     widthController.dispose();
     productController.dispose();
+    descriptionController.dispose();
     super.dispose();
   }
 
@@ -220,6 +237,90 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    
+                    // Description Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Description:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: descriptionController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              hintText: 'Enter description (optional)',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Status Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text(
+                                'Status: *',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: selectedStatus,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem<String>(
+                                value: 'Active',
+                                child: Text('Active'),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: 'Inactive',
+                                child: Text('Inactive'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedStatus = value!;
+                              });
+                            },
+                            isExpanded: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Information text with icon in a box
                     Container(
@@ -330,6 +431,8 @@ class _AddWidthDialogState extends State<AddWidthDialog> {
                                 Navigator.pop(context, {
                                   'product': productName,
                                   'width': widthValue, // This is now an integer
+                                  'description': descriptionController.text.trim(),
+                                  'status': selectedStatus,
                                 });
                               }
                             : null, // Disable button when no products

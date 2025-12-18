@@ -1,3 +1,4 @@
+// lib/widgets/weave_type_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
 import 'package:purchase_app/service/weave_type_service.dart';
@@ -5,6 +6,9 @@ import 'package:purchase_app/service/weave_type_service.dart';
 class WeaveTypeDialog extends StatefulWidget {
   final String? initialProduct;
   final String? initialWeaveType;
+  final String? initialCode;
+  final String? initialDescription;
+  final String? initialStatus;
   final bool isEditMode;
   final List<Map<String, dynamic>>? activeProducts;
 
@@ -12,6 +16,9 @@ class WeaveTypeDialog extends StatefulWidget {
     Key? key,
     this.initialProduct,
     this.initialWeaveType,
+    this.initialCode,
+    this.initialDescription,
+    this.initialStatus,
     this.isEditMode = false,
     this.activeProducts,
   }) : super(key: key);
@@ -22,8 +29,11 @@ class WeaveTypeDialog extends StatefulWidget {
 
 class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
   TextEditingController weaveTypeController = TextEditingController();
+  TextEditingController codeController = TextEditingController();
+  TextEditingController descriptionController = TextEditingController();
   TextEditingController productController = TextEditingController();
   String? selectedProductValue;
+  String selectedStatus = 'Active'; // Default to Active
   bool _showProductField = true; // Always show product field
 
   @override
@@ -33,6 +43,21 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
     // Initialize weave type field
     if (widget.isEditMode && widget.initialWeaveType != null) {
       weaveTypeController.text = widget.initialWeaveType!;
+    }
+    
+    // Initialize code field
+    if (widget.isEditMode && widget.initialCode != null) {
+      codeController.text = widget.initialCode!;
+    }
+    
+    // Initialize description field
+    if (widget.isEditMode && widget.initialDescription != null) {
+      descriptionController.text = widget.initialDescription!;
+    }
+    
+    // Initialize status field
+    if (widget.isEditMode && widget.initialStatus != null) {
+      selectedStatus = widget.initialStatus!;
     }
     
     // Initialize product field
@@ -50,6 +75,8 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
   @override
   void dispose() {
     weaveTypeController.dispose();
+    codeController.dispose();
+    descriptionController.dispose();
     productController.dispose();
     super.dispose();
   }
@@ -174,7 +201,7 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // Weave Type Field
+                    // Code Field
                     Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFFFFF),
@@ -188,7 +215,46 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                           const Row(
                             children: [
                               Text(
-                                'Weave Type: *',
+                                'Code: *',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: codeController,
+                            inputFormatters: [
+                              NoLeadingOrMultipleSpacesFormatter(),
+                            ],
+                            decoration: const InputDecoration(
+                              hintText: 'Enter unique weave type code',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Weave Type Name Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text(
+                                'Weave Type Name:',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ],
@@ -207,6 +273,90 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                 vertical: 8,
                               ),
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Description Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Description:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: descriptionController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              hintText: 'Enter description (optional)',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Status Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text(
+                                'Status: *',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: selectedStatus,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem<String>(
+                                value: 'Active',
+                                child: Text('Active'),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: 'Inactive',
+                                child: Text('Inactive'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedStatus = value!;
+                              });
+                            },
+                            isExpanded: true,
                           ),
                         ],
                       ),
@@ -296,10 +446,10 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                   return;
                                 }
                                 
-                                if (weaveTypeController.text.trim().isEmpty) {
+                                if (codeController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Weave type is required'),
+                                      content: Text('Code is required'),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -309,7 +459,10 @@ class _WeaveTypeDialogState extends State<WeaveTypeDialog> {
                                 // Return the weave type data to caller
                                 Navigator.pop(context, {
                                   'product': productName,
-                                  'weaveType': weaveTypeController.text.trim(),
+                                  'code': codeController.text.trim(),
+                                  'name': weaveTypeController.text.trim(),
+                                  'description': descriptionController.text.trim(),
+                                  'status': selectedStatus,
                                 });
                               }
                             : null, // Disable button when no products

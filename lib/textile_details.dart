@@ -2033,21 +2033,22 @@ Future<void> _checkSavedImages() async {
     );
   }
 
-  Future<void> _loadWeaveTypesFromService() async {
+  // Add this method to load weave types from the service
+Future<void> _loadWeaveTypesFromService() async {
   try {
     // Use the WeaveTypeService to get weave types
     List<Map<String, dynamic>> weaveTypesData = await WeaveTypeService().getWeaveTypes();
     
-    // Extract unique weave type names from service
+    // Extract unique weave type names from the service data
     Set<String> serviceWeaveTypes = {};
     for (var weaveTypeData in weaveTypesData) {
-      if (weaveTypeData['weaveType'] != null && weaveTypeData['weaveType'].toString().isNotEmpty) {
-        serviceWeaveTypes.add(weaveTypeData['weaveType'].toString());
+      if (weaveTypeData['name'] != null && weaveTypeData['name'].toString().isNotEmpty) {
+        serviceWeaveTypes.add(weaveTypeData['name'].toString());
       }
     }
     
     setState(() {
-      // Create a new set with existing weaves
+      // Create a set to avoid duplicates
       Set<String> combinedWeaveTypes = Set.from(weaves);
       
       // Add service weave types to the set
@@ -2058,7 +2059,7 @@ Future<void> _checkSavedImages() async {
       weaves.sort();
     });
     
-    print('Loaded ${weaves.length} total weave types (${serviceWeaveTypes.length} from service)');
+    print('Loaded ${weaves.length} weave types from service (${serviceWeaveTypes.length} from service)');
   } catch (e) {
     print('Error loading weave types from service: $e');
     // Don't replace existing weave types, just ensure we have defaults
@@ -2069,7 +2070,7 @@ Future<void> _checkSavedImages() async {
     }
   }
 }
-  // In textile_details.dart, update the _buildWeaveTypeSection method
+
 
 Widget _buildWeaveTypeSection() {
   return Card(
@@ -2108,13 +2109,19 @@ Widget _buildWeaveTypeSection() {
                   ).then((result) {
                     if (result != null) {
                       // Add the weave type using the service
-                      WeaveTypeService().addWeaveType(result['product'], result['weaveType']).then((_) {
+                      WeaveTypeService().addWeaveType(
+                        result['product'], 
+                        result['code'],
+                        name: result['name'],
+                        description: result['description'],
+                        status: result['status']
+                      ).then((_) {
                         // Reload the weave types
                         _loadWeaveTypesFromService();
                         
                         // Set the selected weave type to the newly added one
                         setState(() {
-                          selectedWeave = result['weaveType'];
+                          selectedWeave = result['name'];
                         });
                         
                         // Show success message
@@ -2185,7 +2192,6 @@ Widget _buildWeaveTypeSection() {
     ),
   );
 }
-
 Future<void> _loadQualitiesFromService() async {
   try {
     // Use the QualityService to get qualities
@@ -3280,6 +3286,8 @@ Future<void> _loadQualitiesFromService() async {
     ],
   );
 }
+
+
   Widget _buildDetailHeading(String text) {
     return Text(
       text,

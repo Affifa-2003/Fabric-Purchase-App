@@ -1,4 +1,4 @@
-// Create a new file: weave_type_service.dart
+// lib/service/weave_type_service.dart
 import 'package:hive_flutter/hive_flutter.dart';
 
 class WeaveTypeService {
@@ -31,9 +31,25 @@ class WeaveTypeService {
                 return null;
               }
               
-              // Ensure weaveType is a string
-              if (weaveTypeMap['weaveType'] is! String) {
-                weaveTypeMap['weaveType'] = weaveTypeMap['weaveType']?.toString() ?? '';
+              // Ensure code is a string and not empty
+              if (weaveTypeMap['code'] is! String || weaveTypeMap['code'].toString().trim().isEmpty) {
+                // Skip items without a valid code
+                return null;
+              }
+              
+              // Ensure name is a string
+              if (weaveTypeMap['name'] is! String) {
+                weaveTypeMap['name'] = weaveTypeMap['name']?.toString() ?? '';
+              }
+              
+              // Ensure description is a string (can be empty)
+              if (weaveTypeMap['description'] is! String) {
+                weaveTypeMap['description'] = '';
+              }
+              
+              // Ensure status is a string and default to 'Active' if not set
+              if (weaveTypeMap['status'] is! String || weaveTypeMap['status'].toString().trim().isEmpty) {
+                weaveTypeMap['status'] = 'Active';
               }
               
               return weaveTypeMap;
@@ -51,7 +67,7 @@ class WeaveTypeService {
     }
   }
 
-  Future<void> addWeaveType(String product, String weaveType) async {
+  Future<void> addWeaveType(String product, String code, {String? name, String? description, String? status}) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -63,18 +79,21 @@ class WeaveTypeService {
       // Get existing weave types
       List<Map<String, dynamic>> weaveTypes = await getWeaveTypes();
       
-      // Check if this weave type already exists for this product
-      bool exists = weaveTypes.any((w) => 
-        w['product'] == product && w['weaveType'] == weaveType);
+      // Check if this weave type code already exists
+      bool codeExists = weaveTypes.any((w) => 
+        w['code'] == code);
       
-      if (exists) {
-        throw Exception('This weave type already exists for the selected product');
+      if (codeExists) {
+        throw Exception('This weave type code already exists');
       }
       
       // Add new weave type
       weaveTypes.insert(0, {
         'product': product,
-        'weaveType': weaveType,
+        'code': code,
+        'name': name ?? '', // Default to empty string if not provided
+        'description': description ?? '', // Default to empty string if not provided
+        'status': status ?? 'Active', // Default to 'Active' if not provided
       });
       
       // Save to Hive
@@ -88,7 +107,7 @@ class WeaveTypeService {
     }
   }
 
-  Future<void> updateWeaveType(String oldProduct, String oldWeaveType, String newProduct, String newWeaveType) async {
+  Future<void> updateWeaveType(String oldProduct, String oldCode, String newProduct, String newCode, {String? name, String? description, String? status}) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -102,25 +121,28 @@ class WeaveTypeService {
       
       // Find the index of the weave type to update
       int index = weaveTypes.indexWhere((w) => 
-        w['product'] == oldProduct && w['weaveType'] == oldWeaveType);
+        w['product'] == oldProduct && w['code'] == oldCode);
       
       if (index == -1) {
         throw Exception('Weave type not found');
       }
       
-      // Check if this weave type already exists for this product (excluding current entry)
-      bool exists = weaveTypes.any((w) => 
-        w['product'] == newProduct && w['weaveType'] == newWeaveType && 
-        (w['product'] != oldProduct || w['weaveType'] != oldWeaveType));
+      // Check if this weave type code already exists (excluding current entry)
+      bool codeExists = weaveTypes.any((w) => 
+        w['code'] == newCode && 
+        (w['product'] != oldProduct || w['code'] != oldCode));
       
-      if (exists) {
-        throw Exception('This weave type already exists for the selected product');
+      if (codeExists) {
+        throw Exception('This weave type code already exists');
       }
       
       // Update weave type
       weaveTypes[index] = {
         'product': newProduct,
-        'weaveType': newWeaveType,
+        'code': newCode,
+        'name': name ?? weaveTypes[index]['name'], // Use existing name if not provided
+        'description': description ?? weaveTypes[index]['description'], // Use existing description if not provided
+        'status': status ?? weaveTypes[index]['status'], // Use existing status if not provided
       };
       
       // Save to Hive
@@ -134,7 +156,7 @@ class WeaveTypeService {
     }
   }
 
-  Future<void> deleteWeaveType(String product, String weaveType) async {
+  Future<void> deleteWeaveType(String product, String code) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -146,8 +168,8 @@ class WeaveTypeService {
       // Get existing weave types
       List<Map<String, dynamic>> weaveTypes = await getWeaveTypes();
       
-      // Remove the weave type
-      weaveTypes.removeWhere((w) => w['product'] == product && w['weaveType'] == weaveType);
+      // Remove weave type
+      weaveTypes.removeWhere((w) => w['product'] == product && w['code'] == code);
       
       // Save to Hive
       await box.put('weaveTypes', weaveTypes);

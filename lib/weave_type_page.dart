@@ -1,3 +1,4 @@
+// lib/weave_type_page.dart
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:purchase_app/service/weave_type_service.dart';
@@ -58,7 +59,7 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
       // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
       
-      // Ensure the box is open
+      // Ensure box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
@@ -93,60 +94,21 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
   }
 
   Future<void> _loadWeaveTypes() async {
-  try {
-    // Use the WeaveTypeService to get weave types
-    weaveTypes = await WeaveTypeService().getWeaveTypes();
-    
-    setState(() {
-      filteredWeaveTypes = List.from(weaveTypes);
-    });
-    
-    print('Loaded ${weaveTypes.length} weave types from service');
-  } catch (e) {
-    print('Error loading weave types: $e');
-    setState(() {
-      weaveTypes = [];
-      filteredWeaveTypes = [];
-    });
-  }
-}
-
-  Future<void> _saveWeaveTypesToStorage() async {
     try {
-      // Ensure the box is open
-      if (!Hive.isBoxOpen('appData')) {
-        await Hive.openBox('appData');
-      }
-
-      final box = Hive.box('appData');
+      // Use WeaveTypeService to get weave types
+      weaveTypes = await WeaveTypeService().getWeaveTypes();
       
-      // Ensure we're saving a list of maps with proper types
-      List<Map<String, dynamic>> weaveTypesToSave = weaveTypes.map((weaveType) {
-        return {
-          'product': weaveType['product']?.toString() ?? '',
-          'weaveType': weaveType['weaveType']?.toString() ?? '',
-          // 'description': weaveType['description']?.toString() ?? '',
-        };
-      }).toList();
+      setState(() {
+        filteredWeaveTypes = List.from(weaveTypes);
+      });
       
-      // Save data with explicit await to ensure it's written to disk
-      await box.put('weaveTypes', weaveTypesToSave);
-      
-      // Explicitly flush to disk
-      await box.flush();
-
-      // Verify data was saved
-      print('Saved weave types: ${box.get('weaveTypes')}');
-      print('Weave types data saved successfully');
+      print('Loaded ${weaveTypes.length} weave types from service');
     } catch (e) {
-      print('Error saving weave types data: $e');
-      // Show error to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving weave types: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error loading weave types: $e');
+      setState(() {
+        weaveTypes = [];
+        filteredWeaveTypes = [];
+      });
     }
   }
 
@@ -155,13 +117,14 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
     setState(() {
       filteredWeaveTypes = weaveTypes.where((weaveType) {
         return weaveType['product'].toLowerCase().contains(query) || 
-               weaveType['weaveType'].toLowerCase().contains(query);
+               weaveType['code'].toLowerCase().contains(query) ||
+               (weaveType['name'] != null && weaveType['name'].toLowerCase().contains(query));
       }).toList();
     });
   }
 
   // Check if a weave type is mapped to any order
-  bool _isWeaveTypeMapped(String productName, String weaveTypeName) {
+  bool _isWeaveTypeMapped(String productName, String weaveTypeCode) {
     try {
       if (!Hive.isBoxOpen('appData')) {
         Hive.openBox('appData');
@@ -174,10 +137,10 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
         if (ordersData is List) {
           for (var order in ordersData) {
             if (order is Map) {
-              // Check if weave type is mapped with this product and weave type name
+              // Check if weave type is mapped with this product and weave type code
               if (order['product'] == productName && 
-                  order['weaveType'] != null && 
-                  order['weaveType'] == weaveTypeName) {
+                  order['weaveTypeCode'] != null && 
+                  order['weaveTypeCode'] == weaveTypeCode) {
                 return true;
               }
             }
@@ -193,111 +156,93 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
   }
 
   void _showAddNewWeaveTypeDialog() {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return WeaveTypeDialog(
-        activeProducts: activeProducts,
-      );
-    },
-  ).then((result) {
-    if (result != null) {
-      // Add the weave type using the service
-      WeaveTypeService().addWeaveType(result['product'], result['weaveType']).then((_) {
-        // Reload the weave types
-        _loadWeaveTypes();
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Weave type added successfully'),
-            backgroundColor: Colors.green,
-          ),
+    showDialog(
+      context: context,
+      builder: (context) {
+        return WeaveTypeDialog(
+          activeProducts: activeProducts,
         );
-      }).catchError((error) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error adding weave type: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      });
-    }
-  });
-}
+      },
+    ).then((result) {
+      if (result != null) {
+        // Add weave type using service
+        WeaveTypeService().addWeaveType(
+          result['product'], 
+          result['code'],
+          name: result['name'],
+          description: result['description'],
+          status: result['status']
+        ).then((_) {
+          // Reload weave types
+          _loadWeaveTypes();
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Weave type added successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }).catchError((error) {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error adding weave type: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+      }
+    });
+  }
 
   void _showEditWeaveTypeDialog(Map<String, dynamic> weaveType, int index) {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return WeaveTypeDialog(
-        isEditMode: true,
-        initialProduct: weaveType['product'],
-        initialWeaveType: weaveType['weaveType'],
-        activeProducts: activeProducts,
-      );
-    },
-  ).then((result) {
-    if (result != null) {
-      // Update the weave type using the service
-      WeaveTypeService().updateWeaveType(
-        weaveType['product'], 
-        weaveType['weaveType'], 
-        result['product'], 
-        result['weaveType']
-      ).then((_) {
-        // Reload the weave types
-        _loadWeaveTypes();
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Weave type updated successfully'),
-            backgroundColor: Colors.green,
-          ),
+    showDialog(
+      context: context,
+      builder: (context) {
+        return WeaveTypeDialog(
+          isEditMode: true,
+          initialProduct: weaveType['product'],
+          initialCode: weaveType['code'],
+          initialWeaveType: weaveType['name'],
+          initialDescription: weaveType['description'],
+          initialStatus: weaveType['status'],
+          activeProducts: activeProducts,
         );
-      }).catchError((error) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating weave type: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      });
-    }
-  });
-}
-
-  Future<void> _updateWeaveTypeInAllRecords(String oldProduct, String oldWeaveType, Map<String, dynamic> updatedWeaveType) async {
-    try {
-      // Update weave type in orders box
-      if (Hive.isBoxOpen('appData')) {
-        final appDataBox = Hive.box('appData');
-        final ordersData = appDataBox.get('orders');
-        
-        if (ordersData != null && ordersData is List) {
-          List<Map<String, dynamic>> updatedOrdersData = [];
+      },
+    ).then((result) {
+      if (result != null) {
+        // Update weave type using service
+        WeaveTypeService().updateWeaveType(
+          weaveType['product'], 
+          weaveType['code'], 
+          result['product'], 
+          result['code'],
+          name: result['name'],
+          description: result['description'],
+          status: result['status']
+        ).then((_) {
+          // Reload weave types
+          _loadWeaveTypes();
           
-          for (var order in ordersData) {
-            Map<String, dynamic> orderMap = Map<String, dynamic>.from(order);
-            if (orderMap['product'] == oldProduct && orderMap['weaveType'] == oldWeaveType) {
-              orderMap['product'] = updatedWeaveType['product'];
-              orderMap['weaveType'] = updatedWeaveType['weaveType'];
-            }
-            updatedOrdersData.add(orderMap);
-          }
-          
-          await appDataBox.put('orders', updatedOrdersData);
-          await appDataBox.flush();
-          print('Updated weave type in orders box');
-        }
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Weave type updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }).catchError((error) {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating weave type: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
       }
-      
-    } catch (e) {
-      print('Error updating weave type in all records: $e');
-    }
+    });
   }
 
   @override
@@ -402,8 +347,8 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
                             itemCount: filteredWeaveTypes.length,
                             itemBuilder: (context, index) {
                               final weaveType = filteredWeaveTypes[index];
-                              final isMapped = _isWeaveTypeMapped(weaveType['product'], weaveType['weaveType']);
-                              // Check if the product is still active
+                              final isMapped = _isWeaveTypeMapped(weaveType['product'], weaveType['code']);
+                              // Check if product is still active
                               bool isProductActive = activeProducts.any((p) => p['name'] == weaveType['product']);
                               
                               return Card(
@@ -426,7 +371,10 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
                                     ),
                                   ),
                                   title: Text(
-                                    '${weaveType['product']} - ${weaveType['weaveType']}',
+                                    // Display only product name and weave type name
+                                    weaveType['name'] != null && weaveType['name'].toString().isNotEmpty
+                                        ? '${weaveType['product']} - ${weaveType['name']}'
+                                        : '${weaveType['product']} - ${weaveType['code']}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontSize: 16,
@@ -445,10 +393,10 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
                                   onTap: () {
                                     // Only allow editing if product is still active
                                     if (isProductActive) {
-                                      // Find the original index in the weave types list
+                                      // Find original index in weave types list
                                       int originalIndex = weaveTypes.indexWhere((w) => 
                                         w['product'] == weaveType['product'] && 
-                                        w['weaveType'] == weaveType['weaveType']);
+                                        w['code'] == weaveType['code']);
                                       if (originalIndex != -1) {
                                         _showEditWeaveTypeDialog(weaveType, originalIndex);
                                       }
@@ -473,61 +421,61 @@ class _WeaveTypePageState extends State<WeaveTypePage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> weaveType, bool isMapped) {
-  // Check if the product is still active
-  bool isProductActive = activeProducts.any((p) => p['name'] == weaveType['product']);
-  
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: !isProductActive
-            ? Text('This weave type belongs to an inactive product "${weaveType['product']}" and cannot be deleted.')
-            : isMapped 
-                ? const Text('This weave type is already mapped with orders and cannot be deleted.')
-                : Text('Are you sure you want to delete "${weaveType['product']} - ${weaveType['weaveType']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-          if (isProductActive && !isMapped)
+    // Check if product is still active
+    bool isProductActive = activeProducts.any((p) => p['name'] == weaveType['product']);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: !isProductActive
+              ? Text('This weave type belongs to an inactive product "${weaveType['product']}" and cannot be deleted.')
+              : isMapped 
+                  ? const Text('This weave type is already mapped with orders and cannot be deleted.')
+                  : Text('Are you sure you want to delete "${weaveType['product']} - ${weaveType['code']}"?'),
+          actions: [
             TextButton(
-              onPressed: () async {
-                // Delete the weave type using the service
-                WeaveTypeService().deleteWeaveType(weaveType['product'], weaveType['weaveType']).then((_) {
-                  // Reload the weave types
-                  _loadWeaveTypes();
-                  
-                  Navigator.of(context).pop(); // Close dialog
-                  
-                  // Show success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Weave type deleted successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }).catchError((error) {
-                  // Show error message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error deleting weave type: $error'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                });
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text('Delete'),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
-        ],
-      );
-    },
-  );
-}
+            if (isProductActive && !isMapped)
+              TextButton(
+                onPressed: () async {
+                  // Delete weave type using the service
+                  WeaveTypeService().deleteWeaveType(weaveType['product'], weaveType['code']).then((_) {
+                    // Reload the weave types
+                    _loadWeaveTypes();
+                    
+                    Navigator.of(context).pop(); // Close dialog
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Weave type deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }).catchError((error) {
+                    // Show error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error deleting weave type: $error'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  });
+                },
+                child: const Text('Delete'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
