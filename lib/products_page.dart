@@ -30,111 +30,169 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Map<String, bool> _isProductMapped(String productName) {
-  try {
-    if (!Hive.isBoxOpen('appData')) {
-      Hive.openBox('appData');
-    }
-    
-    final box = Hive.box('appData');
-    
-    print('Checking if product "$productName" is mapped');
-    
-    Map<String, bool> mappedAttributes = {
-      'variety': false,
-      'colorGroup': false,
-      'sampleMeter': false,
-    };
-    
-    // Check if product is mapped in orders
-    final ordersData = box.get('orders');
-    print('Orders data: $ordersData');
-    
-    if (ordersData != null && ordersData is List) {
-      for (var order in ordersData) {
-        if (order is Map) {
-          print('Checking order: $order');
-          // Check if product is mapped with Variety, Color Group, or Sample Meter
-          if (order['product'] == productName) {
-            print('Found matching product in order');
-            if (order['variety'] != null) {
-              mappedAttributes['variety'] = true;
-              print('Product is mapped with variety');
-            }
-            if (order['colorGroup'] != null) {
-              mappedAttributes['colorGroup'] = true;
-              print('Product is mapped with color group');
-            }
-            if (order['sampleMeter'] != null) {
-              mappedAttributes['sampleMeter'] = true;
-              print('Product is mapped with sample meter');
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        Hive.openBox('appData');
+      }
+     
+      final box = Hive.box('appData');
+     
+      print('Checking if product "$productName" is mapped');
+     
+      Map<String, bool> mappedAttributes = {
+        'variety': false,
+        'colorGroup': false,
+        'sampleMeter': false,
+        'width': false,
+        'weaveType': false,
+        'quality': false,
+      };
+     
+      // Check if product is mapped in orders
+      final ordersData = box.get('orders');
+      print('Orders data: $ordersData');
+     
+      if (ordersData != null && ordersData is List) {
+        for (var order in ordersData) {
+          if (order is Map) {
+            print('Checking order: $order');
+            // Check if product is mapped with Variety, Color Group, or Sample Meter
+            if (order['product'] == productName) {
+              print('Found matching product in order');
+              if (order['variety'] != null) {
+                mappedAttributes['variety'] = true;
+                print('Product is mapped with variety');
+              }
+              if (order['colorGroup'] != null) {
+                mappedAttributes['colorGroup'] = true;
+                print('Product is mapped with color group');
+              }
+              if (order['sampleMeter'] != null) {
+                mappedAttributes['sampleMeter'] = true;
+                print('Product is mapped with sample meter');
+              }
+              if (order['width'] != null) {
+                mappedAttributes['width'] = true;
+                print('Product is mapped with width');
+              }
+              if (order['weaveType'] != null) {
+                mappedAttributes['weaveType'] = true;
+                print('Product is mapped with weave type');
+              }
+              if (order['quality'] != null) {
+                mappedAttributes['quality'] = true;
+                print('Product is mapped with quality');
+              }
             }
           }
         }
       }
-    }
-    
-    // Check if product is mapped in varieties
-    final varietiesData = box.get('varieties');
-    print('Varieties data: $varietiesData');
-    
-    if (varietiesData != null && varietiesData is List) {
-      for (var variety in varietiesData) {
-        if (variety is Map && variety['product'] == productName) {
-          mappedAttributes['variety'] = true;
-          print('Product is mapped with variety in varieties data');
+     
+      // Check if product is mapped in varieties
+      final varietiesData = box.get('varieties');
+      print('Varieties data: $varietiesData');
+     
+      if (varietiesData != null && varietiesData is List) {
+        for (var variety in varietiesData) {
+          if (variety is Map && variety['product'] == productName) {
+            mappedAttributes['variety'] = true;
+            print('Product is mapped with variety in varieties data');
+          }
         }
       }
-    }
-    
-    // Check if product is mapped in color groups
-    final colorGroupsData = box.get('colorGroups');
-    print('Color groups data: $colorGroupsData');
-    
-    if (colorGroupsData != null && colorGroupsData is List) {
-      for (var colorGroup in colorGroupsData) {
-        if (colorGroup is Map && colorGroup['product'] == productName) {
-          mappedAttributes['colorGroup'] = true;
-          print('Product is mapped with color group in color groups data');
+     
+      // Check if product is mapped in color groups
+      final colorGroupsData = box.get('colorGroups');
+      print('Color groups data: $colorGroupsData');
+     
+      if (colorGroupsData != null && colorGroupsData is List) {
+        for (var colorGroup in colorGroupsData) {
+          if (colorGroup is Map && colorGroup['product'] == productName) {
+            mappedAttributes['colorGroup'] = true;
+            print('Product is mapped with color group in color groups data');
+          }
         }
       }
-    }
-    
-    // Check if product is mapped in sample meters
-    final sampleMetersData = box.get('sampleMeters');
-    print('Sample meters data: $sampleMetersData');
-    
-    if (sampleMetersData != null && sampleMetersData is List) {
-      for (var sampleMeter in sampleMetersData) {
-        if (sampleMeter is Map && sampleMeter['product'] == productName) {
-          mappedAttributes['sampleMeter'] = true;
-          print('Product is mapped with sample meter in sample meters data');
+     
+      // Check if product is mapped in sample meters
+      final sampleMetersData = box.get('sampleMeters');
+      print('Sample meters data: $sampleMetersData');
+     
+      if (sampleMetersData != null && sampleMetersData is List) {
+        for (var sampleMeter in sampleMetersData) {
+          if (sampleMeter is Map && sampleMeter['product'] == productName) {
+            mappedAttributes['sampleMeter'] = true;
+            print('Product is mapped with sample meter in sample meters data');
+          }
         }
       }
+     
+      // Check if product is mapped in widths
+      final widthsData = box.get('widths');
+      print('Widths data: $widthsData');
+     
+      if (widthsData != null && widthsData is List) {
+        for (var width in widthsData) {
+          if (width is Map && width['product'] == productName) {
+            mappedAttributes['width'] = true;
+            print('Product is mapped with width in widths data');
+          }
+        }
+      }
+     
+      // Check if product is mapped in weave types
+      final weaveTypesData = box.get('weaveTypes');
+      print('Weave types data: $weaveTypesData');
+     
+      if (weaveTypesData != null && weaveTypesData is List) {
+        for (var weaveType in weaveTypesData) {
+          if (weaveType is Map && weaveType['product'] == productName) {
+            mappedAttributes['weaveType'] = true;
+            print('Product is mapped with weave type in weave types data');
+          }
+        }
+      }
+     
+      // Check if product is mapped in qualities
+      final qualitiesData = box.get('qualities');
+      print('Qualities data: $qualitiesData');
+     
+      if (qualitiesData != null && qualitiesData is List) {
+        for (var quality in qualitiesData) {
+          if (quality is Map && quality['product'] == productName) {
+            mappedAttributes['quality'] = true;
+            print('Product is mapped with quality in qualities data');
+          }
+        }
+      }
+     
+      print('Mapped attributes for $productName: $mappedAttributes');
+      return mappedAttributes;
+    } catch (e) {
+      print('Error checking if product is mapped: $e');
+      return {
+        'variety': false,
+        'colorGroup': false,
+        'sampleMeter': false,
+        'width': false,
+        'weaveType': false,
+        'quality': false,
+      };
     }
-    
-    print('Mapped attributes for $productName: $mappedAttributes');
-    return mappedAttributes;
-  } catch (e) {
-    print('Error checking if product is mapped: $e');
-    return {
-      'variety': false,
-      'colorGroup': false,
-      'sampleMeter': false,
-    };
   }
-}
+
   Future<void> _loadProducts() async {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
-      
+     
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       appDataBox = Hive.box('appData');
-      
+     
       final productsData = appDataBox.get('products');
       if (productsData != null) {
         // Handle different types of data
@@ -147,13 +205,13 @@ class _ProductsPageState extends State<ProductsPage> {
           }).toList();
         }
       }
-      
+     
       setState(() {
         products = hiveProducts;
         filteredProducts = List.from(products);
         _isLoading = false;
       });
-      
+     
       print('Loaded ${products.length} products from Hive');
     } catch (e) {
       print('Error loading products: $e');
@@ -173,22 +231,22 @@ class _ProductsPageState extends State<ProductsPage> {
       }
 
       final box = Hive.box('appData');
-      
+     
       // Ensure we're saving a list of maps with proper types
       List<Map<String, dynamic>> productsToSave = products.map((product) {
         return {
           'name': product['name']?.toString() ?? '',
-          'consumption': product['consumption'] is int 
-              ? product['consumption'].toDouble() 
+          'consumption': product['consumption'] is int
+              ? product['consumption'].toDouble()
               : product['consumption'] ?? 0.0,
           'description': product['description']?.toString() ?? '',
           'status': product['status']?.toString() ?? 'Active',
         };
       }).toList();
-      
+     
       // Save data with explicit await to ensure it's written to disk
       await box.put('products', productsToSave);
-      
+     
       // Explicitly flush to disk
       await box.flush();
 
@@ -319,7 +377,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+                       
                         // Consumption Meter Field
                         Container(
                           decoration: BoxDecoration(
@@ -359,7 +417,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+                       
                         // Description Field
                         Container(
                           decoration: BoxDecoration(
@@ -399,7 +457,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+                       
                         // Status Field
                         Container(
                           decoration: BoxDecoration(
@@ -477,7 +535,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+               
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -522,7 +580,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 );
                                 return;
                               }
-                              
+                             
                               if (consumptionController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -532,7 +590,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 );
                                 return;
                               }
-                              
+                             
                               // Parse consumption value
                               double? consumption = double.tryParse(consumptionController.text.trim());
                               if (consumption == null) {
@@ -544,7 +602,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 );
                                 return;
                               }
-                              
+                             
                               // Create new product
                               Map<String, dynamic> newProduct = {
                                 'name': nameController.text.trim(),
@@ -552,7 +610,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 'description': descriptionController.text.trim(),
                                 'status': statusValue,
                               };
-                              
+                             
                               // Update local state immediately
                               setState(() {
                                 // Add to the beginning of the list
@@ -697,7 +755,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+                       
                         // Consumption Meter Field
                         Container(
                           decoration: BoxDecoration(
@@ -734,7 +792,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+                       
                         // Description Field
                         Container(
                           decoration: BoxDecoration(
@@ -771,7 +829,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+                       
                         // Status Field
                         Container(
                           decoration: BoxDecoration(
@@ -849,7 +907,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
                 // Horizontal divider
                 const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-                
+               
                 // Buttons - Fixed at bottom
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -894,7 +952,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 );
                                 return;
                               }
-                              
+                             
                               if (consumptionController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -904,7 +962,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 );
                                 return;
                               }
-                              
+                             
                               // Parse consumption value
                               double? consumption = double.tryParse(consumptionController.text.trim());
                               if (consumption == null) {
@@ -916,10 +974,10 @@ class _ProductsPageState extends State<ProductsPage> {
                                 );
                                 return;
                               }
-                              
+                             
                               // Check if name is being changed
                               bool nameChanged = nameController.text.trim() != product['name'];
-                              
+                             
                               // Create updated product
                               Map<String, dynamic> updatedProduct = {
                                 'name': nameController.text.trim(),
@@ -927,7 +985,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 'description': descriptionController.text.trim(),
                                 'status': statusValue,
                               };
-                              
+                             
                               // Update local state immediately
                               setState(() {
                                 // Remove the old product
@@ -978,27 +1036,135 @@ class _ProductsPageState extends State<ProductsPage> {
 
   Future<void> _updateProductNameInAllRecords(String oldName, String newName) async {
     try {
-      // Update product name in orders box
-      if (Hive.isBoxOpen('appData')) {
-        final appDataBox = Hive.box('appData');
-        final ordersData = appDataBox.get('orders');
-        
-        if (ordersData != null && ordersData is List) {
-          List<Map<String, dynamic>> updatedOrdersData = [];
-          
-          for (var order in ordersData) {
-            Map<String, dynamic> orderMap = Map<String, dynamic>.from(order);
-            if (orderMap['product'] == oldName) {
-              orderMap['product'] = newName;
-            }
-            updatedOrdersData.add(orderMap);
-          }
-          
-          await appDataBox.put('orders', updatedOrdersData);
-          await appDataBox.flush();
-          print('Updated product name in orders box');
-        }
+      // Ensure the box is open
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
       }
+      
+      final appDataBox = Hive.box('appData');
+      
+      // Update product name in orders box
+      final ordersData = appDataBox.get('orders');
+      if (ordersData != null && ordersData is List) {
+        List<Map<String, dynamic>> updatedOrdersData = [];
+        
+        for (var order in ordersData) {
+          Map<String, dynamic> orderMap = Map<String, dynamic>.from(order);
+          if (orderMap['product'] == oldName) {
+            orderMap['product'] = newName;
+          }
+          updatedOrdersData.add(orderMap);
+        }
+        
+        await appDataBox.put('orders', updatedOrdersData);
+        print('Updated product name in orders box');
+      }
+      
+      // Update product name in varieties box
+      final varietiesData = appDataBox.get('varieties');
+      if (varietiesData != null && varietiesData is List) {
+        List<Map<String, dynamic>> updatedVarietiesData = [];
+        
+        for (var variety in varietiesData) {
+          Map<String, dynamic> varietyMap = Map<String, dynamic>.from(variety);
+          if (varietyMap['product'] == oldName) {
+            varietyMap['product'] = newName;
+          }
+          updatedVarietiesData.add(varietyMap);
+        }
+        
+        await appDataBox.put('varieties', updatedVarietiesData);
+        print('Updated product name in varieties box');
+      }
+      
+      // Update product name in color groups box
+      final colorGroupsData = appDataBox.get('colorGroups');
+      if (colorGroupsData != null && colorGroupsData is List) {
+        List<Map<String, dynamic>> updatedColorGroupsData = [];
+        
+        for (var colorGroup in colorGroupsData) {
+          Map<String, dynamic> colorGroupMap = Map<String, dynamic>.from(colorGroup);
+          if (colorGroupMap['product'] == oldName) {
+            colorGroupMap['product'] = newName;
+          }
+          updatedColorGroupsData.add(colorGroupMap);
+        }
+        
+        await appDataBox.put('colorGroups', updatedColorGroupsData);
+        print('Updated product name in color groups box');
+      }
+      
+      // Update product name in sample meters box
+      final sampleMetersData = appDataBox.get('sampleMeters');
+      if (sampleMetersData != null && sampleMetersData is List) {
+        List<Map<String, dynamic>> updatedSampleMetersData = [];
+        
+        for (var sampleMeter in sampleMetersData) {
+          Map<String, dynamic> sampleMeterMap = Map<String, dynamic>.from(sampleMeter);
+          if (sampleMeterMap['product'] == oldName) {
+            sampleMeterMap['product'] = newName;
+          }
+          updatedSampleMetersData.add(sampleMeterMap);
+        }
+        
+        await appDataBox.put('sampleMeters', updatedSampleMetersData);
+        print('Updated product name in sample meters box');
+      }
+      
+      // Update product name in widths box
+      final widthsData = appDataBox.get('widths');
+      if (widthsData != null && widthsData is List) {
+        List<Map<String, dynamic>> updatedWidthsData = [];
+        
+        for (var width in widthsData) {
+          Map<String, dynamic> widthMap = Map<String, dynamic>.from(width);
+          if (widthMap['product'] == oldName) {
+            widthMap['product'] = newName;
+          }
+          updatedWidthsData.add(widthMap);
+        }
+        
+        await appDataBox.put('widths', updatedWidthsData);
+        print('Updated product name in widths box');
+      }
+      
+      // Update product name in weave types box
+      final weaveTypesData = appDataBox.get('weaveTypes');
+      if (weaveTypesData != null && weaveTypesData is List) {
+        List<Map<String, dynamic>> updatedWeaveTypesData = [];
+        
+        for (var weaveType in weaveTypesData) {
+          Map<String, dynamic> weaveTypeMap = Map<String, dynamic>.from(weaveType);
+          if (weaveTypeMap['product'] == oldName) {
+            weaveTypeMap['product'] = newName;
+          }
+          updatedWeaveTypesData.add(weaveTypeMap);
+        }
+        
+        await appDataBox.put('weaveTypes', updatedWeaveTypesData);
+        print('Updated product name in weave types box');
+      }
+      
+      // Update product name in qualities box
+      final qualitiesData = appDataBox.get('qualities');
+      if (qualitiesData != null && qualitiesData is List) {
+        List<Map<String, dynamic>> updatedQualitiesData = [];
+        
+        for (var quality in qualitiesData) {
+          Map<String, dynamic> qualityMap = Map<String, dynamic>.from(quality);
+          if (qualityMap['product'] == oldName) {
+            qualityMap['product'] = newName;
+          }
+          updatedQualitiesData.add(qualityMap);
+        }
+        
+        await appDataBox.put('qualities', updatedQualitiesData);
+        print('Updated product name in qualities box');
+      }
+      
+      // Flush all changes to disk
+      await appDataBox.flush();
+      print('All product name updates saved to disk');
       
     } catch (e) {
       print('Error updating product name in all records: $e');
@@ -1064,7 +1230,7 @@ class _ProductsPageState extends State<ProductsPage> {
                     ),
                   ),
                 ),
-                
+               
                 // Products list
                 Expanded(
                   child: filteredProducts.isEmpty
@@ -1108,7 +1274,7 @@ class _ProductsPageState extends State<ProductsPage> {
                             itemBuilder: (context, index) {
                               final product = filteredProducts[index];
                               final isMapped = _isProductMapped(product['name']);
-                              
+                             
                               return Card(
                                 elevation: 0,
                                 color: const Color(0xFFFFFFFF),
@@ -1148,7 +1314,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                     }
                                   },
                                 ),
-                              );
+                              );  // Added missing closing parenthesis here
                             },
                           ),
                         ),
@@ -1161,23 +1327,29 @@ class _ProductsPageState extends State<ProductsPage> {
   void _showDeleteConfirmationDialog(Map<String, dynamic> product) {
     // Get the mapped attributes
     Map<String, bool> mappedAttributes = _isProductMapped(product['name']);
-    
-    // Check if any attribute is mapped
-    bool isMapped = (mappedAttributes['width'] ?? false) || 
-                     (mappedAttributes['weaveType'] ?? false) || 
-                     (mappedAttributes['quality'] ?? false);
-    
-    print('Delete dialog for product: ${product['name']}');
-    print('Is mapped: $isMapped');
-    print('Mapped attributes: $mappedAttributes');
-    
+
+    // Collect the names of pages where the product is mapped
+    List<String> mappedPages = [];
+    if (mappedAttributes['variety'] == true) mappedPages.add('Variety');
+    if (mappedAttributes['colorGroup'] == true) mappedPages.add('Color Group');
+    if (mappedAttributes['sampleMeter'] == true) mappedPages.add('Sample Meter');
+    if (mappedAttributes['width'] == true) mappedPages.add('Width');
+    if (mappedAttributes['weaveType'] == true) mappedPages.add('Weave Type');
+    if (mappedAttributes['quality'] == true) mappedPages.add('Quality');
+
+    // Check if the product is mapped to any page
+    bool isMapped = mappedPages.isNotEmpty;
+
+    // Show the delete confirmation dialog
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
-          content: isMapped 
-              ? const Text('Already mapped')
+          content: isMapped
+              ? Text(
+                  'This product is already mapped with the following pages and cannot be deleted:\n\n${mappedPages.join(', ')}',
+                )
               : Text('Are you sure you want to delete "${product['name']}"?'),
           actions: [
             TextButton(
@@ -1200,12 +1372,12 @@ class _ProductsPageState extends State<ProductsPage> {
                       products.removeAt(originalIndex);
                       _filterProducts(); // Update filtered list
                     });
-                    
+                   
                     // Save to Hive
                     await _saveProductsToStorage();
-                    
+                   
                     Navigator.of(context).pop(); // Close dialog
-                    
+                   
                     // Show success message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
