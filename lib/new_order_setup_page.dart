@@ -5,10 +5,13 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:purchase_app/service/data_service.dart';
 import 'package:purchase_app/service/order_service.dart';
+import 'package:purchase_app/service/party_service.dart';
 import 'package:purchase_app/service/width_service.dart';
 import 'package:purchase_app/textile_details.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
+import 'package:purchase_app/widgets/add_party_dialog.dart';
 import 'package:purchase_app/widgets/add_width_dialog.dart';
 
 class NewOrderSetupPage extends StatefulWidget {
@@ -56,6 +59,7 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   List<String> widths = [];
   List<String> sampleOptions = [];
   List<String> agents = [];
+  List<String> transports = [];
   List<String> sampleMtrOptions = [];
   List<Map<String, dynamic>> products = [];
   List<Map<String, dynamic>> activeProducts = [];
@@ -64,9 +68,10 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   late Box appDataBox;
   late Box ordersBox;
 
-    @override
+  @override
   void initState() {
     super.initState();
+
     // If in edit mode, set the values from parameters
     if (widget.isEditMode && widget.partyName != null) {
       selectedParty = widget.partyName;
@@ -78,24 +83,52 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
       sampleRequired = widget.sampleRequired ?? 'Yes';
       selectedSampleMtr = widget.selectedSampleMtr ?? '2.5';
     }
-    
+
+    // Initialize Hive and load all data in the correct order
     _initializeHiveAndLoadData().then((_) {
       // Load widths from the service after other data is loaded
       _loadWidths();
       // Load products after other data is loaded
       _loadProducts();
+      _refreshSampleMetersData();
 
-       _refreshSampleMetersData();
+      // Load agents and transports using the new service
+      _loadAgentsAndTransports().then((_) {
+        // Update party data from Hive to get latest changes AFTER agents are loaded
+        _updatePartyDataFromHive();
+      });
     });
-    
-    // Update party data from Hive to get latest changes
-    _updatePartyDataFromHive();
 
     // Add a delay to verify data after loading
     Future.delayed(const Duration(seconds: 2), () {
       _verifyDataPersistence();
     });
   }
+
+  // Add this new method to _NewOrderSetupPageState
+  Future<void> _loadAgentsAndTransports() async {
+    try {
+      final dataService = DataService();
+
+      // Load agents and transports in parallel for better performance
+      final results = await Future.wait([
+        dataService.getAgents(),
+        dataService.getTransports(),
+      ]);
+
+      setState(() {
+        agents = results[0] as List<String>;
+        transports = results[1] as List<String>;
+      });
+
+      print(
+        'Loaded ${agents.length} agents and ${transports.length} transports from service',
+      );
+    } catch (e) {
+      print('Error loading agents and transports: $e');
+    }
+  }
+
   Future<void> _initializeHiveAndLoadData() async {
     try {
       // Get the boxes (they should already be open from main.dart)
@@ -114,19 +147,19 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
     }
   }
 
-    // Add this method to _NewOrderSetupPageState
+  // Add this method to _NewOrderSetupPageState
   Future<void> _loadProducts() async {
     try {
       // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
-      
+
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
       final box = Hive.box('appData');
-      
+
       final productsData = box.get('products');
       if (productsData != null) {
         // Handle different types of data
@@ -139,15 +172,18 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
           }).toList();
         }
       }
-      
+
       setState(() {
         products = hiveProducts;
         // Filter only active products
-        activeProducts = products.where((product) => 
-          product['status'] == 'Active').toList();
+        activeProducts = products
+            .where((product) => product['status'] == 'Active')
+            .toList();
       });
-      
-      print('Loaded ${products.length} products (${activeProducts.length} active)');
+
+      print(
+        'Loaded ${products.length} products (${activeProducts.length} active)',
+      );
     } catch (e) {
       print('Error loading products: $e');
     }
@@ -175,33 +211,33 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   }
 
   Future<void> _refreshAgentsData() async {
-  try {
-    if (!Hive.isBoxOpen('appData')) {
-      await Hive.openBox('appData');
-    }
-    
-    final box = Hive.box('appData');
-    final agentsData = box.get('agents');
-    
-    if (agentsData != null) {
-      List<String> updatedAgents = [];
-      
-      if (agentsData is List) {
-        for (var agent in agentsData) {
-          if (agent is String) {
-            updatedAgents.add(agent);
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      final box = Hive.box('appData');
+      final agentsData = box.get('agents');
+
+      if (agentsData != null) {
+        List<String> updatedAgents = [];
+
+        if (agentsData is List) {
+          for (var agent in agentsData) {
+            if (agent is String) {
+              updatedAgents.add(agent);
+            }
           }
         }
+
+        setState(() {
+          agents = updatedAgents;
+        });
       }
-      
-      setState(() {
-        agents = updatedAgents;
-      });
+    } catch (e) {
+      print('Error refreshing agents data: $e');
     }
-  } catch (e) {
-    print('Error refreshing agents data: $e');
   }
-}
 
   // Add this method to your NewOrderSetupPage
   Future<void> _verifyDataPersistence() async {
@@ -226,215 +262,270 @@ class _NewOrderSetupPageState extends State<NewOrderSetupPage> {
   }
 
   // Add this method to NewOrderSetupPage
-Future<void> _refreshSampleMetersData() async {
-  try {
-    if (!Hive.isBoxOpen('appData')) {
-      await Hive.openBox('appData');
-    }
-    
-    final box = Hive.box('appData');
-    final sampleMetersData = box.get('sampleMeters');
-    
-    if (sampleMetersData != null) {
-      List<String> updatedSampleMeters = [];
-      
-      if (sampleMetersData is List) {
-        for (var meter in sampleMetersData) {
-          if (meter is Map && meter['name'] != null && meter['status'] == 'Active') {
-            updatedSampleMeters.add(meter['name'] as String);
-          }
-        }
+  Future<void> _refreshSampleMetersData() async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
       }
-      
-      setState(() {
-        // Combine with existing sampleMtrOptions
-        final combinedOptions = [...sampleMtrOptions, ...updatedSampleMeters];
-        sampleMtrOptions = combinedOptions.toSet().toList(); // Remove duplicates
-      });
-      
-      print('Refreshed sample meters: $sampleMtrOptions');
-    }
-  } catch (e) {
-    print('Error refreshing sample meters data: $e');
-  }
-}
-  Future<void> _loadDataFromSources() async {
-  try {
-    // Load data from JSON
-    Map<String, dynamic> jsonData = {};
-    try {
-      final String response = await rootBundle.loadString('assets/order_data.json');
-      jsonData = json.decode(response);
-      print('Loaded data from JSON successfully');
-    } catch (e) {
-      print('Error loading JSON data: $e');
-    }
 
-    // Load data from Hive
-    Map<String, dynamic> hiveData = {};
-    try {
       final box = Hive.box('appData');
+      final sampleMetersData = box.get('sampleMeters');
 
-      // Initialize with defaults if box is empty
-      if (box.isEmpty) {
-        await _initializeBoxWithDefaults(box);
-      }
+      if (sampleMetersData != null) {
+        List<String> updatedSampleMeters = [];
 
-      // Get all data from Hive
-      final keys = box.keys.toList();
-      for (var key in keys) {
-        hiveData[key] = box.get(key);
+        if (sampleMetersData is List) {
+          for (var meter in sampleMetersData) {
+            if (meter is Map &&
+                meter['name'] != null &&
+                meter['status'] == 'Active') {
+              updatedSampleMeters.add(meter['name'] as String);
+            }
+          }
+        }
+
+        setState(() {
+          // Combine with existing sampleMtrOptions
+          final combinedOptions = [...sampleMtrOptions, ...updatedSampleMeters];
+          sampleMtrOptions = combinedOptions
+              .toSet()
+              .toList(); // Remove duplicates
+        });
+
+        print('Refreshed sample meters: $sampleMtrOptions');
       }
-      print('Loaded data from Hive successfully');
     } catch (e) {
-      print('Error loading Hive data: $e');
+      print('Error refreshing sample meters data: $e');
     }
-
-    // Combine JSON and Hive data, with Hive taking precedence
-    setState(() {
-      // Combine parties
-      final jsonParties = jsonData['parties'] != null
-          ? List<String>.from(jsonData['parties'])
-          : [];
-      
-      // Handle parties from Hive - could be in old format (List<String>) or new format (List<Map<String, dynamic>>)
-      List<String> hiveParties = [];
-      if (hiveData['parties'] != null) {
-        if (hiveData['parties'] is List) {
-          for (var party in hiveData['parties']) {
-            if (party is String) {
-              // Old format
-              hiveParties.add(party);
-            } else if (party is Map && party['name'] != null) {
-              // New format
-              hiveParties.add(party['name'] as String);
-            }
-          }
-        }
-      }
-      
-      parties = [...jsonParties, ...hiveParties];
-      parties = parties.toSet().toList(); // Remove duplicates
-
-      // Combine ofTypes
-      final jsonOfTypes = jsonData['ofTypes'] != null
-          ? List<String>.from(jsonData['ofTypes'])
-          : [];
-      final hiveOfTypes = hiveData['ofTypes'] != null
-          ? List<String>.from(hiveData['ofTypes'])
-          : [];
-      final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
-          ? List<String>.from(hiveData['textileOFTypes'])
-          : [];
-
-      // Combine lists while preserving order
-      List<String> combinedOfTypes = [];
-      combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
-
-      // Add items from hiveOfTypes if not already present
-      for (var item in hiveOfTypes) {
-        if (!combinedOfTypes.contains(item)) {
-          combinedOfTypes.add(item);
-        }
-      }
-
-      // Add items from hiveTextileOfTypes if not already present
-      for (var item in hiveTextileOfTypes) {
-        if (!combinedOfTypes.contains(item)) {
-          combinedOfTypes.add(item);
-        }
-      }
-
-      ofTypes = combinedOfTypes;
-      // Remove the ofTypes.sort() line to maintain the original order
-
-      // Combine widths
-      final jsonWidths = jsonData['widths'] != null
-          ? List<String>.from(jsonData['widths'])
-          : [];
-      final hiveWidths = hiveData['widths'] != null
-          ? List<String>.from(hiveData['widths'])
-          : [];
-      final hiveTextileWidths = hiveData['textileWidths'] != null
-          ? List<String>.from(hiveData['textileWidths'])
-          : [];
-      widths = [...jsonWidths, ...hiveWidths, ...hiveTextileWidths];
-      widths = widths.toSet().toList(); // Remove duplicates
-      widths.sort();
-
-      // Combine sampleOptions
-      final jsonSampleOptions = jsonData['sampleOptions'] != null
-          ? List<String>.from(jsonData['sampleOptions'])
-          : [];
-      final hiveSampleOptions = hiveData['sampleOptions'] != null
-          ? List<String>.from(hiveData['sampleOptions'])
-          : [];
-      sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
-      sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
-      
-      // Combine agents
-      final jsonAgents = jsonData['agents'] != null
-          ? List<String>.from(jsonData['agents'])
-          : [];
-      final hiveAgents = hiveData['agents'] != null
-          ? List<String>.from(hiveData['agents'])
-          : [];
-
-      // Create a set to avoid duplicates
-      Set<String> uniqueAgents = Set.from(jsonAgents);
-      uniqueAgents.addAll(hiveAgents as Iterable<String>);
-
-      // Convert back to list
-      agents = uniqueAgents.toList();
-
-      // Combine sampleMtrOptions
-      // final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
-      //     ? List<String>.from(jsonData['sampleMtrOptions'])
-      //     : [];
-      // final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
-      //     ? List<String>.from(hiveData['sampleMtrOptions'])
-      //     : [];
-      
-      // Load sample meters from Hive - FIXED PART
-      List<String> hiveSampleMeters = [];
-      if (hiveData['sampleMeters'] != null && hiveData['sampleMeters'] is List) {
-        for (var meter in hiveData['sampleMeters']) {
-          if (meter is Map && meter['name'] != null) {
-            // Only add active sample meters
-            if (meter['status'] == 'Active') {
-              hiveSampleMeters.add(meter['name'] as String);
-            }
-          }
-        }
-      }
-      
-      // Combine all sample meter options
-      final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
-          ? List<String>.from(jsonData['sampleMtrOptions'])
-          : [];
-      final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
-          ? List<String>.from(hiveData['sampleMtrOptions'])
-          : [];
-      
-      sampleMtrOptions = [...jsonSampleMtrOptions, ...hiveSampleMtrOptions, ...hiveSampleMeters];
-      sampleMtrOptions = sampleMtrOptions.toSet().toList(); // Remove duplicates
-      
-      // Debug: Print final sampleMtrOptions
-      print('Final sampleMtrOptions: $sampleMtrOptions');
-
-      _isLoading = false;
-    });
-
-    // Debug: Print loaded data
-    print('Combined parties: $parties');
-    print('Combined ofTypes: $ofTypes');
-  } catch (e) {
-    print('Error loading data from sources: $e');
-    // Fallback to defaults
-    _useDefaultData();
   }
-}
- 
+
+  Future<void> _loadDataFromSources() async {
+    try {
+      // Load data from JSON
+      Map<String, dynamic> jsonData = {};
+      try {
+        final String response = await rootBundle.loadString(
+          'assets/order_data.json',
+        );
+        jsonData = json.decode(response);
+        print('Loaded data from JSON successfully');
+      } catch (e) {
+        print('Error loading JSON data: $e');
+      }
+
+      // Load data from Hive
+      Map<String, dynamic> hiveData = {};
+      try {
+        final box = Hive.box('appData');
+
+        // Initialize with defaults if box is empty
+        if (box.isEmpty) {
+          await _initializeBoxWithDefaults(box);
+        }
+
+        // Get all data from Hive
+        final keys = box.keys.toList();
+        for (var key in keys) {
+          hiveData[key] = box.get(key);
+        }
+        print('Loaded data from Hive successfully');
+      } catch (e) {
+        print('Error loading Hive data: $e');
+      }
+
+      // Combine JSON and Hive data, with Hive taking precedence
+      setState(() {
+        // Combine parties
+        final jsonParties = jsonData['parties'] != null
+            ? List<String>.from(jsonData['parties'])
+            : [];
+
+        // Handle parties from Hive - could be in old format (List<String>) or new format (List<Map<String, dynamic>>)
+        List<String> hiveParties = [];
+        if (hiveData['parties'] != null) {
+          if (hiveData['parties'] is List) {
+            for (var party in hiveData['parties']) {
+              if (party is String) {
+                // Old format
+                hiveParties.add(party);
+              } else if (party is Map && party['name'] != null) {
+                // New format
+                hiveParties.add(party['name'] as String);
+              }
+            }
+          }
+        }
+
+        parties = [...jsonParties, ...hiveParties];
+        parties = parties.toSet().toList(); // Remove duplicates
+
+        print('Combined parties: $parties');
+        // Combine ofTypes
+        final jsonOfTypes = jsonData['ofTypes'] != null
+            ? List<String>.from(jsonData['ofTypes'])
+            : [];
+        final hiveOfTypes = hiveData['ofTypes'] != null
+            ? List<String>.from(hiveData['ofTypes'])
+            : [];
+        final hiveTextileOfTypes = hiveData['textileOFTypes'] != null
+            ? List<String>.from(hiveData['textileOFTypes'])
+            : [];
+
+        // Combine lists while preserving order
+        List<String> combinedOfTypes = [];
+        combinedOfTypes.addAll(jsonOfTypes as Iterable<String>);
+
+        // Add items from hiveOfTypes if not already present
+        for (var item in hiveOfTypes) {
+          if (!combinedOfTypes.contains(item)) {
+            combinedOfTypes.add(item);
+          }
+        }
+
+        // Add items from hiveTextileOfTypes if not already present
+        for (var item in hiveTextileOfTypes) {
+          if (!combinedOfTypes.contains(item)) {
+            combinedOfTypes.add(item);
+          }
+        }
+
+        ofTypes = combinedOfTypes;
+
+        // Combine widths
+        final jsonWidths = jsonData['widths'] != null
+            ? List<String>.from(jsonData['widths'])
+            : [];
+        final hiveWidths = hiveData['widths'] != null
+            ? List<String>.from(hiveData['widths'])
+            : [];
+        final hiveTextileWidths = hiveData['textileWidths'] != null
+            ? List<String>.from(hiveData['textileWidths'])
+            : [];
+        widths = [...jsonWidths, ...hiveWidths, ...hiveTextileWidths];
+        widths = widths.toSet().toList(); // Remove duplicates
+        widths.sort();
+
+        // Combine sampleOptions
+        final jsonSampleOptions = jsonData['sampleOptions'] != null
+            ? List<String>.from(jsonData['sampleOptions'])
+            : [];
+        final hiveSampleOptions = hiveData['sampleOptions'] != null
+            ? List<String>.from(hiveData['sampleOptions'])
+            : [];
+        sampleOptions = [...jsonSampleOptions, ...hiveSampleOptions];
+        sampleOptions = sampleOptions.toSet().toList(); // Remove duplicates
+
+        // Combine agents - UPDATE THIS SECTION
+        final jsonAgents = jsonData['agents'] != null
+            ? List<String>.from(jsonData['agents'])
+            : [];
+        final hiveAgents = hiveData['agents'] != null
+            ? List<String>.from(hiveData['agents'])
+            : [];
+
+        // Handle both string and map formats for agents
+        List<String> processedHiveAgents = [];
+        if (hiveData['agents'] != null && hiveData['agents'] is List) {
+          for (var agent in hiveData['agents']) {
+            if (agent is String) {
+              processedHiveAgents.add(agent);
+            } else if (agent is Map && agent['name'] != null) {
+              processedHiveAgents.add(agent['name'] as String);
+            }
+          }
+        }
+
+        // Create a set to avoid duplicates
+        Set<String> uniqueAgents = Set.from(jsonAgents);
+        uniqueAgents.addAll(processedHiveAgents);
+
+        // Convert back to list
+        agents = uniqueAgents.toList();
+
+        // Combine transports - UPDATE THIS SECTION
+        final jsonTransports = jsonData['transports'] != null
+            ? List<String>.from(jsonData['transports'])
+            : [];
+        final hiveTransports = hiveData['transports'] != null
+            ? List<String>.from(hiveData['transports'])
+            : [];
+
+        // Handle both string and map formats for transports
+        List<String> processedHiveTransports = [];
+        if (hiveData['transports'] != null && hiveData['transports'] is List) {
+          for (var transport in hiveData['transports']) {
+            if (transport is String) {
+              processedHiveTransports.add(transport);
+            } else if (transport is Map && transport['name'] != null) {
+              processedHiveTransports.add(transport['name'] as String);
+            }
+          }
+        }
+
+        // Create a set to avoid duplicates
+        Set<String> uniqueTransports = Set.from(jsonTransports);
+        uniqueTransports.addAll(processedHiveTransports);
+
+        // Convert back to list
+        transports = uniqueTransports.toList();
+
+        // Combine sampleMtrOptions
+        // final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
+        //     ? List<String>.from(jsonData['sampleMtrOptions'])
+        //     : [];
+        // final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
+        //     ? List<String>.from(hiveData['sampleMtrOptions'])
+        //     : [];
+
+        // Load sample meters from Hive - FIXED PART
+        List<String> hiveSampleMeters = [];
+        if (hiveData['sampleMeters'] != null &&
+            hiveData['sampleMeters'] is List) {
+          for (var meter in hiveData['sampleMeters']) {
+            if (meter is Map && meter['name'] != null) {
+              // Only add active sample meters
+              if (meter['status'] == 'Active') {
+                hiveSampleMeters.add(meter['name'] as String);
+              }
+            }
+          }
+        }
+
+        // Combine all sample meter options
+        final jsonSampleMtrOptions = jsonData['sampleMtrOptions'] != null
+            ? List<String>.from(jsonData['sampleMtrOptions'])
+            : [];
+        final hiveSampleMtrOptions = hiveData['sampleMtrOptions'] != null
+            ? List<String>.from(hiveData['sampleMtrOptions'])
+            : [];
+
+        sampleMtrOptions = [
+          ...jsonSampleMtrOptions,
+          ...hiveSampleMtrOptions,
+          ...hiveSampleMeters,
+        ];
+        sampleMtrOptions = sampleMtrOptions
+            .toSet()
+            .toList(); // Remove duplicates
+
+        // Debug: Print final sampleMtrOptions
+        print('Final sampleMtrOptions: $sampleMtrOptions');
+        print('Final agents: $agents'); // Add this for debugging
+        print('Final transports: $transports'); // Add this for debugging
+
+        _isLoading = false;
+      });
+
+      // Debug: Print loaded data
+      print('Combined parties: $parties');
+      print('Combined ofTypes: $ofTypes');
+    } catch (e) {
+      print('Error loading data from sources: $e');
+      // Fallback to defaults
+      _useDefaultData();
+    }
+  }
+
   void _useDefaultData() {
     setState(() {
       parties = [
@@ -447,6 +538,7 @@ Future<void> _refreshSampleMetersData() async {
       widths = ['44"', '54"', '58"', '60"'];
       sampleOptions = ['Yes', 'No', 'Sample Only'];
       agents = ['Raju Sharma', 'Vijay Kumar', 'Anil Reddy', 'Sunil Patel'];
+      transports = ['DTDC', 'FedEx', 'Delhivery', 'Blue Dart']; // Add this line
       sampleMtrOptions = ['2.5', '5.0', '7.5', '10.0'];
       _isLoading = false;
     });
@@ -482,6 +574,15 @@ Future<void> _refreshSampleMetersData() async {
           'Sunil Patel',
         ]);
       }
+      if (!box.containsKey('transports')) {
+        // Add this block
+        await box.put('transports', [
+          'DTDC',
+          'FedEx',
+          'Delhivery',
+          'Blue Dart',
+        ]);
+      }
       if (!box.containsKey('sampleMtrOptions')) {
         await box.put('sampleMtrOptions', ['2.5', '5.0', '7.5', '10.0']);
       }
@@ -492,7 +593,6 @@ Future<void> _refreshSampleMetersData() async {
       print('Error initializing box with defaults: $e');
     }
   }
-
   // In your NewOrderSetupPage, update the _saveDataToStorage method:
 
   Future<void> _saveDataToStorage() async {
@@ -546,111 +646,112 @@ Future<void> _refreshSampleMetersData() async {
   }
 
   Future<void> _saveOrderToHive() async {
-  try {
-    // Ensure the orders box is open
-    if (!Hive.isBoxOpen('orders')) {
-      await Hive.openBox('orders');
+    try {
+      // Ensure the orders box is open
+      if (!Hive.isBoxOpen('orders')) {
+        await Hive.openBox('orders');
+      }
+
+      final box = Hive.box('orders');
+
+      // Create order data map
+      final Map<String, dynamic> orderData = {
+        'party': selectedParty,
+        'type': ofType,
+        'width': selectedWidth,
+        'defaultChoices': defaultChoices,
+        'defaultMeters': defaultMetersController.text,
+        'sampleRequired': sampleRequired,
+        'sampleMtr': _showSampleMtrField ? selectedSampleMtr : null,
+        'agent': selectedAgent,
+        'status': 'pending', // Default status
+        'date': _formatDate(DateTime.now()), // Use simple date format
+        'orders': 0, // Initial order count
+      };
+
+      // Generate a unique key for the order
+      final String key = 'order_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Save the order
+      await box.put(key, orderData);
+
+      // Explicitly flush to disk
+      await box.flush();
+
+      print('Order saved successfully with key: $key');
+
+      // Notify that orders have been updated
+      OrderService().notifyOrderUpdated();
+
+      // Mark the party as mapped
+      await _markPartyAsMapped(selectedParty!);
+
+      // Mark the sample meter as mapped if it's used
+      if (_showSampleMtrField && selectedSampleMtr != null) {
+        await _markSampleMeterAsMapped(selectedSampleMtr);
+      }
+    } catch (e) {
+      print('Error saving order: $e');
+      // Show error to user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving order: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-
-    final box = Hive.box('orders');
-
-    // Create order data map
-    final Map<String, dynamic> orderData = {
-      'party': selectedParty,
-      'type': ofType,
-      'width': selectedWidth,
-      'defaultChoices': defaultChoices,
-      'defaultMeters': defaultMetersController.text,
-      'sampleRequired': sampleRequired,
-      'sampleMtr': _showSampleMtrField ? selectedSampleMtr : null,
-      'agent': selectedAgent,
-      'status': 'pending', // Default status
-      'date': _formatDate(DateTime.now()), // Use simple date format
-      'orders': 0, // Initial order count
-    };
-
-    // Generate a unique key for the order
-    final String key = 'order_${DateTime.now().millisecondsSinceEpoch}';
-
-    // Save the order
-    await box.put(key, orderData);
-
-    // Explicitly flush to disk
-    await box.flush();
-
-    print('Order saved successfully with key: $key');
-
-    // Notify that orders have been updated
-    OrderService().notifyOrderUpdated();
-    
-    // Mark the party as mapped
-    await _markPartyAsMapped(selectedParty!);
-    
-    // Mark the sample meter as mapped if it's used
-    if (_showSampleMtrField && selectedSampleMtr != null) {
-      await _markSampleMeterAsMapped(selectedSampleMtr);
-    }
-  } catch (e) {
-    print('Error saving order: $e');
-    // Show error to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error saving order: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 
-// Add this new method to mark a sample meter as mapped
-Future<void> _markSampleMeterAsMapped(String meterName) async {
-  try {
-    if (!Hive.isBoxOpen('appData')) {
-      await Hive.openBox('appData');
-    }
-    
-    final box = Hive.box('appData');
-    List<Map<String, dynamic>> sampleMeters = [];
-    
-    // Get existing sample meters
-    final existingSampleMeters = box.get('sampleMeters');
-    if (existingSampleMeters != null) {
-      if (existingSampleMeters is List) {
-        for (var meter in existingSampleMeters) {
-          if (meter is Map) {
-            sampleMeters.add(Map<String, dynamic>.from(meter));
+  // Add this new method to mark a sample meter as mapped
+  Future<void> _markSampleMeterAsMapped(String meterName) async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      final box = Hive.box('appData');
+      List<Map<String, dynamic>> sampleMeters = [];
+
+      // Get existing sample meters
+      final existingSampleMeters = box.get('sampleMeters');
+      if (existingSampleMeters != null) {
+        if (existingSampleMeters is List) {
+          for (var meter in existingSampleMeters) {
+            if (meter is Map) {
+              sampleMeters.add(Map<String, dynamic>.from(meter));
+            }
           }
         }
       }
-    }
-    
-    // Find and update the sample meter
-    for (int i = 0; i < sampleMeters.length; i++) {
-      if (sampleMeters[i]['name'] == meterName) {
-        sampleMeters[i]['isMapped'] = true;
-        break;
+
+      // Find and update the sample meter
+      for (int i = 0; i < sampleMeters.length; i++) {
+        if (sampleMeters[i]['name'] == meterName) {
+          sampleMeters[i]['isMapped'] = true;
+          break;
+        }
       }
+
+      // Save to Hive
+      await box.put('sampleMeters', sampleMeters);
+      await box.flush();
+
+      print('Sample meter "$meterName" marked as mapped');
+    } catch (e) {
+      print('Error marking sample meter as mapped: $e');
     }
-    
-    // Save to Hive
-    await box.put('sampleMeters', sampleMeters);
-    await box.flush();
-    
-    print('Sample meter "$meterName" marked as mapped');
-  } catch (e) {
-    print('Error marking sample meter as mapped: $e');
   }
-}
+
   // Add this new method to _NewOrderSetupPageState:
   Future<void> _markPartyAsMapped(String partyName) async {
     try {
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
-      
+
       final box = Hive.box('appData');
       List<Map<String, dynamic>> partiesData = [];
-      
+
       // Get existing parties
       final existingParties = box.get('parties');
       if (existingParties != null) {
@@ -670,7 +771,7 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
           }
         }
       }
-      
+
       // Find and update the party
       for (int i = 0; i < partiesData.length; i++) {
         if (partiesData[i]['name'] == partyName) {
@@ -678,11 +779,11 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
           break;
         }
       }
-      
+
       // Save to Hive
       await box.put('parties', partiesData);
       await box.flush();
-      
+
       print('Party "$partyName" marked as mapped');
     } catch (e) {
       print('Error marking party as mapped: $e');
@@ -694,13 +795,13 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
-      
+
       final box = Hive.box('appData');
       final partiesData = box.get('parties');
-      
+
       if (partiesData != null) {
         List<String> updatedParties = [];
-        
+
         if (partiesData is List) {
           for (var party in partiesData) {
             if (party is Map && party['name'] != null) {
@@ -710,11 +811,16 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
             }
           }
         }
-        
+
         setState(() {
           parties = updatedParties;
         });
+
+        print('Updated parties from Hive: $updatedParties');
       }
+
+      // Also update agents and transports
+      await _loadAgentsAndTransports();
     } catch (e) {
       print('Error updating party data: $e');
     }
@@ -726,15 +832,19 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
     return formatter.format(date);
   }
 
-  Future<void> _addNewParty(String partyName, String? agent, String? visitingCardImage) async {
+  Future<void> _addNewParty(
+    String partyName,
+    String? agent,
+    String? visitingCardImage,
+  ) async {
     try {
       if (!Hive.isBoxOpen('appData')) {
         Hive.openBox('appData');
       }
-      
+
       final box = Hive.box('appData');
       List<Map<String, dynamic>> partiesData = [];
-      
+
       // Get existing parties
       final existingParties = box.get('parties');
       if (existingParties != null) {
@@ -754,9 +864,11 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
           }
         }
       }
-      
+
       // Check if party already exists
-      final existingIndex = partiesData.indexWhere((p) => p['name'] == partyName);
+      final existingIndex = partiesData.indexWhere(
+        (p) => p['name'] == partyName,
+      );
       if (existingIndex != -1) {
         // Update existing party
         partiesData[existingIndex] = {
@@ -774,11 +886,11 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
           'isMapped': false,
         });
       }
-      
+
       // Save to Hive
       await box.put('parties', partiesData);
       await box.flush();
-      
+
       // Update local state - add to the beginning of the list
       setState(() {
         if (!parties.contains(partyName)) {
@@ -796,7 +908,7 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
       print('Error adding new party: $e');
     }
   }
-  
+
   // Check if Sample Mtr field should be shown
   bool get _showSampleMtrField {
     return sampleRequired == 'Yes' || sampleRequired == 'Sample Only';
@@ -928,106 +1040,121 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
   }
 
   Widget _buildPartyNameField() {
-  return Card(
-    elevation: 0,
-    color: const Color(0xFFFFFFFF),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Text(
-                'Party Name',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(' *', style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    iconTheme: const IconThemeData(color: Color(0xFF767676)),
-                  ),
-                  child: DropdownButtonFormField<String>(
-                    value: selectedParty,
-                    hint: const Text('Search or select party...'),
-                    isDense: true,
-                    style: const TextStyle(color: Colors.black),
-                    items: parties.map((party) {
-                      return DropdownMenuItem<String>(
-                        value: party,
-                        child: Text(party), // Just show the text without any icon
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedParty = value;
-                      });
-                    },
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: Colors.grey.withOpacity(0.3),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: Colors.grey.withOpacity(0.3),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF529FF3),
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFFFFF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Text(
+                  'Party Name',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(' *', style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      iconTheme: const IconThemeData(color: Color(0xFF767676)),
                     ),
-                    icon: const Icon(
-                      Icons.arrow_drop_down,
-                      color: Color(0xFF767676),
+                    child: DropdownButtonFormField<String>(
+                      value: selectedParty,
+                      // Fixed: Check parties instead of agents
+                      hint: Text(
+                        parties.isEmpty
+                            ? 'Loading parties...'
+                            : 'Search or select party...',
+                      ),
+                      isDense: true,
+                      style: const TextStyle(color: Colors.black),
+                      items: parties.map((party) {
+                        return DropdownMenuItem<String>(
+                          value: party,
+                          child: Text(party),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedParty = value;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.grey.withOpacity(0.3),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.grey.withOpacity(0.3),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF529FF3),
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: Color(0xFF767676),
+                      ),
+                      iconSize: 24,
+                      isExpanded: true,
                     ),
-                    iconSize: 24,
-                    isExpanded: true,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.add, color: Color(0xFF529FF3)),
-                onPressed: _showAddNewPartyDialog,
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.add, color: Color(0xFF529FF3)),
+                  onPressed: () {
+                    // Ensure agents and transports are loaded before showing dialog
+                    if (agents.isEmpty || transports.isEmpty) {
+                      _loadAgentsAndTransports().then((_) {
+                        _showAddNewPartyDialog();
+                      });
+                    } else {
+                      _showAddNewPartyDialog();
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   // Add this helper method to get party image path
   String? _getPartyImage(String partyName) {
     try {
       if (!Hive.isBoxOpen('appData')) {
         return null;
       }
-      
+
       final box = Hive.box('appData');
       final partiesData = box.get('parties');
-      
+
       if (partiesData != null) {
         for (var party in partiesData) {
           if (party is Map && party['name'] == partyName) {
@@ -1035,7 +1162,7 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
           }
         }
       }
-      
+
       return null;
     } catch (e) {
       print('Error getting party image: $e');
@@ -1043,484 +1170,230 @@ Future<void> _markSampleMeterAsMapped(String meterName) async {
     }
   }
 
-  Future<void> _showAddNewPartyDialog() async {
-    await _refreshAgentsData();
-  TextEditingController newPartyController = TextEditingController();
-  String? selectedAgent;
-  File? visitingCardImage;
+  void _showAddNewPartyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AddPartyDialog(
+          isEditMode: false,
+          agents: agents,
+          transports: transports,
+        );
+      },
+    ).then((result) {
+      if (result != null) {
+        // Add the party using the service
+        PartyService()
+            .addParty(
+              result['name'],
+              result['code'],
+              partyType: result['partyType'],
+              agent: result['agent'],
+              mobileNumbers: result['mobileNumbers'],
+              email: result['email'],
+              address: result['address'],
+              state: result['state'],
+              district: result['district'],
+              gstNo: result['gstNo'],
+              bankName: result['bankName'],
+              accountNo: result['accountNo'],
+              ifscCode: result['ifscCode'],
+              branchName: result['branchName'],
+              accountHolderName: result['accountHolderName'],
+              transport: result['transport'],
+              status: result['status'],
+            )
+            .then((_) {
+              // Reload the parties
+              _updatePartyDataFromHive();
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            backgroundColor: const Color(0xFFFFFFFF),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            // Set constraints to make dialog responsive
-            insetPadding: const EdgeInsets.all(16),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.9,
-                maxHeight: MediaQuery.of(context).size.height * 0.9,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Add New Party',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(
-                            Icons.close,
-                            color: Color(0xFF767676),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              // Set the selected party to the newly added one
+              setState(() {
+                selectedParty = result['name'];
+              });
 
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Content with SingleChildScrollView to make it scrollable
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Party Name Field
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFFFFF),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.grey.withOpacity(0.3),
-                              ),
-                            ),
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Text(
-                                      'Party Name: *',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: newPartyController,
-                                  inputFormatters: [
-                                    NoLeadingOrMultipleSpacesFormatter(),
-                                  ],
-                                  decoration: const InputDecoration(
-                                    hintText: 'Enter party name',
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  onEditingComplete: () {
-                                    // Trim trailing spaces when editing is complete
-                                    newPartyController.text = newPartyController.text.trim();
-                                    setState(() {});
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Agent Field
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFFFFF),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.grey.withOpacity(0.3),
-                              ),
-                            ),
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Agent: ',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                DropdownButtonFormField<String>(
-                                  value: selectedAgent,
-                                  hint: const Text('Select agent...'),
-                                  isDense: true,
-                                  style: const TextStyle(color: Colors.black),
-                                  items: agents.map((agent) {
-                                    return DropdownMenuItem<String>(
-                                      value: agent,
-                                      child: Text(agent),
-                                    );
-                                  }).toList(),
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedAgent = value;
-                                    });
-                                  },
-                                  decoration: InputDecoration(
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF529FF3),
-                                      ),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.arrow_drop_down,
-                                    color: Color(0xFF767676),
-                                  ),
-                                  iconSize: 24,
-                                  isExpanded: true,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Visiting Card Photo Field
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF9FAFB),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.grey.withOpacity(0.3),
-                              ),
-                            ),
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Visiting Card Photo: ',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () async {
-                                    final XFile? pickedFile = await _imagePicker.pickImage(
-                                      source: ImageSource.camera,
-                                      preferredCameraDevice: CameraDevice.rear,
-                                    );
-                                    if (pickedFile != null) {
-                                      setState(() {
-                                        visitingCardImage = File(pickedFile.path);
-                                      });
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: Colors.grey.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.add_a_photo,
-                                          color: Color(0xFF529FF3),
-                                          size: 24,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            visitingCardImage != null
-                                                ? 'Photo captured'
-                                                : 'Tap to capture visiting card',
-                                            style: TextStyle(
-                                              color: visitingCardImage != null
-                                                  ? Colors.black
-                                                  : Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (visitingCardImage != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8.0),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        visitingCardImage!,
-                                        height: 150,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Buttons - Fixed at bottom
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Trim any trailing spaces before saving
-                                String partyName = newPartyController.text.trim();
-                                if (partyName.isNotEmpty) {
-                                  // Save to Hive first
-                                  await _saveNewPartyToHive(partyName, selectedAgent, visitingCardImage?.path);
-                                  
-                                  // Then refresh party data from Hive
-                                  await _refreshPartyData();
-                                  
-                                  // Set the selected party to the newly added one
-                                  setState(() {
-                                    selectedParty = partyName;
-                                  });
-                                  
-                                  Navigator.pop(context);
-                                  
-                                  // Show success message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Party added successfully'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'Save to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-  Future<void> _saveNewPartyToHive(String partyName, String? agent, String? visitingCardImage) async {
-  try {
-    if (!Hive.isBoxOpen('appData')) {
-      await Hive.openBox('appData');
-    }
-    
-    final box = Hive.box('appData');
-    List<Map<String, dynamic>> partiesData = [];
-    
-    // Get existing parties
-    final existingParties = box.get('parties');
-    if (existingParties != null) {
-      if (existingParties is List) {
-        for (var party in existingParties) {
-          if (party is Map) {
-            partiesData.add(Map<String, dynamic>.from(party));
-          } else if (party is String) {
-            // Handle legacy data format
-            partiesData.add({
-              'name': party,
-              'agent': null,
-              'visitingCardImage': null,
-              'isMapped': false,
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Party added successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            })
+            .catchError((error) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error adding party: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
             });
-          }
-        }
       }
-    }
-    
-    // Check if party already exists
-    final existingIndex = partiesData.indexWhere((p) => p['name'] == partyName);
-    if (existingIndex != -1) {
-      // Update existing party
-      partiesData[existingIndex] = {
-        'name': partyName,
-        'agent': agent,
-        'visitingCardImage': visitingCardImage,
-        'isMapped': partiesData[existingIndex]['isMapped'] ?? false,
-      };
-    } else {
-      // Add new party at the beginning of the list
-      partiesData.insert(0, {
-        'name': partyName,
-        'agent': agent,
-        'visitingCardImage': visitingCardImage,
-        'isMapped': false,
-      });
-    }
-    
-    // Save to Hive
-    await box.put('parties', partiesData);
-    await box.flush();
-    
-    // Update local state immediately
-    setState(() {
-      if (!parties.contains(partyName)) {
-        parties.insert(0, partyName);
-      }
-      
-       if (agent != null && !agents.contains(agent)) {
-    agents.add(agent);
-    // Also save the updated agents list to Hive
-    _saveAgentsToStorage();
-  }
     });
-    
-    print('Party "$partyName" saved to Hive with all details');
-  } catch (e) {
-    print('Error saving new party to Hive: $e');
   }
-}
 
-Future<void> _saveAgentsToStorage() async {
-  try {
-    final box = Hive.box('appData');
-    
-    // Convert all agents to List<String> to ensure type safety
-    final List<String> agentsToSave = agents
-        .map((e) => e.toString())
-        .toList();
+  Future<void> _refreshTransportsData() async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
 
-    // Save data with explicit await to ensure it's written to disk
-    await box.put('agents', agentsToSave);
-    
-    // Explicitly flush to disk
-    await box.flush();
-    
-    print('Agents data saved successfully');
-  } catch (e) {
-    print('Error saving agents data: $e');
-  }
-}
-  Future<void> _refreshPartyData() async {
-  try {
-    if (!Hive.isBoxOpen('appData')) {
-      await Hive.openBox('appData');
+      final box = Hive.box('appData');
+      final transportsData = box.get('transports');
+
+      if (transportsData != null) {
+        List<String> updatedTransports = [];
+
+        if (transportsData is List) {
+          for (var transport in transportsData) {
+            if (transport is String) {
+              updatedTransports.add(transport);
+            } else if (transport is Map && transport['name'] != null) {
+              updatedTransports.add(transport['name'] as String);
+            }
+          }
+        }
+
+        setState(() {
+          transports = updatedTransports;
+        });
+      }
+    } catch (e) {
+      print('Error refreshing transports data: $e');
     }
-    
-    final box = Hive.box('appData');
-    final partiesData = box.get('parties');
-    
-    if (partiesData != null) {
-      List<String> updatedParties = [];
-      
-      if (partiesData is List) {
-        for (var party in partiesData) {
-          if (party is Map && party['name'] != null) {
-            updatedParties.add(party['name'] as String);
-          } else if (party is String) {
-            updatedParties.add(party);
+  }
+
+  Future<void> _saveNewPartyToHive(
+    String partyName,
+    String? agent,
+    String? visitingCardImage,
+  ) async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      final box = Hive.box('appData');
+      List<Map<String, dynamic>> partiesData = [];
+
+      // Get existing parties
+      final existingParties = box.get('parties');
+      if (existingParties != null) {
+        if (existingParties is List) {
+          for (var party in existingParties) {
+            if (party is Map) {
+              partiesData.add(Map<String, dynamic>.from(party));
+            } else if (party is String) {
+              // Handle legacy data format
+              partiesData.add({
+                'name': party,
+                'agent': null,
+                'visitingCardImage': null,
+                'isMapped': false,
+              });
+            }
           }
         }
       }
-      
+
+      // Check if party already exists
+      final existingIndex = partiesData.indexWhere(
+        (p) => p['name'] == partyName,
+      );
+      if (existingIndex != -1) {
+        // Update existing party
+        partiesData[existingIndex] = {
+          'name': partyName,
+          'agent': agent,
+          'visitingCardImage': visitingCardImage,
+          'isMapped': partiesData[existingIndex]['isMapped'] ?? false,
+        };
+      } else {
+        // Add new party at the beginning of the list
+        partiesData.insert(0, {
+          'name': partyName,
+          'agent': agent,
+          'visitingCardImage': visitingCardImage,
+          'isMapped': false,
+        });
+      }
+
+      // Save to Hive
+      await box.put('parties', partiesData);
+      await box.flush();
+
+      // Update local state immediately
       setState(() {
-        parties = updatedParties;
+        if (!parties.contains(partyName)) {
+          parties.insert(0, partyName);
+        }
+
+        if (agent != null && !agents.contains(agent)) {
+          agents.add(agent);
+          // Also save the updated agents list to Hive
+          _saveAgentsToStorage();
+        }
       });
+
+      print('Party "$partyName" saved to Hive with all details');
+    } catch (e) {
+      print('Error saving new party to Hive: $e');
     }
-  } catch (e) {
-    print('Error updating party data: $e');
   }
-}
+
+  Future<void> _saveAgentsToStorage() async {
+    try {
+      final box = Hive.box('appData');
+
+      // Convert all agents to List<String> to ensure type safety
+      final List<String> agentsToSave = agents
+          .map((e) => e.toString())
+          .toList();
+
+      // Save data with explicit await to ensure it's written to disk
+      await box.put('agents', agentsToSave);
+
+      // Explicitly flush to disk
+      await box.flush();
+
+      print('Agents data saved successfully');
+    } catch (e) {
+      print('Error saving agents data: $e');
+    }
+  }
+
+  Future<void> _refreshPartyData() async {
+    try {
+      if (!Hive.isBoxOpen('appData')) {
+        await Hive.openBox('appData');
+      }
+
+      final box = Hive.box('appData');
+      final partiesData = box.get('parties');
+
+      if (partiesData != null) {
+        List<String> updatedParties = [];
+
+        if (partiesData is List) {
+          for (var party in partiesData) {
+            if (party is Map && party['name'] != null) {
+              updatedParties.add(party['name'] as String);
+            } else if (party is String) {
+              updatedParties.add(party);
+            }
+          }
+        }
+
+        setState(() {
+          parties = updatedParties;
+        });
+      }
+    } catch (e) {
+      print('Error updating party data: $e');
+    }
+  }
+
   Widget _buildOfTypeField() {
     return Card(
       elevation: 0,
@@ -1593,221 +1466,237 @@ Future<void> _saveAgentsToStorage() async {
   }
 
   void _showAddNewTypeDialog() {
-  TextEditingController newTypeController = TextEditingController();
+    TextEditingController newTypeController = TextEditingController();
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            backgroundColor: const Color(0xFFFFFFFF),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            // Set only width constraint, keep original height
-            insetPadding: const EdgeInsets.all(16),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.9,
-                // Remove maxHeight to keep original dialog height
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: const Color(0xFFFFFFFF),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min, // This keeps the dialog compact
-                children: [
-                  // Header with title and close button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
+              // Set only width constraint, keep original height
+              insetPadding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  // Remove maxHeight to keep original dialog height
+                ),
+                child: Column(
+                  mainAxisSize:
+                      MainAxisSize.min, // This keeps the dialog compact
+                  children: [
+                    // Header with title and close button
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Add O/F Type',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Icon(
+                              Icons.close,
+                              color: Color(0xFF767676),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Add O/F Type',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Icon(Icons.close, color: Color(0xFF767676)),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                    // Horizontal divider
+                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
 
-                  // Content without Expanded to keep compact
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Type Name Field in a card
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'Type Name: *',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: newTypeController,
-                                inputFormatters: [
-                                  NoLeadingOrMultipleSpacesFormatter(),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g. Next Season, Special',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                onEditingComplete: () {
-                                  // Trim trailing spaces when editing is complete
-                                  newTypeController.text = newTypeController.text.trim();
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Information text with icon in a box
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEBF8FF),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF3182CE)),
-                          ),
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Color(0xFF3182CE),
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'This will be added to master and available for future orders.',
-                                  style: TextStyle(color: Color(0xFF3182CE)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Horizontal divider
-                  const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-
-                  // Buttons - Fixed at bottom
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
+                    // Content without Expanded to keep compact
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Type Name Field in a card
+                          Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
+                              color: const Color(0xFFFFFFFF),
                               borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextButton(
-                              onPressed: () async {
-                                // Trim any trailing spaces before saving
-                                String typeName = newTypeController.text.trim();
-                                if (typeName.isNotEmpty) {
-                                  setState(() {
-                                    ofTypes.add(typeName);
-                                    ofType = typeName;
-                                  });
-
-                                  // Save to Hive
-                                  await _saveDataToStorage();
-
-                                  Navigator.pop(context);
-
-                                  // Show success message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Type added successfully'),
-                                      backgroundColor: Colors.green,
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Text(
+                                      'Type Name: *',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'Save to Master',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: newTypeController,
+                                  inputFormatters: [
+                                    NoLeadingOrMultipleSpacesFormatter(),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    hintText: 'e.g. Next Season, Special',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onEditingComplete: () {
+                                    // Trim trailing spaces when editing is complete
+                                    newTypeController.text = newTypeController
+                                        .text
+                                        .trim();
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Information text with icon in a box
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEBF8FF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFF3182CE),
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(12.0),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.info_outline,
+                                  color: Color(0xFF3182CE),
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'This will be added to master and available for future orders.',
+                                    style: TextStyle(color: Color(0xFF3182CE)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Horizontal divider
+                    const Divider(color: Color(0xFFE5E7EB), thickness: 1),
+
+                    // Buttons - Fixed at bottom
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                },
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: TextButton(
+                                onPressed: () async {
+                                  // Trim any trailing spaces before saving
+                                  String typeName = newTypeController.text
+                                      .trim();
+                                  if (typeName.isNotEmpty) {
+                                    setState(() {
+                                      ofTypes.add(typeName);
+                                      ofType = typeName;
+                                    });
+
+                                    // Save to Hive
+                                    await _saveDataToStorage();
+
+                                    Navigator.pop(context);
+
+                                    // Show success message
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Type added successfully',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text(
+                                  'Save to Master',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildWidthField() {
     return Card(
       elevation: 0,
@@ -1879,7 +1768,7 @@ Future<void> _saveAgentsToStorage() async {
     );
   }
 
-    void _showAddNewWidthDialog() {
+  void _showAddNewWidthDialog() {
     showDialog(
       context: context,
       builder: (context) {
@@ -1891,72 +1780,78 @@ Future<void> _saveAgentsToStorage() async {
     ).then((result) {
       if (result != null) {
         // Add the width using the service
-        WidthService().addWidth(result['product'], result['width']).then((_) {
-          // Reload the widths
-          _loadWidths();
-          
-          // Set the selected width to the newly added one
-          setState(() {
-            selectedWidth = result['width'].toString() + '"';
-          });
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Width added successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }).catchError((error) {
-          // Show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error adding width: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        });
+        WidthService()
+            .addWidth(result['product'], result['width'])
+            .then((_) {
+              // Reload the widths
+              _loadWidths();
+
+              // Set the selected width to the newly added one
+              setState(() {
+                selectedWidth = result['width'].toString() + '"';
+              });
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Width added successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            })
+            .catchError((error) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error adding width: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            });
       }
     });
   }
 
-Future<void> _loadWidths() async {
-  try {
-    // Use the WidthService to get widths
-    List<Map<String, dynamic>> widthsData = await WidthService().getWidths();
-    
-    // Convert WidthService widths to strings with " at the end
-    List<String> serviceWidths = widthsData.map((width) => width['width'].toString() + '"').toList();
-    
-    // Combine existing widths with service widths
-    setState(() {
-      // Create a set to avoid duplicates
-      Set<String> combinedWidths = Set.from(widths);
-      
-      // Add service widths to the set
-      combinedWidths.addAll(serviceWidths);
-      
-      // Convert back to list and sort
-      widths = combinedWidths.toList();
-      widths.sort((a, b) {
-        // Extract numeric value for comparison
-        double aNum = double.tryParse(a.replaceAll('"', '')) ?? 0;
-        double bNum = double.tryParse(b.replaceAll('"', '')) ?? 0;
-        return aNum.compareTo(bNum);
-      });
-    });
-    
-    print('Loaded ${widths.length} widths from combined sources');
-  } catch (e) {
-    print('Error loading widths: $e');
-    // Don't replace existing widths, just ensure we have defaults
-    if (widths.isEmpty) {
+  Future<void> _loadWidths() async {
+    try {
+      // Use the WidthService to get widths
+      List<Map<String, dynamic>> widthsData = await WidthService().getWidths();
+
+      // Convert WidthService widths to strings with " at the end
+      List<String> serviceWidths = widthsData
+          .map((width) => width['width'].toString() + '"')
+          .toList();
+
+      // Combine existing widths with service widths
       setState(() {
-        widths = ['44"', '54"', '58"', '60"']; // Fallback to defaults
+        // Create a set to avoid duplicates
+        Set<String> combinedWidths = Set.from(widths);
+
+        // Add service widths to the set
+        combinedWidths.addAll(serviceWidths);
+
+        // Convert back to list and sort
+        widths = combinedWidths.toList();
+        widths.sort((a, b) {
+          // Extract numeric value for comparison
+          double aNum = double.tryParse(a.replaceAll('"', '')) ?? 0;
+          double bNum = double.tryParse(b.replaceAll('"', '')) ?? 0;
+          return aNum.compareTo(bNum);
+        });
       });
+
+      print('Loaded ${widths.length} widths from combined sources');
+    } catch (e) {
+      print('Error loading widths: $e');
+      // Don't replace existing widths, just ensure we have defaults
+      if (widths.isEmpty) {
+        setState(() {
+          widths = ['44"', '54"', '58"', '60"']; // Fallback to defaults
+        });
+      }
     }
   }
-}
+
   Widget _buildDefaultChoicesField() {
     return Card(
       elevation: 0,
