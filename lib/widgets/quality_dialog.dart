@@ -1,4 +1,4 @@
-// Create a new file: quality_dialog.dart
+// lib/widgets/quality_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:purchase_app/utils/input_formatters.dart';
 import 'package:purchase_app/service/quality_service.dart';
@@ -6,6 +6,9 @@ import 'package:purchase_app/service/quality_service.dart';
 class QualityDialog extends StatefulWidget {
   final String? initialProduct;
   final String? initialQuality;
+  final String? initialCode;
+  final String? initialDescription;
+  final String? initialStatus;
   final bool isEditMode;
   final List<Map<String, dynamic>>? activeProducts;
 
@@ -13,6 +16,9 @@ class QualityDialog extends StatefulWidget {
     Key? key,
     this.initialProduct,
     this.initialQuality,
+    this.initialCode,
+    this.initialDescription,
+    this.initialStatus,
     this.isEditMode = false,
     this.activeProducts,
   }) : super(key: key);
@@ -23,9 +29,11 @@ class QualityDialog extends StatefulWidget {
 
 class _QualityDialogState extends State<QualityDialog> {
   TextEditingController qualityController = TextEditingController();
+  TextEditingController codeController = TextEditingController();
+  TextEditingController descriptionController = TextEditingController();
   TextEditingController productController = TextEditingController();
   String? selectedProductValue;
-  bool _showProductField = true; // Always show product field
+  String selectedStatus = 'Active'; // Default to Active
 
   @override
   void initState() {
@@ -36,9 +44,23 @@ class _QualityDialogState extends State<QualityDialog> {
       qualityController.text = widget.initialQuality!;
     }
     
+    // Initialize code field
+    if (widget.isEditMode && widget.initialCode != null) {
+      codeController.text = widget.initialCode!;
+    }
+    
+    // Initialize description field
+    if (widget.isEditMode && widget.initialDescription != null) {
+      descriptionController.text = widget.initialDescription!;
+    }
+    
+    // Initialize status field
+    if (widget.isEditMode && widget.initialStatus != null) {
+      selectedStatus = widget.initialStatus!;
+    }
+    
     // Initialize product field
     if (widget.isEditMode && widget.initialProduct != null) {
-      // Set the selected product value
       selectedProductValue = widget.initialProduct;
       
       // If we're not using dropdown (no active products), set the text field
@@ -47,10 +69,12 @@ class _QualityDialogState extends State<QualityDialog> {
       }
     }
   }
- 
+
   @override
   void dispose() {
     qualityController.dispose();
+    codeController.dispose();
+    descriptionController.dispose();
     productController.dispose();
     super.dispose();
   }
@@ -113,7 +137,7 @@ class _QualityDialogState extends State<QualityDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Product Name Field (always show as dropdown)
+                    // Product Name Field
                     Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFFFFF),
@@ -174,8 +198,8 @@ class _QualityDialogState extends State<QualityDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Quality Field
+
+                    // Code Field
                     Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFFFFF),
@@ -189,7 +213,46 @@ class _QualityDialogState extends State<QualityDialog> {
                           const Row(
                             children: [
                               Text(
-                                'Quality: *',
+                                'Code: *',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: codeController,
+                            inputFormatters: [
+                              NoLeadingOrMultipleSpacesFormatter(),
+                            ],
+                            decoration: const InputDecoration(
+                              hintText: 'Enter unique quality code',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Quality Name Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text(
+                                'Quality Name:',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ],
@@ -201,13 +264,101 @@ class _QualityDialogState extends State<QualityDialog> {
                               NoLeadingOrMultipleSpacesFormatter(),
                             ],
                             decoration: const InputDecoration(
-                              hintText: 'e.g., Poly Cotton',
+                              hintText: 'e.g., Premium, Standard',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 8,
                               ),
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Description Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text(
+                                'Description:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: descriptionController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              hintText: 'Enter description (optional)',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Status Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text(
+                                'Status: *',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: selectedStatus,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem<String>(
+                                value: 'Active',
+                                child: Text('Active'),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: 'Inactive',
+                                child: Text('Inactive'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedStatus = value!;
+                              });
+                            },
+                            isExpanded: true,
                           ),
                         ],
                       ),
@@ -297,10 +448,10 @@ class _QualityDialogState extends State<QualityDialog> {
                                   return;
                                 }
                                 
-                                if (qualityController.text.trim().isEmpty) {
+                                if (codeController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Quality is required'),
+                                      content: Text('Code is required'),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -311,6 +462,9 @@ class _QualityDialogState extends State<QualityDialog> {
                                 Navigator.pop(context, {
                                   'product': productName,
                                   'quality': qualityController.text.trim(),
+                                  'code': codeController.text.trim(),
+                                  'description': descriptionController.text.trim(),
+                                  'status': selectedStatus,
                                 });
                               }
                             : null, // Disable button when no products

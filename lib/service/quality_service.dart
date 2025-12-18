@@ -1,4 +1,4 @@
-// Create a new file: quality_service.dart
+// lib/service/quality_service.dart
 import 'package:hive_flutter/hive_flutter.dart';
 
 class QualityService {
@@ -36,6 +36,21 @@ class QualityService {
                 qualityMap['quality'] = qualityMap['quality']?.toString() ?? '';
               }
               
+              // Ensure code is a string
+              if (qualityMap['code'] is! String) {
+                qualityMap['code'] = qualityMap['code']?.toString() ?? '';
+              }
+              
+              // Ensure description is a string
+              if (qualityMap['description'] is! String) {
+                qualityMap['description'] = qualityMap['description']?.toString() ?? '';
+              }
+              
+              // Ensure status is a string and default to 'Active'
+              if (qualityMap['status'] is! String || qualityMap['status'].toString().trim().isEmpty) {
+                qualityMap['status'] = 'Active';
+              }
+              
               return qualityMap;
             }
             // Skip invalid items
@@ -51,7 +66,7 @@ class QualityService {
     }
   }
 
-  Future<void> addQuality(String product, String quality) async {
+  Future<void> addQuality(String product, String quality, {String? code, String? description, String? status}) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -75,6 +90,9 @@ class QualityService {
       qualities.insert(0, {
         'product': product,
         'quality': quality,
+        'code': code ?? '', // Default to empty string if not provided
+        'description': description ?? '', // Default to empty string if not provided
+        'status': status ?? 'Active', // Default to 'Active' if not provided
       });
       
       // Save to Hive
@@ -88,7 +106,7 @@ class QualityService {
     }
   }
 
-  Future<void> updateQuality(String oldProduct, String oldQuality, String newProduct, String newQuality) async {
+  Future<void> updateQuality(String oldProduct, String oldQuality, String newProduct, String newQuality, {String? code, String? description, String? status}) async {
     try {
       // Ensure the box is open
       if (!Hive.isBoxOpen('appData')) {
@@ -121,6 +139,9 @@ class QualityService {
       qualities[index] = {
         'product': newProduct,
         'quality': newQuality,
+        'code': code ?? qualities[index]['code'], // Use existing code if not provided
+        'description': description ?? qualities[index]['description'], // Use existing description if not provided
+        'status': status ?? qualities[index]['status'], // Use existing status if not provided
       };
       
       // Save to Hive
@@ -146,7 +167,7 @@ class QualityService {
       // Get existing qualities
       List<Map<String, dynamic>> qualities = await getQualities();
       
-      // Remove the quality
+      // Remove quality
       qualities.removeWhere((q) => q['product'] == product && q['quality'] == quality);
       
       // Save to Hive

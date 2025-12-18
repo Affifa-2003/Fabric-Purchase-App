@@ -1,6 +1,6 @@
+// lib/quality_page.dart
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:purchase_app/utils/input_formatters.dart';
 import 'package:purchase_app/service/quality_service.dart';
 import 'package:purchase_app/widgets/quality_dialog.dart';
 
@@ -19,7 +19,6 @@ class _QualityPageState extends State<QualityPage> {
   bool _isLoading = true;
   late Box appDataBox;
   TextEditingController _searchController = TextEditingController();
-  String? selectedProduct;
 
   @override
   void initState() {
@@ -58,14 +57,14 @@ class _QualityPageState extends State<QualityPage> {
       // Load data from Hive
       List<Map<String, dynamic>> hiveProducts = [];
       
-      // Ensure the box is open
+      // Ensure box is open
       if (!Hive.isBoxOpen('appData')) {
         await Hive.openBox('appData');
       }
 
-      appDataBox = Hive.box('appData');
+      final box = Hive.box('appData');
       
-      final productsData = appDataBox.get('products');
+      final productsData = box.get('products');
       if (productsData != null) {
         // Handle different types of data
         if (productsData is List) {
@@ -92,58 +91,21 @@ class _QualityPageState extends State<QualityPage> {
   }
 
   Future<void> _loadQualities() async {
-  try {
-    // Use the QualityService to get qualities
-    qualities = await QualityService().getQualities();
-    
-    setState(() {
-      filteredQualities = List.from(qualities);
-    });
-    
-    print('Loaded ${qualities.length} qualities from service');
-  } catch (e) {
-    print('Error loading qualities: $e');
-    setState(() {
-      qualities = [];
-      filteredQualities = [];
-    });
-  }
-}
-  Future<void> _saveQualitiesToStorage() async {
     try {
-      // Ensure the box is open
-      if (!Hive.isBoxOpen('appData')) {
-        await Hive.openBox('appData');
-      }
-
-      final box = Hive.box('appData');
+      // Use the QualityService to get qualities
+      qualities = await QualityService().getQualities();
       
-      // Ensure we're saving a list of maps with proper types
-      List<Map<String, dynamic>> qualitiesToSave = qualities.map((quality) {
-        return {
-          'product': quality['product']?.toString() ?? '',
-          'quality': quality['quality']?.toString() ?? '',
-        };
-      }).toList();
+      setState(() {
+        filteredQualities = List.from(qualities);
+      });
       
-      // Save data with explicit await to ensure it's written to disk
-      await box.put('qualities', qualitiesToSave);
-      
-      // Explicitly flush to disk
-      await box.flush();
-
-      // Verify data was saved
-      print('Saved qualities: ${box.get('qualities')}');
-      print('Qualities data saved successfully');
+      print('Loaded ${qualities.length} qualities from service');
     } catch (e) {
-      print('Error saving qualities data: $e');
-      // Show error to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving qualities: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error loading qualities: $e');
+      setState(() {
+        qualities = [];
+        filteredQualities = [];
+      });
     }
   }
 
@@ -190,111 +152,91 @@ class _QualityPageState extends State<QualityPage> {
   }
 
   void _showAddNewQualityDialog() {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return QualityDialog(
-        activeProducts: activeProducts,
-      );
-    },
-  ).then((result) {
-    if (result != null) {
-      // Add the quality using the service
-      QualityService().addQuality(result['product'], result['quality']).then((_) {
-        // Reload the qualities
-        _loadQualities();
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Quality added successfully'),
-            backgroundColor: Colors.green,
-          ),
+    showDialog(
+      context: context,
+      builder: (context) {
+        return QualityDialog(
+          activeProducts: activeProducts,
         );
-      }).catchError((error) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error adding quality: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      });
-    }
-  });
-}
-
-// Replace the _showEditQualityDialog method with:
-void _showEditQualityDialog(Map<String, dynamic> quality, int index) {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return QualityDialog(
-        isEditMode: true,
-        initialProduct: quality['product'],
-        initialQuality: quality['quality'],
-        activeProducts: activeProducts,
-      );
-    },
-  ).then((result) {
-    if (result != null) {
-      // Update the quality using the service
-      QualityService().updateQuality(
-        quality['product'], 
-        quality['quality'], 
-        result['product'], 
-        result['quality']
-      ).then((_) {
-        // Reload the qualities
-        _loadQualities();
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Quality updated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }).catchError((error) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating quality: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      });
-    }
-  });
-}
-  Future<void> _updateQualityInAllRecords(String oldProduct, String oldQuality, Map<String, dynamic> updatedQuality) async {
-    try {
-      // Update quality in orders box
-      if (Hive.isBoxOpen('appData')) {
-        final appDataBox = Hive.box('appData');
-        final ordersData = appDataBox.get('orders');
-        
-        if (ordersData != null && ordersData is List) {
-          List<Map<String, dynamic>> updatedOrdersData = [];
+      },
+    ).then((result) {
+      if (result != null) {
+        // Add the quality using the service
+        QualityService().addQuality(result['product'], result['quality'], 
+          code: result['code'],
+          description: result['description'],
+          status: result['status']
+        ).then((_) {
+          // Reload the qualities
+          _loadQualities();
           
-          for (var order in ordersData) {
-            Map<String, dynamic> orderMap = Map<String, dynamic>.from(order);
-            if (orderMap['product'] == oldProduct && orderMap['quality'] == oldQuality) {
-              orderMap['product'] = updatedQuality['product'];
-              orderMap['quality'] = updatedQuality['quality'];
-            }
-            updatedOrdersData.add(orderMap);
-          }
-          
-          await appDataBox.put('orders', updatedOrdersData);
-          await appDataBox.flush();
-          print('Updated quality in orders box');
-        }
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quality added successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }).catchError((error) {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error adding quality: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
       }
-      
-    } catch (e) {
-      print('Error updating quality in all records: $e');
-    }
+    });
+  }
+
+  void _showEditQualityDialog(Map<String, dynamic> quality, int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return QualityDialog(
+          isEditMode: true,
+          initialProduct: quality['product'],
+          initialQuality: quality['quality'],
+          initialCode: quality['code'],
+          initialDescription: quality['description'],
+          initialStatus: quality['status'],
+          activeProducts: activeProducts,
+        );
+      },
+    ).then((result) {
+      if (result != null) {
+        // Update the quality using the service
+        QualityService().updateQuality(
+          quality['product'], 
+          quality['quality'],
+          result['product'], 
+          result['quality'],
+          code: result['code'],
+          description: result['description'],
+          status: result['status']
+        ).then((_) {
+          // Reload the qualities
+          _loadQualities();
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quality updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }).catchError((error) {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating quality: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+      }
+    });
   }
 
   @override
@@ -344,8 +286,8 @@ void _showEditQualityDialog(Map<String, dynamic> quality, int index) {
                     ),
                     child: TextField(
                       controller: _searchController,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
                         ),
@@ -400,7 +342,7 @@ void _showEditQualityDialog(Map<String, dynamic> quality, int index) {
                             itemBuilder: (context, index) {
                               final quality = filteredQualities[index];
                               final isMapped = _isQualityMapped(quality['product'], quality['quality']);
-                              // Check if the product is still active
+                              // Check if product is still active
                               bool isProductActive = activeProducts.any((p) => p['name'] == quality['product']);
                               
                               return Card(
@@ -423,6 +365,7 @@ void _showEditQualityDialog(Map<String, dynamic> quality, int index) {
                                     ),
                                   ),
                                   title: Text(
+                                    // Display product name - quality name
                                     '${quality['product']} - ${quality['quality']}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
@@ -442,12 +385,7 @@ void _showEditQualityDialog(Map<String, dynamic> quality, int index) {
                                   onTap: () {
                                     // Only allow editing if product is still active
                                     if (isProductActive) {
-                                      // Find the original index in the qualities list
-                                      int originalIndex = qualities.indexWhere((q) => 
-                                        q['product'] == quality['product'] && q['quality'] == quality['quality']);
-                                      if (originalIndex != -1) {
-                                        _showEditQualityDialog(quality, originalIndex);
-                                      }
+                                      _showEditQualityDialog(quality, index);
                                     } else {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -469,63 +407,61 @@ void _showEditQualityDialog(Map<String, dynamic> quality, int index) {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> quality, bool isMapped) {
-  // Check if the product is still active
-  bool isProductActive = activeProducts.any((p) => p['name'] == quality['product']);
-  
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: !isProductActive
-            ? Text('This quality belongs to an inactive product "${quality['product']}" and cannot be deleted.')
-            : isMapped 
-                ? const Text('This quality is already mapped with orders and cannot be deleted.')
-                : Text('Are you sure you want to delete "${quality['product']} - ${quality['quality']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-          if (isProductActive && !isMapped)
+    // Check if product is still active
+    bool isProductActive = activeProducts.any((p) => p['name'] == quality['product']);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: !isProductActive
+              ? Text('This quality belongs to an inactive product "${quality['product']}" and cannot be deleted.')
+              : isMapped 
+                  ? const Text('This quality is already mapped with orders and cannot be deleted.')
+                  : Text('Are you sure you want to delete "${quality['product']} - ${quality['quality']}"?'),
+          actions: [
             TextButton(
               onPressed: () {
-                // Delete the quality using the service
-                QualityService().deleteQuality(quality['product'], quality['quality']).then((_) {
-                  // Reload the qualities
-                  _loadQualities();
-                  
-                  Navigator.of(context).pop(); // Close dialog
-                  
-                  // Show success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Quality deleted successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }).catchError((error) {
-                  // Show error message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error deleting quality: $error'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                });
+                Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text('Delete'),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
-        ],
-      );
-    },
-  );
-}
-
-
+            if (isProductActive && !isMapped)
+              TextButton(
+                onPressed: () async {
+                  // Delete the quality using the service
+                  QualityService().deleteQuality(quality['product'], quality['quality']).then((_) {
+                    // Reload the qualities
+                    _loadQualities();
+                    
+                    Navigator.of(context).pop(); // Close dialog
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Quality deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }).catchError((error) {
+                    // Show error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error deleting quality: $error'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  });
+                },
+                child: const Text('Delete'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
