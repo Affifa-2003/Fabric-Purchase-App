@@ -74,7 +74,7 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
 
   List<Map<String, dynamic>> products = [];
   List<Map<String, dynamic>> activeProducts = [];
-  
+
   Map<String, dynamic>? _savedFormState;
   // Form state
   List<XFile> capturedPhotos = []; // Changed to list for multiple photos
@@ -175,12 +175,12 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
         // Load qualities from service AFTER loading data from sources
         _loadQualitiesFromService();
 
-         _loadOrderFormTypesFromService();
+        _loadOrderFormTypesFromService();
       });
 
       // Load widths from the service to get the latest list
       _loadWidthsFromService();
-      
+
       _loadProducts();
     });
   }
@@ -5015,28 +5015,33 @@ class _TextileDetailsPageState extends State<TextileDetailsPage> {
   }
 
   // Add this method to load order form types from the service
-Future<void> _loadOrderFormTypesFromService() async {
-  try {
-    // Use the OrderFormTypeService to get order form types
-    List<Map<String, dynamic>> orderFormTypesData = await OrderFormTypeService().getOrderFormTypes();
-    
-    // Extract just the names from the order form types
-    List<String> serviceOfTypes = orderFormTypesData.map((type) => type['name'] as String).toList();
-    
-    setState(() {
-      // Create a set to avoid duplicates
-      Set<String> combinedOfTypes = Set.from(ofTypes);
-      combinedOfTypes.addAll(serviceOfTypes);
-      
-      // Convert back to list
-      ofTypes = combinedOfTypes.toList();
-    });
-    
-    print('Loaded ${ofTypes.length} order form types from service and defaults');
-  } catch (e) {
-    print('Error loading order form types: $e');
+  Future<void> _loadOrderFormTypesFromService() async {
+    try {
+      // Use the OrderFormTypeService to get order form types
+      List<Map<String, dynamic>> orderFormTypesData =
+          await OrderFormTypeService().getOrderFormTypes();
+
+      // Extract just the names from the order form types
+      List<String> serviceOfTypes = orderFormTypesData
+          .map((type) => type['name'] as String)
+          .toList();
+
+      setState(() {
+        // Create a set to avoid duplicates
+        Set<String> combinedOfTypes = Set.from(ofTypes);
+        combinedOfTypes.addAll(serviceOfTypes);
+
+        // Convert back to list
+        ofTypes = combinedOfTypes.toList();
+      });
+
+      print(
+        'Loaded ${ofTypes.length} order form types from service and defaults',
+      );
+    } catch (e) {
+      print('Error loading order form types: $e');
+    }
   }
-}
 
   // Method to update the textileData with calculated values
   void _updateSummaryValues() {
