@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'login_page.dart';
+import 'package:purchase_app/routes/router.dart';
+import 'package:purchase_app/core/auth/login_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,7 +64,13 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const LoginPage(),
+      // Use AppRoutes for navigation
+      initialRoute: AppRoutes.login, // Start with login page
+      routes: AppRoutes.getRoutes(),
+      onUnknownRoute: (settings) {
+        // Handle unknown routes
+        return MaterialPageRoute(builder: (context) => const LoginPage());
+      },
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         return MediaQuery(
